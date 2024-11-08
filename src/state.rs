@@ -1,11 +1,21 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use bytemuck::{Pod, Zeroable};
+use jito_bytemuck::{
+    AccountDeserialize,
+    Discriminator,
+};
 use solana_program::pubkey::Pubkey;
 use spl_pod::primitives::{PodU32, PodU64};
 
+/// Discriminators for accounts
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StakeDepositInterceptorDiscriminators {
+    DepositStakeAuthority = 1,
+    DepositReceipt = 2,
+}
+
 /// Variables to construct linearly decaying fees over some period of time.
 #[repr(C)]
-#[derive(Clone, Copy, BorshDeserialize, BorshSerialize, Debug, PartialEq, Pod, Zeroable)]
+#[derive(Clone, Copy, AccountDeserialize, Debug, PartialEq, Pod, Zeroable)]
 pub struct StakePoolDepositStakeAuthority {
     /// Corresponding stake pool where this PDA is the `deposit_stake_authority`
     pub stake_pool: Pubkey,
@@ -27,6 +37,10 @@ pub struct StakePoolDepositStakeAuthority {
     pub bump_seed: u8,
 }
 
+impl Discriminator for StakePoolDepositStakeAuthority {
+    const DISCRIMINATOR: u8 = StakeDepositInterceptorDiscriminators::DepositStakeAuthority as u8;
+}
+
 impl StakePoolDepositStakeAuthority {
     /// Check whether the StakePoolDepositStakeAuthority account has been initialized
     pub fn is_initialized(&self) -> bool {
@@ -36,7 +50,7 @@ impl StakePoolDepositStakeAuthority {
 
 /// Representation of some amount of claimable LST
 #[repr(C)]
-#[derive(Clone, Copy, BorshDeserialize, BorshSerialize, Debug, PartialEq, Pod, Zeroable)]
+#[derive(Clone, Copy, AccountDeserialize, Debug, PartialEq, Pod, Zeroable)]
 pub struct DepositReceipt {
     /// A generated seed for the PDA of this receipt
     pub base: Pubkey,
@@ -56,6 +70,10 @@ pub struct DepositReceipt {
     pub initial_fee_rate: PodU32,
     /// Bump seed for derivation
     pub bump_seed: u8,
+}
+
+impl Discriminator for DepositReceipt {
+    const DISCRIMINATOR: u8 = StakeDepositInterceptorDiscriminators::DepositReceipt as u8;
 }
 
 impl DepositReceipt {
