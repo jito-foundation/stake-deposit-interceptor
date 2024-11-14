@@ -1,29 +1,27 @@
 mod helpers;
 
-use helpers::program_test_context_with_stake_pool_state;
+use helpers::{
+    assert_transaction_err, program_test_context_with_stake_pool_state, StakePoolAccounts,
+};
 use jito_bytemuck::AccountDeserialize;
+use solana_program_test::ProgramTestContext;
 use solana_sdk::{
-    borsh1::try_from_slice_unchecked, program_pack::Pack, signature::Keypair, signer::Signer,
+    instruction::{AccountMeta, Instruction, InstructionError},
+    program_pack::Pack,
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer,
     transaction::Transaction,
 };
 use spl_associated_token_account::get_associated_token_address;
 use stake_deposit_interceptor::{
-    instruction::derive_stake_pool_deposit_stake_authority, state::StakePoolDepositStakeAuthority,
+    error::StakeDepositInterceptorError, instruction::derive_stake_pool_deposit_stake_authority,
+    state::StakePoolDepositStakeAuthority,
 };
 
 #[tokio::test]
 async fn test_init_deposit_stake_authority() {
     let (mut ctx, stake_pool_accounts) = program_test_context_with_stake_pool_state().await;
-
-    let stake_pool_account = ctx
-        .banks_client
-        .get_account(stake_pool_accounts.stake_pool)
-        .await
-        .unwrap()
-        .unwrap();
-    let stake_pool =
-        try_from_slice_unchecked::<spl_stake_pool::state::StakePool>(&stake_pool_account.data)
-            .unwrap();
 
     let fee_wallet = Keypair::new();
     let authority = Keypair::new();
@@ -34,7 +32,7 @@ async fn test_init_deposit_stake_authority() {
             &stake_deposit_interceptor::id(),
             &ctx.payer.pubkey(),
             &stake_pool_accounts.stake_pool,
-            &stake_pool.pool_mint,
+            &stake_pool_accounts.pool_mint,
             &ctx.payer.pubkey(),
             &spl_stake_pool::id(),
             &spl_token::id(),
@@ -57,8 +55,10 @@ async fn test_init_deposit_stake_authority() {
         &stake_deposit_interceptor::ID,
         &stake_pool_accounts.stake_pool,
     );
-    let vault_ata =
-        get_associated_token_address(&deposit_stake_authority_pubkey, &stake_pool.pool_mint);
+    let vault_ata = get_associated_token_address(
+        &deposit_stake_authority_pubkey,
+        &stake_pool_accounts.pool_mint,
+    );
 
     let account = ctx
         .banks_client
@@ -78,7 +78,7 @@ async fn test_init_deposit_stake_authority() {
         StakePoolDepositStakeAuthority::try_from_slice_unchecked(&account.data.as_slice()).unwrap();
     let vault_token_account =
         spl_token::state::Account::unpack(vault_account.data.as_slice()).unwrap();
-    assert_eq!(vault_token_account.mint, stake_pool.pool_mint);
+    assert_eq!(vault_token_account.mint, stake_pool_accounts.pool_mint);
     assert_eq!(vault_token_account.amount, 0);
     assert_eq!(vault_token_account.owner, deposit_stake_authority_pubkey);
 
@@ -91,7 +91,10 @@ async fn test_init_deposit_stake_authority() {
         deposit_stake_authority.stake_pool,
         stake_pool_accounts.stake_pool
     );
-    assert_eq!(deposit_stake_authority.pool_mint, stake_pool.pool_mint);
+    assert_eq!(
+        deposit_stake_authority.pool_mint,
+        stake_pool_accounts.pool_mint
+    );
     assert_eq!(
         deposit_stake_authority.stake_pool_program_id,
         spl_stake_pool::id()
@@ -100,4 +103,203 @@ async fn test_init_deposit_stake_authority() {
     assert_eq!(deposit_stake_authority.vault, vault_ata);
 }
 
-// TODO add tests for validations
+async fn setup_with_ix() -> (ProgramTestContext, StakePoolAccounts, Keypair, Instruction) {
+    let (ctx, stake_pool_accounts) = program_test_context_with_stake_pool_state().await;
+
+    let fee_wallet = Keypair::new();
+    let authority = Keypair::new();
+    let cool_down_period = 100;
+    let initial_fee_rate = 20;
+    let ix =
+        stake_deposit_interceptor::instruction::create_init_deposit_stake_authority_instruction(
+            &stake_deposit_interceptor::id(),
+            &ctx.payer.pubkey(),
+            &stake_pool_accounts.stake_pool,
+            &stake_pool_accounts.pool_mint,
+            &ctx.payer.pubkey(),
+            &spl_stake_pool::id(),
+            &spl_token::id(),
+            &fee_wallet.pubkey(),
+            cool_down_period,
+            initial_fee_rate,
+            &authority.pubkey(),
+        );
+    (ctx, stake_pool_accounts, authority, ix)
+}
+
+#[tokio::test]
+async fn test_fail_invalid_system_program() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[10] = AccountMeta::new_readonly(Pubkey::new_unique(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(&mut ctx, tx, InstructionError::IncorrectProgramId).await;
+}
+
+#[tokio::test]
+async fn test_fail_authority_non_signer() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[3] = AccountMeta::new(authority.pubkey(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::SignatureMissing as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_stakepool_manager_non_signer() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    let manager = Keypair::new();
+    init_ix.accounts[6] = AccountMeta::new_readonly(manager.pubkey(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::SignatureMissing as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_incorrect_stakepool_program() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[7] = AccountMeta::new_readonly(Pubkey::new_unique(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InvalidStakePool as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_incorrect_stakepool_manager() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    let manager = Keypair::new();
+    init_ix.accounts[6] = AccountMeta::new_readonly(manager.pubkey(), true);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority, &manager],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InvalidStakePoolManager as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_incorrect_stakepool_mint() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[5] = AccountMeta::new_readonly(Pubkey::new_unique(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InvalidStakePool as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_incorrect_token_program() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[8] = AccountMeta::new_readonly(spl_token_2022::id(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InvalidTokenProgram as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_incorrect_deposit_stake_authority() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[1] = AccountMeta::new(Pubkey::new_unique(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InvalidSeeds as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_incorrect_vault() {
+    let (mut ctx, _stake_pool_accounts, authority, mut init_ix) = setup_with_ix().await;
+    init_ix.accounts[2] = AccountMeta::new(Pubkey::new_unique(), false);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InvalidVault as u32),
+    )
+    .await;
+}
