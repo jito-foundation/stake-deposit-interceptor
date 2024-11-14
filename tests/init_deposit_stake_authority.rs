@@ -6,11 +6,13 @@ use helpers::{
 use jito_bytemuck::AccountDeserialize;
 use solana_program_test::ProgramTestContext;
 use solana_sdk::{
+    account::AccountSharedData,
     instruction::{AccountMeta, Instruction, InstructionError},
     program_pack::Pack,
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer,
+    system_program,
     transaction::Transaction,
 };
 use spl_associated_token_account::get_associated_token_address;
@@ -25,8 +27,8 @@ async fn test_init_deposit_stake_authority() {
 
     let fee_wallet = Keypair::new();
     let authority = Keypair::new();
-    let cool_down_period = 100;
-    let initial_fee_rate = 20;
+    let cool_down_seconds = 100;
+    let initial_fee_bps = 20;
     let init_ix =
         stake_deposit_interceptor::instruction::create_init_deposit_stake_authority_instruction(
             &stake_deposit_interceptor::id(),
@@ -37,8 +39,8 @@ async fn test_init_deposit_stake_authority() {
             &spl_stake_pool::id(),
             &spl_token::id(),
             &fee_wallet.pubkey(),
-            cool_down_period,
-            initial_fee_rate,
+            cool_down_seconds,
+            initial_fee_bps,
             &authority.pubkey(),
         );
 
@@ -83,10 +85,10 @@ async fn test_init_deposit_stake_authority() {
     assert_eq!(vault_token_account.owner, deposit_stake_authority_pubkey);
 
     assert_eq!(deposit_stake_authority.authority, authority.pubkey());
-    let actual_cool_down_period: u64 = deposit_stake_authority.cool_down_period.into();
-    let actual_initial_fee_rate: u32 = deposit_stake_authority.inital_fee_rate.into();
-    assert_eq!(actual_cool_down_period, cool_down_period);
-    assert_eq!(actual_initial_fee_rate, initial_fee_rate);
+    let actual_cool_down_seconds: u64 = deposit_stake_authority.cool_down_seconds.into();
+    let actual_initial_fee_bps: u32 = deposit_stake_authority.inital_fee_bps.into();
+    assert_eq!(actual_cool_down_seconds, cool_down_seconds);
+    assert_eq!(actual_initial_fee_bps, initial_fee_bps);
     assert_eq!(
         deposit_stake_authority.stake_pool,
         stake_pool_accounts.stake_pool
@@ -108,8 +110,8 @@ async fn setup_with_ix() -> (ProgramTestContext, StakePoolAccounts, Keypair, Ins
 
     let fee_wallet = Keypair::new();
     let authority = Keypair::new();
-    let cool_down_period = 100;
-    let initial_fee_rate = 20;
+    let cool_down_seconds = 100;
+    let initial_fee_bps = 20;
     let ix =
         stake_deposit_interceptor::instruction::create_init_deposit_stake_authority_instruction(
             &stake_deposit_interceptor::id(),
@@ -120,8 +122,8 @@ async fn setup_with_ix() -> (ProgramTestContext, StakePoolAccounts, Keypair, Ins
             &spl_stake_pool::id(),
             &spl_token::id(),
             &fee_wallet.pubkey(),
-            cool_down_period,
-            initial_fee_rate,
+            cool_down_seconds,
+            initial_fee_bps,
             &authority.pubkey(),
         );
     (ctx, stake_pool_accounts, authority, ix)
@@ -140,6 +142,51 @@ async fn test_fail_invalid_system_program() {
     );
 
     assert_transaction_err(&mut ctx, tx, InstructionError::IncorrectProgramId).await;
+}
+
+#[tokio::test]
+async fn test_fail_invalid_deposit_stake_authority_owner() {
+    let (mut ctx, stake_pool_accounts, authority, init_ix) = setup_with_ix().await;
+    let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
+        &stake_deposit_interceptor::id(),
+        &stake_pool_accounts.stake_pool,
+    );
+    let bad_account = AccountSharedData::new(1, 0, &stake_deposit_interceptor::id());
+    ctx.set_account(&deposit_stake_authority_pubkey, &bad_account);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(&mut ctx, tx.clone(), InstructionError::InvalidAccountOwner).await;
+}
+
+#[tokio::test]
+async fn test_fail_deposit_stake_authority_not_empty() {
+    let (mut ctx, stake_pool_accounts, authority, init_ix) = setup_with_ix().await;
+    let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
+        &stake_deposit_interceptor::id(),
+        &stake_pool_accounts.stake_pool,
+    );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    let bad_account = AccountSharedData::new(1, 1, &system_program::id());
+    ctx.set_account(&deposit_stake_authority_pubkey, &bad_account);
+    assert_transaction_err(
+        &mut ctx,
+        tx.clone(),
+        InstructionError::AccountAlreadyInitialized,
+    )
+    .await;
 }
 
 #[tokio::test]
@@ -300,6 +347,44 @@ async fn test_fail_incorrect_vault() {
         &mut ctx,
         tx,
         InstructionError::Custom(StakeDepositInterceptorError::InvalidVault as u32),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn test_fail_initial_fee_bps_cannot_exceed_10000() {
+    let (mut ctx, stake_pool_accounts) = program_test_context_with_stake_pool_state().await;
+
+    let fee_wallet = Keypair::new();
+    let authority = Keypair::new();
+    let cool_down_seconds = 100;
+    let initial_fee_bps = 10_001;
+    let ix =
+        stake_deposit_interceptor::instruction::create_init_deposit_stake_authority_instruction(
+            &stake_deposit_interceptor::id(),
+            &ctx.payer.pubkey(),
+            &stake_pool_accounts.stake_pool,
+            &stake_pool_accounts.pool_mint,
+            &ctx.payer.pubkey(),
+            &spl_stake_pool::id(),
+            &spl_token::id(),
+            &fee_wallet.pubkey(),
+            cool_down_seconds,
+            initial_fee_bps,
+            &authority.pubkey(),
+        );
+
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority],
+        ctx.last_blockhash,
+    );
+
+    assert_transaction_err(
+        &mut ctx,
+        tx,
+        InstructionError::Custom(StakeDepositInterceptorError::InitialFeeRateMaxExceeded as u32),
     )
     .await;
 }

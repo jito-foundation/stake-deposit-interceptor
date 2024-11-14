@@ -9,7 +9,7 @@ use solana_program::{
     entrypoint::ProgramResult,
     instruction::{AccountMeta, Instruction},
     msg,
-    program::invoke_signed,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     program_pack::Pack,
     pubkey::Pubkey,
@@ -59,10 +59,20 @@ impl Processor {
 
         // Validate: System program is correct native program
         check_system_program(system_program_info.key)?;
+        // Validate: StakePoolDepositStakeAuthority should be owned by system program and not initialized
+        check_system_account(deposit_stake_authority_info, true)?;
 
         // Validate: authority and StakePool's manager signed the TX
         if !authority.is_signer || !stake_pool_manager_info.is_signer {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
+        // Validate: `initial_fee_bps` cannot exceed 100%
+        if init_deposit_stake_authority_args
+            .initial_fee_bps
+            .gt(&DepositReceipt::FEE_BPS_DENOMINATOR)
+        {
+            return Err(StakeDepositInterceptorError::InitialFeeRateMaxExceeded.into());
         }
 
         // Validate: StakePool must be owned by the correct program
@@ -122,7 +132,7 @@ impl Processor {
 
         // Create and initialize the Vault ATA
         invoke_signed(
-            &spl_associated_token_account::instruction::create_associated_token_account(
+            &spl_associated_token_account::instruction::create_associated_token_account_idempotent(
                 &payer_info.key,              // Funding account
                 &deposit_stake_authority_pda, // Owner of the ATA
                 &stake_pool.pool_mint,        // Mint address for the token
@@ -154,16 +164,16 @@ impl Processor {
         deposit_stake_authority.stake_pool_program_id = *stake_pool_program_info.key;
         deposit_stake_authority.authority = *authority.key;
         deposit_stake_authority.fee_wallet = init_deposit_stake_authority_args.fee_wallet;
-        deposit_stake_authority.cool_down_period =
-            init_deposit_stake_authority_args.cool_down_period.into();
-        deposit_stake_authority.inital_fee_rate =
-            init_deposit_stake_authority_args.initial_fee_rate.into();
+        deposit_stake_authority.cool_down_seconds =
+            init_deposit_stake_authority_args.cool_down_seconds.into();
+        deposit_stake_authority.inital_fee_bps =
+            init_deposit_stake_authority_args.initial_fee_bps.into();
         deposit_stake_authority.bump_seed = bump_seed;
 
         Ok(())
     }
 
-    /// Update `StakePoolDepositStakeAuthority` authority, fee_wallet, cool_down_period, and/or initial_fee_rate.
+    /// Update `StakePoolDepositStakeAuthority` authority, fee_wallet, cool_down_seconds, and/or initial_fee_bps.
     /// ONLY accessible by the currnet authority.
     pub fn process_update_deposit_stake_authority(
         program_id: &Pubkey,
@@ -209,11 +219,11 @@ impl Processor {
             deposit_stake_authority.authority = *new_authority.key;
         }
 
-        if let Some(cool_down_period) = update_deposit_stake_authority_args.cool_down_period {
-            deposit_stake_authority.cool_down_period = cool_down_period.into();
+        if let Some(cool_down_seconds) = update_deposit_stake_authority_args.cool_down_seconds {
+            deposit_stake_authority.cool_down_seconds = cool_down_seconds.into();
         }
-        if let Some(initial_fee_rate) = update_deposit_stake_authority_args.initial_fee_rate {
-            deposit_stake_authority.inital_fee_rate = initial_fee_rate.into();
+        if let Some(initial_fee_bps) = update_deposit_stake_authority_args.initial_fee_bps {
+            deposit_stake_authority.inital_fee_bps = initial_fee_bps.into();
         }
         if let Some(fee_wallet) = update_deposit_stake_authority_args.fee_wallet {
             deposit_stake_authority.fee_wallet = fee_wallet;
@@ -255,6 +265,8 @@ impl Processor {
         check_system_program(system_program_info.key)?;
         // Validate `StakePoolDepositStakeAuthority` is owned by current program.
         check_account_owner(deposit_stake_authority_info, program_id)?;
+        // Validate: DepositReceipt should be owned by system program and not initialized
+        check_system_account(deposit_receipt_info, true)?;
 
         // NOTE: we assume that stake-pool program makes all of the assertions that the SPL stake-pool program does.
 
@@ -349,8 +361,8 @@ impl Processor {
         deposit_receipt.stake_pool_deposit_stake_authority = *deposit_stake_authority_info.key;
         deposit_receipt.deposit_time = clock.unix_timestamp.unsigned_abs().into();
         deposit_receipt.lst_amount = pool_tokens_minted.into();
-        deposit_receipt.cool_down_period = deposit_stake_authority.cool_down_period;
-        deposit_receipt.initial_fee_rate = deposit_stake_authority.inital_fee_rate;
+        deposit_receipt.cool_down_seconds = deposit_stake_authority.cool_down_seconds;
+        deposit_receipt.initial_fee_bps = deposit_stake_authority.inital_fee_bps;
         deposit_receipt.bump_seed = bump_seed;
 
         Ok(())
@@ -394,9 +406,9 @@ impl Processor {
     }
 
     /// Transfers "pool" tokens to a token account owned by the DepositReceipt `owner`.
-    /// If this instruction is invoked during the `cool_down_period`, then fees will be
+    /// If this instruction is invoked during the `cool_down_seconds`, then fees will be
     /// sent to a token account owned by the `fee_wallet`. ONLY the DepositReceipt `owner`
-    /// may invoke this instruction during the `cool_down_period`. Once the `cool_down_period`
+    /// may invoke this instruction during the `cool_down_seconds`. Once the `cool_down_seconds`
     /// has ended, the instruction is permissionless and no fees are subtracted from the
     /// depositors original amount of "pool" tokens.
     pub fn process_claim_pool_tokens(
@@ -431,7 +443,7 @@ impl Processor {
                 DepositReceipt::try_from_slice_unchecked(&deposit_receipt_data).unwrap();
 
             let cool_down_end_time = u64::from(deposit_receipt.deposit_time)
-                .checked_add(deposit_receipt.cool_down_period.into())
+                .checked_add(deposit_receipt.cool_down_seconds.into())
                 .expect("overflow") as i64;
 
             // Validate: Owner must be signer during cool down to prevent unintended fee payment
@@ -591,6 +603,26 @@ fn check_system_program(program_id: &Pubkey) -> Result<(), ProgramError> {
     }
 }
 
+/// Checks the account is owned by the System program and does not have any existing data.
+fn check_system_account(account_info: &AccountInfo, is_writable: bool) -> Result<(), ProgramError> {
+    if account_info.owner.ne(&system_program::id()) {
+        msg!("Account is not owned by the system program");
+        return Err(ProgramError::InvalidAccountOwner);
+    }
+
+    if !account_info.data_is_empty() {
+        msg!("Account data is not empty");
+        return Err(ProgramError::AccountAlreadyInitialized);
+    }
+
+    if is_writable && !account_info.is_writable {
+        msg!("Account is not writable");
+        return Err(ProgramError::InvalidAccountData);
+    }
+
+    Ok(())
+}
+
 /// Create a PDA account for the given seeds
 fn create_pda_account<'a>(
     payer: &AccountInfo<'a>,
@@ -601,21 +633,52 @@ fn create_pda_account<'a>(
     new_pda_account: &AccountInfo<'a>,
     new_pda_signer_seeds: &[&[u8]],
 ) -> ProgramResult {
-    invoke_signed(
-        &system_instruction::create_account(
-            payer.key,
-            new_pda_account.key,
-            rent.minimum_balance(space).max(1),
-            space as u64,
-            owner,
-        ),
-        &[
-            payer.clone(),
-            new_pda_account.clone(),
-            system_program.clone(),
-        ],
-        &[new_pda_signer_seeds],
-    )
+    if new_pda_account.lamports() > 0 {
+        // someone can transfer lamports to accounts before they're initialized
+        // in that case, creating the account won't work.
+        // in order to get around it, you need to find the account with enough lamports to be rent exempt,
+        // then allocate the required space and set the owner to the current program
+        let required_lamports = rent
+            .minimum_balance(space)
+            .max(1)
+            .saturating_sub(new_pda_account.lamports());
+        if required_lamports > 0 {
+            invoke(
+                &system_instruction::transfer(payer.key, new_pda_account.key, required_lamports),
+                &[
+                    payer.clone(),
+                    new_pda_account.clone(),
+                    system_program.clone(),
+                ],
+            )?;
+        }
+        invoke_signed(
+            &system_instruction::allocate(new_pda_account.key, space as u64),
+            &[new_pda_account.clone(), system_program.clone()],
+            &[new_pda_signer_seeds],
+        )?;
+        invoke_signed(
+            &system_instruction::assign(new_pda_account.key, owner),
+            &[new_pda_account.clone(), system_program.clone()],
+            &[new_pda_signer_seeds],
+        )
+    } else {
+        invoke_signed(
+            &system_instruction::create_account(
+                payer.key,
+                new_pda_account.key,
+                rent.minimum_balance(space).max(1),
+                space as u64,
+                owner,
+            ),
+            &[
+                payer.clone(),
+                new_pda_account.clone(),
+                system_program.clone(),
+            ],
+            &[new_pda_signer_seeds],
+        )
+    }
 }
 
 /// Invokes the `DepositStake` instruction for the given stake-pool program.

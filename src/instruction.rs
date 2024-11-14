@@ -11,8 +11,8 @@ use spl_associated_token_account::get_associated_token_address;
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct InitStakePoolDepositStakeAuthorityArgs {
     pub fee_wallet: Pubkey,
-    pub cool_down_period: u64,
-    pub initial_fee_rate: u32,
+    pub cool_down_seconds: u64,
+    pub initial_fee_bps: u32,
     pub bump_seed: u8,
 }
 
@@ -21,8 +21,8 @@ pub struct InitStakePoolDepositStakeAuthorityArgs {
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct UpdateStakePoolDepositStakeAuthorityArgs {
     pub fee_wallet: Option<Pubkey>,
-    pub cool_down_period: Option<u64>,
-    pub initial_fee_rate: Option<u32>,
+    pub cool_down_seconds: Option<u64>,
+    pub initial_fee_bps: Option<u32>,
 }
 
 /// Arguments for DepositStake.
@@ -77,6 +77,7 @@ pub enum StakeDepositInterceptorInstruction {
     ///
     ///   0. `[w]` StakePoolDepositStakeAuthority PDA to be updated
     ///   1. `[s]` Authority
+    ///   2. `[s]` (Optional) New authority
     UpdateStakePoolDepositStakeAuthority(UpdateStakePoolDepositStakeAuthorityArgs),
     ///   Deposit some stake into the pool. The "pool" token minted is held by the DepositReceipt's
     ///   Vault token Account rather than a token Account designated by the depositor.
@@ -200,8 +201,8 @@ pub fn create_init_deposit_stake_authority_instruction(
     stake_pool_program_id: &Pubkey,
     token_program_id: &Pubkey,
     fee_wallet: &Pubkey,
-    cool_down_period: u64,
-    initial_fee_rate: u32,
+    cool_down_seconds: u64,
+    initial_fee_bps: u32,
     authority: &Pubkey,
 ) -> Instruction {
     let (deposit_stake_authority_pubkey, bump_seed) =
@@ -209,8 +210,8 @@ pub fn create_init_deposit_stake_authority_instruction(
     let vault_ata = get_associated_token_address(&deposit_stake_authority_pubkey, stake_pool_mint);
     let args = InitStakePoolDepositStakeAuthorityArgs {
         fee_wallet: *fee_wallet,
-        initial_fee_rate,
-        cool_down_period,
+        initial_fee_bps,
+        cool_down_seconds,
         bump_seed,
     };
     let accounts = vec![
@@ -242,15 +243,15 @@ pub fn create_update_deposit_stake_authority_instruction(
     authority: &Pubkey,
     new_authority: Option<Pubkey>,
     fee_wallet: Option<Pubkey>,
-    cool_down_period: Option<u64>,
-    initial_fee_rate: Option<u32>,
+    cool_down_seconds: Option<u64>,
+    initial_fee_bps: Option<u32>,
 ) -> Instruction {
     let (deposit_stake_authority_pubkey, _bump_seed) =
         derive_stake_pool_deposit_stake_authority(program_id, stake_pool);
     let args = UpdateStakePoolDepositStakeAuthorityArgs {
         fee_wallet: fee_wallet,
-        initial_fee_rate: initial_fee_rate,
-        cool_down_period: cool_down_period,
+        initial_fee_bps,
+        cool_down_seconds,
     };
     let mut accounts = vec![
         AccountMeta::new(deposit_stake_authority_pubkey, false),
