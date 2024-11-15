@@ -49,7 +49,6 @@ impl Processor {
         let authority = next_account_info(account_info_iter)?;
         let stake_pool_info = next_account_info(account_info_iter)?;
         let stake_pool_mint_info = next_account_info(account_info_iter)?;
-        let stake_pool_manager_info = next_account_info(account_info_iter)?;
         let stake_pool_program_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
         let _associated_token_account_program_info = next_account_info(account_info_iter)?;
@@ -62,8 +61,8 @@ impl Processor {
         // Validate: StakePoolDepositStakeAuthority should be owned by system program and not initialized
         check_system_account(deposit_stake_authority_info, true)?;
 
-        // Validate: authority and StakePool's manager signed the TX
-        if !authority.is_signer || !stake_pool_manager_info.is_signer {
+        // Validate: authority signed the TX
+        if !authority.is_signer {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
         }
 
@@ -84,11 +83,6 @@ impl Processor {
             &stake_pool_info.data.borrow(),
         )?;
 
-        // Validate: manager is StakePool's manager
-        if stake_pool.manager != *stake_pool_manager_info.key {
-            return Err(StakeDepositInterceptorError::InvalidStakePoolManager.into());
-        }
-
         // Validate: stake_pool's mint is same as given account
         if stake_pool.pool_mint != *stake_pool_mint_info.key {
             return Err(StakeDepositInterceptorError::InvalidStakePool.into());
@@ -99,8 +93,11 @@ impl Processor {
             return Err(StakeDepositInterceptorError::InvalidTokenProgram.into());
         }
 
-        let (deposit_stake_authority_pda, bump_seed) =
-            derive_stake_pool_deposit_stake_authority(program_id, stake_pool_info.key);
+        let (deposit_stake_authority_pda, bump_seed) = derive_stake_pool_deposit_stake_authority(
+            program_id,
+            stake_pool_info.key,
+            &init_deposit_stake_authority_args.base,
+        );
 
         if deposit_stake_authority_pda != *deposit_stake_authority_info.key {
             return Err(StakeDepositInterceptorError::InvalidSeeds.into());
@@ -109,6 +106,7 @@ impl Processor {
         let pda_seeds = [
             STAKE_POOL_DEPOSIT_STAKE_AUTHORITY,
             &stake_pool_info.key.to_bytes(),
+            &init_deposit_stake_authority_args.base.to_bytes(),
             &[bump_seed],
         ];
         // Create and initialize the StakePoolDepositStakeAuthority account
@@ -158,6 +156,7 @@ impl Processor {
         .unwrap();
 
         // Set StakePoolDepositStakeAuthority values
+        deposit_stake_authority.base = init_deposit_stake_authority_args.base;
         deposit_stake_authority.stake_pool = *stake_pool_info.key;
         deposit_stake_authority.pool_mint = stake_pool.pool_mint;
         deposit_stake_authority.vault = vault_ata;
