@@ -2,7 +2,9 @@ use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    stake, system_program, sysvar,
+    stake,
+    system_program,
+    sysvar,
 };
 use spl_associated_token_account::get_associated_token_address;
 
@@ -13,7 +15,6 @@ pub struct InitStakePoolDepositStakeAuthorityArgs {
     pub fee_wallet: Pubkey,
     pub cool_down_seconds: u64,
     pub initial_fee_bps: u32,
-    pub base: Pubkey,
 }
 
 /// Update arguments for StakePoolDepositStakeAuthority
@@ -34,7 +35,6 @@ pub struct UpdateStakePoolDepositStakeAuthorityArgs {
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct DepositStakeArgs {
-    pub base: Pubkey,
     /// The pubkey that will own the DepositReceipt and thus
     /// be able to claim the minted LST.
     pub owner: Pubkey,
@@ -49,7 +49,6 @@ pub struct DepositStakeArgs {
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct DepositStakeWithSlippageArgs {
-    pub base: Pubkey,
     /// The pubkey that will own the DepositReceipt and thus
     /// be able to claim the minted LST.
     pub owner: Pubkey,
@@ -67,12 +66,13 @@ pub enum StakeDepositInterceptorInstruction {
     ///   1. `[w]` New StakePoolDepositStakeAuthority to create.
     ///   2. `[w]` New ATA owned by the `StakePoolDepositStakeAuthority` to create.
     ///   3. `[s]` Authority
-    ///   4. `[]` StakePool
-    ///   5. `[]` StakePool's Pool Mint
-    ///   6. `[]` StakePool Program ID
-    ///   7. `[]` Token program
-    ///   8. `[]` Associated Token program
-    ///   9. `[]` System program
+    ///   4. `[s]` Base for PDA seed
+    ///   5. `[]` StakePool
+    ///   6. `[]` StakePool's Pool Mint
+    ///   7. `[]` StakePool Program ID
+    ///   8. `[]` Token program
+    ///   9. `[]` Associated Token program
+    ///   10. `[]` System program
     InitStakePoolDepositStakeAuthority(InitStakePoolDepositStakeAuthorityArgs),
     ///   Updates the StakePoolDepositStakeAuthority for the given StakePool.
     ///
@@ -90,23 +90,24 @@ pub enum StakeDepositInterceptorInstruction {
     ///   3. `[w]` Stake pool
     ///   4. `[w]` Validator stake list storage account
     ///   5. `[s]` Stake pool deposit authority (aka the StakePoolDepositStakeAuthority PDA)
-    ///   6. `[]` Stake pool withdraw authority
-    ///   7. `[w]` Stake account to join the pool (withdraw authority for the
+    ///   6. `[s]` Base for PDA seed
+    ///   7. `[]` Stake pool withdraw authority
+    ///   8. `[w]` Stake account to join the pool (withdraw authority for the
     ///      stake account should be first set to the stake pool deposit
     ///      authority)
-    ///   8. `[w]` Validator stake account for the stake account to be merged
+    ///   9. `[w]` Validator stake account for the stake account to be merged
     ///      with
-    ///   9. `[w]` Reserve stake account, to withdraw rent exempt reserve
-    ///   10. `[w]` Vault account to receive pool tokens
-    ///   11. `[w]` Account to receive pool fee tokens
-    ///   12. `[w]` Account to receive a portion of pool fee tokens as referral
+    ///   10. `[w]` Reserve stake account, to withdraw rent exempt reserve
+    ///   11. `[w]` Vault account to receive pool tokens
+    ///   12. `[w]` Account to receive pool fee tokens
+    ///   13. `[w]` Account to receive a portion of pool fee tokens as referral
     ///      fees
-    ///   13. `[w]` Pool token mint account
-    ///   14. '[]' Sysvar clock account
-    ///   15. '[]' Sysvar stake history account
-    ///   16. `[]` Pool token program id,
-    ///   17. `[]` Stake program id,
-    ///   18. `[]` System program id,
+    ///   14. `[w]` Pool token mint account
+    ///   15. '[]' Sysvar clock account
+    ///   16. '[]' Sysvar stake history account
+    ///   17. `[]` Pool token program id,
+    ///   18. `[]` Stake program id,
+    ///   19. `[]` System program id,
     DepositStake(DepositStakeArgs),
     ///   Deposit some stake into the pool, with a specified slippage
     ///   constraint. The "pool" token minted is held by the DepositReceipt's
@@ -119,23 +120,24 @@ pub enum StakeDepositInterceptorInstruction {
     ///   3. `[w]` Stake pool
     ///   4. `[w]` Validator stake list storage account
     ///   5. `[s]` Stake pool deposit authority (aka the StakePoolDepositStakeAuthority PDA)
-    ///   6. `[]` Stake pool withdraw authority
-    ///   7. `[w]` Stake account to join the pool (withdraw authority for the
+    ///   6. `[s]` Base for PDA seed
+    ///   7. `[]` Stake pool withdraw authority
+    ///   8. `[w]` Stake account to join the pool (withdraw authority for the
     ///      stake account should be first set to the stake pool deposit
     ///      authority)
-    ///   8. `[w]` Validator stake account for the stake account to be merged
+    ///   9. `[w]` Validator stake account for the stake account to be merged
     ///      with
-    ///   9. `[w]` Reserve stake account, to withdraw rent exempt reserve
-    ///   10. `[w]` Vault account to receive pool tokens
-    ///   11. `[w]` Account to receive pool fee tokens
-    ///   12. `[w]` Account to receive a portion of pool fee tokens as referral
+    ///   10. `[w]` Reserve stake account, to withdraw rent exempt reserve
+    ///   11. `[w]` Vault account to receive pool tokens
+    ///   12. `[w]` Account to receive pool fee tokens
+    ///   13. `[w]` Account to receive a portion of pool fee tokens as referral
     ///      fees
-    ///   13. `[w]` Pool token mint account
-    ///   14. '[]' Sysvar clock account
-    ///   15. '[]' Sysvar stake history account
-    ///   16. `[]` Pool token program id,
-    ///   17. `[]` Stake program id,
-    ///   18. `[]` System program id,
+    ///   14. `[w]` Pool token mint account
+    ///   15. '[]' Sysvar clock account
+    ///   16. '[]' Sysvar stake history account
+    ///   17. `[]` Pool token program id,
+    ///   18. `[]` Stake program id,
+    ///   19. `[]` System program id,
     DepositStakeWithSlippage(DepositStakeWithSlippageArgs),
     ///   Update the `owner` of the DepositReceipt so the new owner
     ///   has the authority to claim the "pool" tokens.
@@ -182,17 +184,11 @@ pub fn derive_stake_pool_deposit_stake_authority(
 /// Derive the DepositReceipt pubkey for a given program
 pub fn derive_stake_deposit_receipt(
     program_id: &Pubkey,
-    owner: &Pubkey,
     stake_pool: &Pubkey,
     base: &Pubkey,
 ) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[
-            DEPOSIT_RECEIPT,
-            &owner.to_bytes(),
-            &stake_pool.to_bytes(),
-            &base.to_bytes(),
-        ],
+        &[DEPOSIT_RECEIPT, &stake_pool.to_bytes(), &base.to_bytes()],
         program_id,
     )
 }
@@ -218,13 +214,13 @@ pub fn create_init_deposit_stake_authority_instruction(
         fee_wallet: *fee_wallet,
         initial_fee_bps,
         cool_down_seconds,
-        base: *base,
     };
     let accounts = vec![
         AccountMeta::new(*payer, true),
         AccountMeta::new(deposit_stake_authority_pubkey, false),
         AccountMeta::new(vault_ata, false),
         AccountMeta::new_readonly(*authority, true),
+        AccountMeta::new_readonly(*base, true),
         AccountMeta::new_readonly(*stake_pool, false),
         AccountMeta::new_readonly(*stake_pool_mint, false),
         AccountMeta::new_readonly(*stake_pool_program_id, false),
@@ -296,12 +292,8 @@ fn deposit_stake_internal(
     base: &Pubkey,
     minimum_pool_tokens_out: Option<u64>,
 ) -> Vec<Instruction> {
-    let (deposit_receipt_pubkey, _bump_seed) = derive_stake_deposit_receipt(
-        program_id,
-        deposit_stake_withdraw_authority,
-        stake_pool,
-        base,
-    );
+    let (deposit_receipt_pubkey, _bump_seed) =
+        derive_stake_deposit_receipt(program_id, stake_pool, base);
     let mut instructions = vec![];
     let mut accounts = vec![
         AccountMeta::new(*payer, true),
@@ -311,6 +303,7 @@ fn deposit_stake_internal(
         AccountMeta::new(*validator_list_storage, false),
         // This is our PDA that will signed the CPI
         AccountMeta::new_readonly(*stake_pool_deposit_authority, false),
+        AccountMeta::new_readonly(*base, true),
     ];
     // NOTE: Assumes the withdrawer and staker authorities are the same (i.e. `deposit_stake_withdraw_authority`).
     instructions.extend_from_slice(&[
@@ -348,7 +341,6 @@ fn deposit_stake_internal(
     instructions.push(
         if let Some(minimum_pool_tokens_out) = minimum_pool_tokens_out {
             let args = DepositStakeWithSlippageArgs {
-                base: *base,
                 owner: *deposit_stake_withdraw_authority,
                 minimum_pool_tokens_out,
             };
@@ -362,7 +354,6 @@ fn deposit_stake_internal(
             }
         } else {
             let args = DepositStakeArgs {
-                base: *base,
                 owner: *deposit_stake_withdraw_authority,
             };
             Instruction {
