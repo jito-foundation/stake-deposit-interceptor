@@ -70,7 +70,7 @@ setup_test_validator() {
   solana config set --url http://127.0.0.1:8899
   solana config set --commitment confirmed
   echo "waiting for solana-test-validator, pid: $pid"
-  sleep 15
+  sleep 30
 }
 
 # SETUP LOCAL NET (https://spl.solana.com/stake-pool/quickstart#optional-step-0-setup-a-local-network-for-testing)
@@ -119,7 +119,7 @@ command_args+=( --max-validators 2350 ) # Maximum number of validators in the st
 # (Optional) Deposit authority, required to sign all deposits into the pool.
 # Setting this variable makes the pool "private" or "restricted".
 # Uncomment and set to a valid keypair if you want the pool to be restricted.
-#command_args+=( --deposit-authority keys/authority.json )
+# command_args+=( --deposit-authority keys/authority.json )
 
 ###################################################
 ### MODIFY PARAMETERS ABOVE THIS LINE FOR YOUR POOL
@@ -174,7 +174,7 @@ increase_stakes "$stake_pool_pubkey" "$validator_file" "$stake_per_validator"
 ## If the user specified transfer_to_wallet argument, then transfer LSTs to them
 if [ -z "${transfer_to_wallet-}" ]; then
    echo "transfer_to_wallet was not set"
-   exit 0
+  #  exit 0
 else
   echo "transfer_to_wallet $transfer_to_wallet"
   solana airdrop 100 $transfer_to_wallet
