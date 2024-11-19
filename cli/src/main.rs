@@ -2924,7 +2924,7 @@ fn main() {
                 .arg(
                     Arg::with_name("authority")
                         .long("authority")
-                        .validator(is_pubkey)
+                        .validator(is_valid_signer)
                         .value_name("AUTHORITY")
                         .takes_value(true)
                         .required(true)
@@ -3373,16 +3373,26 @@ fn main() {
             ("create-stake-deposit-authority", Some(arg_matches)) => {
                 let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
                 let fee_wallet = pubkey_of(arg_matches, "fee_wallet").unwrap();
-                let authority = pubkey_of(arg_matches, "authority").unwrap();
                 let cool_down_seconds = value_t_or_exit!(arg_matches, "cool_down_seconds", u64);
                 let initial_fee_bps = value_t_or_exit!(arg_matches, "initial_fee_bps", u32);
+                let authority = get_signer(
+                    arg_matches,
+                    "authority",
+                    arg_matches
+                        .value_of("authority")
+                        .expect("authority argument not found!"),
+                    &mut None,
+                    SignerFromPathConfig {
+                        allow_null_signer: false,
+                    },
+                );
                 command_create_stake_deposit_authority(
                     &config,
                     &stake_pool_address,
                     &fee_wallet,
                     cool_down_seconds,
                     initial_fee_bps,
-                    &authority,
+                    authority,
                 )
             }
             ("deposit-stake", Some(arg_matches)) => {

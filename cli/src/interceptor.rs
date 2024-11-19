@@ -7,14 +7,14 @@ use spl_stake_pool::{find_stake_program_address, find_withdraw_authority_program
 use stake_deposit_interceptor::{
     instruction::{
         create_deposit_stake_instruction, create_init_deposit_stake_authority_instruction,
+        derive_stake_pool_deposit_stake_authority,
     },
     state::StakePoolDepositStakeAuthority,
 };
 
 use crate::{
-    checked_transaction_with_signers, checked_transaction_with_signers_and_additional_fee,
-    get_stake_pool, get_stake_state, get_validator_list, send_transaction, CommandResult, Config,
-    Error,
+    checked_transaction_with_signers, get_stake_pool, get_stake_state, get_validator_list,
+    send_transaction, CommandResult, Config, Error,
 };
 
 macro_rules! unique_signers {
@@ -49,7 +49,7 @@ pub fn command_create_stake_deposit_authority(
     fee_wallet: &Pubkey,
     cool_down_seconds: u64,
     initial_fee_bps: u32,
-    authority: &Pubkey,
+    authority: Box<dyn Signer>,
 ) -> CommandResult {
     // Ephemeral keypair used for stake_deposit_authority PDA seed.
     let base = Keypair::new();
@@ -64,12 +64,25 @@ pub fn command_create_stake_deposit_authority(
         fee_wallet,
         cool_down_seconds,
         initial_fee_bps,
-        authority,
+        &authority.pubkey(),
         &base.pubkey(),
     );
 
-    let transaction = checked_transaction_with_signers(config, &[ix], &[&base])?;
+    let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
+        &stake_deposit_interceptor::id(),
+        stake_pool_address,
+        &base.pubkey(),
+    );
+
+    let base_signer: Box<dyn Signer> = Box::new(base);
+    let transaction = checked_transaction_with_signers(
+        config,
+        &[ix],
+        &[&config.fee_payer, &authority, &base_signer],
+    )?;
     send_transaction(config, transaction)?;
+    println!("Created stake_deposit_authority:");
+    print!("{:?}", deposit_stake_authority_pubkey);
     Ok(())
 }
 
