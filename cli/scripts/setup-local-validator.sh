@@ -8,8 +8,8 @@ transfer_to_amount=$5
 stake_per_validator=$((($sol_amount - ($max_validators * 2))/$max_validators))
 
 INTERCEPTOR_PATH="../../program"
-INTERCEPTOR_MANIFEST_PATH=${INTERCEPTOR_PATH}/cargo.toml
-INTERCEPTOR_BUILD_PATH=${INTERCEPTOR_PATH}/target/debug/
+INTERCEPTOR_MANIFEST_PATH=${INTERCEPTOR_PATH}/Cargo.toml
+INTERCEPTOR_BUILD_PATH=../../target/deploy
 
 keys_dir=keys
 mkdir -p $keys_dir
@@ -64,6 +64,7 @@ increase_stakes () {
 
 setup_test_validator() {
   solana-test-validator \
+    --bpf-program 5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV $INTERCEPTOR_BUILD_PATH/stake_deposit_interceptor.so \
    --bpf-program SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy ./deps/stake_pool.so \
    --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s ./deps/mpl_metadata.so \
    --slots-per-epoch 32 \
