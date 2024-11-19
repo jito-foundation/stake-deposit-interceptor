@@ -1,1 +1,4 @@
 **/target
+**/test-ledger
+**/keys
+**/local_validators.txt
