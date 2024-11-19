@@ -2880,54 +2880,58 @@ fn main() {
         .subcommand(SubCommand::with_name("list-all")
             .about("List information about all stake pools")
         )
-        .subcommand(SubCommand::with_name("create-stake-deposit-interceptor-authority")
-            .about("Create a stake deposit authority for a specific stake pool")
-            .arg(
-                Arg::with_name("pool")
-                    .long("pool")
-                    .short("p")
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
+        .subcommand(SubCommand::with_name("interceptor")
+            .about("Interceptor related commands")
+            .subcommand(SubCommand::with_name("create-stake-deposit-authority")
+                .about("Create a stake deposit authority for a specific stake pool")
+                .arg(
+                    Arg::with_name("pool")
+                        .long("pool")
+                        .short("p")
+                        .validator(is_pubkey)
+                        .value_name("POOL_ADDRESS")
+                        .takes_value(true)
+                        .required(true)
+                        .help("Stake pool address"),
+                )
+                .arg(
+                    Arg::with_name("fee_wallet")
+                        .long("fee-wallet")
+                        .validator(is_pubkey)
+                        .value_name("FEE_WALLET")
+                        .takes_value(true)
+                        .required(true)
+                        .help("Fee wallet that will own the token account(s) to collect any fees from the interceptor"),
+                )
+                .arg(
+                    Arg::with_name("cool_down_seconds")
+                        .long("cool-down-seconds")
+                        .validator(is_parsable::<u64>)
+                        .value_name("COOL_DOWN_SECONDS")
+                        .takes_value(true)
+                        .required(true)
+                        .help("Duration for which fees are applied by the interceptor"),
+                )
+                .arg(
+                    Arg::with_name("initial_fee_bps")
+                        .long("initial-fee-bps")
+                        .validator(is_parsable::<u32>)
+                        .value_name("INITIAL_FEE_BPS")
+                        .takes_value(true)
+                        .required(true)
+                        .help("The fee rate (in basis points) that will be charged at time 0 and linearly decay until cool_down_seconds has elapsed"),
+                )
+                .arg(
+                    Arg::with_name("authority")
+                        .long("authority")
+                        .validator(is_pubkey)
+                        .value_name("AUTHORITY")
+                        .takes_value(true)
+                        .required(true)
+                        .help("The authority address that has permissions to adjust authority, cool_down_seconds, and initial_fee_bps"),
+                )
             )
-            .arg(
-                Arg::with_name("fee_wallet")
-                    .long("fee-wallet")
-                    .validator(is_pubkey)
-                    .value_name("FEE_WALLET")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Fee wallet that will own the token account(s) to collect any fees from the interceptor"),
-            )
-            .arg(
-                Arg::with_name("cool_down_seconds")
-                    .long("cool-down-seconds")
-                    .validator(is_parsable::<u64>)
-                    .value_name("COOL_DOWN_SECONDS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Duration for which fees are applied by the interceptor"),
-            )
-            .arg(
-                Arg::with_name("initial_fee_bps")
-                    .long("initial-fee-bps")
-                    .validator(is_parsable::<u32>)
-                    .value_name("INITIAL_FEE_BPS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("The fee rate (in basis points) that will be charged at time 0 and linearly decay until cool_down_seconds has elapsed"),
-            )
-            .arg(
-                Arg::with_name("authority")
-                    .long("authority")
-                    .validator(is_pubkey)
-                    .value_name("AUTHORITY")
-                    .takes_value(true)
-                    .required(true)
-                    .help("The authority address that has permissions to adjust authority, cool_down_seconds, and initial_fee_bps"),
-            ))
+        )
         .get_matches();
 
     let mut wallet_manager = None;
@@ -3328,20 +3332,24 @@ fn main() {
                 &referrer,
             )
         }
-        ("create-stake-deposit-interceptor-authority", Some(arg_matches)) => {
-            let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
-            let fee_wallet = pubkey_of(arg_matches, "fee_wallet").unwrap();
-            let authority = pubkey_of(arg_matches, "authority").unwrap();
-            let cool_down_seconds = value_t_or_exit!(arg_matches, "cool_down_seconds", u64);
-            let initial_fee_bps = value_t_or_exit!(arg_matches, "initial_fee_bps", u32);
-            command_create_stake_deposit_authority(
-                &config,
-                &stake_pool_address,
-                &fee_wallet,
-                cool_down_seconds,
-                initial_fee_bps,
-                &authority,
-            )
+        ("interceptor", Some(interceptor_matches)) => {
+            match interceptor_matches.subcommand() {("create-stake-deposit-authority", Some(arg_matches)) => {
+                let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
+                let fee_wallet = pubkey_of(arg_matches, "fee_wallet").unwrap();
+                let authority = pubkey_of(arg_matches, "authority").unwrap();
+                let cool_down_seconds = value_t_or_exit!(arg_matches, "cool_down_seconds", u64);
+                let initial_fee_bps = value_t_or_exit!(arg_matches, "initial_fee_bps", u32);
+                command_create_stake_deposit_authority(
+                    &config,
+                    &stake_pool_address,
+                    &fee_wallet,
+                    cool_down_seconds,
+                    initial_fee_bps,
+                    &authority,
+                )
+            }
+                _ => unreachable!(),
+            }
         }
         _ => unreachable!(),
     }
