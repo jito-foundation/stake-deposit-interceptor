@@ -7,6 +7,10 @@ transfer_to_wallet=$4
 transfer_to_amount=$5
 stake_per_validator=$((($sol_amount - ($max_validators * 2))/$max_validators))
 
+INTERCEPTOR_PATH="../../program"
+INTERCEPTOR_MANIFEST_PATH=${INTERCEPTOR_PATH}/cargo.toml
+INTERCEPTOR_BUILD_PATH=${INTERCEPTOR_PATH}/target/debug/
+
 keys_dir=keys
 mkdir -p $keys_dir
 
@@ -72,6 +76,9 @@ setup_test_validator() {
 }
 
 # SETUP LOCAL NET (https://spl.solana.com/stake-pool/quickstart#optional-step-0-setup-a-local-network-for-testing)
+
+echo "Building interceptor program"
+cargo build-sbf --manifest-path $INTERCEPTOR_MANIFEST_PATH
 
 echo "Setup keys directory and clear old validator list file if found"
 if test -f "$validator_file"
