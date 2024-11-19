@@ -2931,6 +2931,43 @@ fn main() {
                         .help("The authority address that has permissions to adjust authority, cool_down_seconds, and initial_fee_bps"),
                 )
             )
+            .subcommand(SubCommand::with_name("deposit-stake")
+                .about("Deposit active stake account into the stake pool and receive a receipt to calim pool tokens later")
+                .arg(
+                    Arg::with_name("stake_deposit_authority")
+                        .index(1)
+                        .validator(is_pubkey)
+                        .value_name("STAKE_DEPOSIT_AUTHORITY")
+                        .takes_value(true)
+                        .required(true)
+                        .help("stake_deposit_authority of the stake pool that will be deposited to"),
+                )
+                .arg(
+                    Arg::with_name("stake_account")
+                        .index(2)
+                        .validator(is_pubkey)
+                        .value_name("STAKE_ACCOUNT_ADDRESS")
+                        .takes_value(true)
+                        .required(true)
+                        .help("Stake address to join the pool"),
+                )
+                .arg(
+                    Arg::with_name("withdraw_authority")
+                        .long("withdraw-authority")
+                        .validator(is_valid_signer)
+                        .value_name("KEYPAIR")
+                        .takes_value(true)
+                        .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
+                )
+                .arg(
+                    Arg::with_name("referrer")
+                        .validator(is_pubkey)
+                        .value_name("ADDRESS")
+                        .takes_value(true)
+                        .help("Pool token account to receive the referral fees for deposits. \
+                            Defaults to the token receiver."),
+                )
+        )
         )
         .get_matches();
 
@@ -3332,8 +3369,8 @@ fn main() {
                 &referrer,
             )
         }
-        ("interceptor", Some(interceptor_matches)) => {
-            match interceptor_matches.subcommand() {("create-stake-deposit-authority", Some(arg_matches)) => {
+        ("interceptor", Some(interceptor_matches)) => match interceptor_matches.subcommand() {
+            ("create-stake-deposit-authority", Some(arg_matches)) => {
                 let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
                 let fee_wallet = pubkey_of(arg_matches, "fee_wallet").unwrap();
                 let authority = pubkey_of(arg_matches, "authority").unwrap();
@@ -3348,9 +3385,30 @@ fn main() {
                     &authority,
                 )
             }
-                _ => unreachable!(),
+            ("deposit-stake", Some(arg_matches)) => {
+                let stake_deposit_authority =
+                    pubkey_of(arg_matches, "stake_deposit_authority").unwrap();
+                let stake_account = pubkey_of(arg_matches, "stake_account").unwrap();
+                let referrer: Option<Pubkey> = pubkey_of(arg_matches, "referrer");
+                let withdraw_authority = get_signer(
+                    arg_matches,
+                    "withdraw_authority",
+                    &cli_config.keypair_path,
+                    &mut wallet_manager,
+                    SignerFromPathConfig {
+                        allow_null_signer: false,
+                    },
+                );
+                interceptor::command_deposit_stake(
+                    &config,
+                    &stake_deposit_authority,
+                    &stake_account,
+                    withdraw_authority,
+                    &referrer,
+                )
             }
-        }
+            _ => unreachable!(),
+        },
         _ => unreachable!(),
     }
     .map_err(|err| {
