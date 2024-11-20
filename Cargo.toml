@@ -2,4 +2,4 @@
 members = [
   "program",
 ]
-exclude = ["cli"]
+exclude = ["cli", "cranker"]

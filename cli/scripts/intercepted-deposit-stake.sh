@@ -32,3 +32,5 @@ echo "Depositing stake via Interceptor"
 
 # Deposit stake into the stake-pool using the Interceptor
 ../target/debug/spl-stake-pool-interceptor interceptor deposit-stake $stake_deposit_authority  $stake_account_pubkey --withdraw-authority $staker_keypair
+
+../target/debug/spl-stake-pool-interceptor update B2WPUxa9Hga13oijYUu1kXqHnP7KRUZYkChJbscnJnUE --force
