@@ -76,7 +76,6 @@ impl InterceptorCranker {
             }
         }
     }
-
     async fn process_expired_receipts(&self) -> Result<(), CrankerError> {
         info!("Starting to process expired receipts");
         let receipts = self.get_deposit_receipts().await?;
@@ -86,20 +85,79 @@ impl InterceptorCranker {
             .duration_since(UNIX_EPOCH)
             .map_err(|e| CrankerError::TimeError(e.to_string()))?
             .as_secs();
-
+    
         for receipt in receipts {
-            if self.is_receipt_expired(&receipt, now) {
-                match self.claim_pool_tokens(&receipt).await {
-                    Ok(_) => {
-                        info!("Successfully claimed tokens for receipt {}", receipt.base);
-                        let mut metrics = self.metrics.lock().unwrap();
-                        metrics.successful_claims += 1;
+            // Get raw bytes using bytemuck and interpret as little-endian
+            let deposit_time_bytes = bytemuck::bytes_of(&receipt.deposit_time);
+            let deposit_time = u64::from_le_bytes(deposit_time_bytes.try_into().unwrap());
+            
+            let cool_down_bytes = bytemuck::bytes_of(&receipt.cool_down_seconds);
+            let cool_down = u64::from_le_bytes(cool_down_bytes.try_into().unwrap());
+    
+            info!(
+                "Receipt {} raw bytes:\n\
+                 deposit_time: {:?}\n\
+                 cool_down: {:?}\n\
+                 Interpreted values:\n\
+                 deposit_time: {}\n\
+                 cool_down: {}\n\
+                 current_time: {}",
+                receipt.base,
+                deposit_time_bytes,
+                cool_down_bytes,
+                deposit_time,
+                cool_down,
+                now
+            );
+    
+            if deposit_time > now {
+                info!(
+                    "Receipt {} not yet expired (future deposit time). Current time: {}, Deposit time: {}",
+                    receipt.base,
+                    now,
+                    deposit_time
+                );
+                continue;
+            }
+    
+            // Safe addition check
+            match deposit_time.checked_add(cool_down) {
+                Some(expiry_time) => {
+                    if now > expiry_time {
+                        info!(
+                            "Receipt {} is expired. Current time: {}, Expiry time: {}",
+                            receipt.base,
+                            now,
+                            expiry_time
+                        );
+                        match self.claim_pool_tokens(&receipt).await {
+                            Ok(_) => {
+                                info!("Successfully claimed tokens for receipt {}", receipt.base);
+                                let mut metrics = self.metrics.lock().unwrap();
+                                metrics.successful_claims += 1;
+                            }
+                            Err(e) => {
+                                error!("Failed to claim tokens for receipt {}: {}", receipt.base, e);
+                                let mut metrics = self.metrics.lock().unwrap();
+                                metrics.failed_claims += 1;
+                            }
+                        }
+                    } else {
+                        info!(
+                            "Receipt {} not yet expired. Current time: {}, Expiry time: {}",
+                            receipt.base,
+                            now,
+                            expiry_time
+                        );
                     }
-                    Err(e) => {
-                        error!("Failed to claim tokens for receipt {}: {}", receipt.base, e);
-                        let mut metrics = self.metrics.lock().unwrap();
-                        metrics.failed_claims += 1;
-                    }
+                }
+                None => {
+                    error!(
+                        "Receipt {} has invalid timing values - would overflow. Deposit time: {}, Cool down: {}",
+                        receipt.base,
+                        deposit_time,
+                        cool_down
+                    );
                 }
             }
         }
@@ -108,13 +166,17 @@ impl InterceptorCranker {
 
     async fn get_deposit_receipts(&self) -> Result<Vec<DepositReceipt>, CrankerError> {
         let discriminator = StakeDepositInterceptorDiscriminators::DepositReceipt as u8;
+        info!("Searching for deposit receipts with discriminator: {}", discriminator);
+        info!("Expected DepositReceipt size: {}", std::mem::size_of::<DepositReceipt>());
+        
         let filters = vec![
             RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                 0, // offset
                 &[discriminator], // data to match
             )),
         ];
-
+    
+        info!("Querying program {} for deposit receipts", self.program_id);
         let accounts = self.rpc_client.get_program_accounts_with_config(
             &self.program_id,
             RpcProgramAccountsConfig {
@@ -127,25 +189,69 @@ impl InterceptorCranker {
                 ..Default::default()
             },
         ).map_err(CrankerError::RpcError)?;
-
+    
+        info!("Found {} raw accounts", accounts.len());
+        
+        for (pubkey, account) in &accounts {
+            info!(
+                "Account {}: data length = {}, expected = {}, discriminator = {}",
+                pubkey,
+                account.data.len(),
+                std::mem::size_of::<DepositReceipt>() + 1,
+                account.data[0]
+            );
+    
+            // Print the raw bytes of the account data
+            if account.data.len() > 1 {
+                let data = &account.data[1..];  // Skip discriminator
+                info!(
+                    "Raw bytes for {}: {:?}",
+                    pubkey,
+                    &data[..std::cmp::min(data.len(), 64)]  // Print first 64 bytes
+                );
+            }
+        }
+    
         Ok(accounts
             .into_iter()
             .filter_map(|(pubkey, account)| {
-                bytemuck::try_from_bytes::<DepositReceipt>(&account.data[1..])
-                    .ok()
-                    .map(|receipt| {
+                // Skip the discriminator byte and try to deserialize
+                let data = &account.data[1..];
+                
+                // Ensure we have enough data
+                if data.len() < std::mem::size_of::<DepositReceipt>() {
+                    error!(
+                        "Account {} data too short: {}, expected: {}",
+                        pubkey,
+                        data.len(),
+                        std::mem::size_of::<DepositReceipt>()
+                    );
+                    return None;
+                }
+    
+                // Take only the bytes we need for DepositReceipt
+                let receipt_data = &data[..std::mem::size_of::<DepositReceipt>()];
+                
+                match bytemuck::try_from_bytes::<DepositReceipt>(receipt_data) {
+                    Ok(receipt) => {
+                        info!("Successfully deserialized receipt for {}", pubkey);
                         let mut receipt = *receipt;
                         receipt.base = pubkey;
-                        receipt
-                    })
+                        Some(receipt)
+                    },
+                    Err(e) => {
+                        error!(
+                            "Failed to deserialize receipt for {}: {}. Data length: {}, Expected: {}",
+                            pubkey,
+                            e,
+                            receipt_data.len(),
+                            std::mem::size_of::<DepositReceipt>()
+                        );
+                        None
+                    }
+                }
             })
             .collect())
-    }
-
-    fn is_receipt_expired(&self, receipt: &DepositReceipt, now: u64) -> bool {
-        let deposit_time: u64 = receipt.deposit_time.into();
-        let cool_down_seconds: u64 = receipt.cool_down_seconds.into();
-        now > (deposit_time + cool_down_seconds)
     }
 
     async fn claim_pool_tokens(&self, receipt: &DepositReceipt) -> Result<(), CrankerError> {
