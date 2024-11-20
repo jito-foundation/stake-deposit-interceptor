@@ -12,6 +12,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer,
+    system_instruction::transfer,
     system_program,
     transaction::Transaction,
 };
@@ -162,6 +163,28 @@ async fn test_fail_invalid_system_program() {
     );
 
     assert_transaction_err(&mut ctx, tx, InstructionError::IncorrectProgramId).await;
+}
+
+#[tokio::test]
+async fn test_success_with_prefunded_account() {
+    let (mut ctx, stake_pool_accounts, authority, deposit_authority_base, init_ix) =
+        setup_with_ix().await;
+    let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
+        &stake_deposit_interceptor::id(),
+        &stake_pool_accounts.stake_pool,
+        &deposit_authority_base.pubkey(),
+    );
+
+    let transfer_ix = transfer(&ctx.payer.pubkey(), &deposit_stake_authority_pubkey, 100);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[transfer_ix, init_ix],
+        Some(&ctx.payer.pubkey()),
+        &[&ctx.payer, &authority, &deposit_authority_base],
+        ctx.last_blockhash,
+    );
+
+    ctx.banks_client.process_transaction(tx).await.unwrap();
 }
 
 #[tokio::test]
