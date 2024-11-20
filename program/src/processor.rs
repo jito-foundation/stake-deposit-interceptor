@@ -313,8 +313,10 @@ impl Processor {
         )?;
 
         let vault_token_account_after = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
-        let pool_tokens_minted =
-            vault_token_account_after.amount - vault_token_account_before.amount;
+        let pool_tokens_minted = vault_token_account_after
+            .amount
+            .checked_sub(vault_token_account_before.amount)
+            .expect("overflow");
 
         // Create the DepositReceipt
 
@@ -482,6 +484,11 @@ impl Processor {
                 return Err(StakeDepositInterceptorError::InvalidVault.into());
             }
 
+            // Validate: Pool mint should match that of the `StakePoolDepositStakeAuthority`, which is the StakePool's mint
+            if &deposit_stake_authority.pool_mint != pool_mint_info.key {
+                return Err(StakeDepositInterceptorError::InvalidPoolMint.into());
+            }
+
             let fee_token_account = Account::unpack(&fee_token_account_info.data.borrow())?;
 
             // Validate: Fee token account must be owned by `fee_wallet`
@@ -546,9 +553,7 @@ impl Processor {
                 Self::process_deposit_stake(program_id, accounts, args, None)?;
             }
             StakeDepositInterceptorInstruction::DepositStakeWithSlippage(args) => {
-                let deposit_stake_args = DepositStakeArgs {
-                    owner: args.owner,
-                };
+                let deposit_stake_args = DepositStakeArgs { owner: args.owner };
                 Self::process_deposit_stake(
                     program_id,
                     accounts,
