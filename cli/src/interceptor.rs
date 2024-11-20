@@ -89,13 +89,13 @@ pub fn command_create_stake_deposit_authority(
 /// Deposit a stake account through the interceptor program
 pub fn command_deposit_stake(
     config: &Config,
-    stake_deposit_authority: &Pubkey,
+    stake_deposit_authority_address: &Pubkey,
     stake: &Pubkey,
     withdraw_authority: Box<dyn Signer>,
     referrer_token_account: &Option<Pubkey>,
 ) -> CommandResult {
     let stake_deposit_authority =
-        get_stake_deposit_authority(&config.rpc_client, stake_deposit_authority)?;
+        get_stake_deposit_authority(&config.rpc_client, stake_deposit_authority_address)?;
 
     // Most below is copy/pasta from `command_deposit_stake` with very slight modifications.
     let stake_pool = get_stake_pool(&config.rpc_client, &stake_deposit_authority.stake_pool)?;
@@ -121,8 +121,8 @@ pub fn command_deposit_stake(
     );
 
     println!(
-        "Depositing stake {} into stake pool account {}",
-        stake, validator_stake_account
+        "Depositing stake {} into stake pool {} via stake_deposit_authority {}",
+        stake, stake_deposit_authority.stake_pool, stake_deposit_authority_address
     );
 
     let mut signers = vec![config.fee_payer.as_ref(), withdraw_authority.as_ref()];
