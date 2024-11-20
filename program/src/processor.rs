@@ -188,6 +188,11 @@ impl Processor {
         // Validate: program owns `StakePoolDepositStakeAuthority`
         check_account_owner(deposit_stake_authority_info, program_id)?;
 
+        // Validate: deposit_stake_authority must be writable
+        if !deposit_stake_authority_info.is_writable {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
         // Validate: authority is signer
         if !authority_info.is_signer {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
