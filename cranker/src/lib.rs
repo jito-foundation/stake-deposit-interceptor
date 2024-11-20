@@ -42,6 +42,7 @@ pub struct InterceptorCranker {
     payer: Arc<Keypair>,  // Update this too
     program_id: Pubkey,
     metrics: Arc<std::sync::Mutex<Metrics>>,
+    interval: Duration,  // Add this field
 }
 
 impl InterceptorCranker {
@@ -56,17 +57,22 @@ impl InterceptorCranker {
             payer: config.payer,  // No need to clone Arc
             program_id: config.program_id,
             metrics: Arc::new(std::sync::Mutex::new(Metrics::default())),
+            interval: config.interval,  // Store the interval
         }
     }
 
     pub async fn start(&self) {
-        let interval = Duration::from_secs(60);
-        let mut interval_timer = time::interval(interval);
+        info!("Starting InterceptorCranker service");
+        let mut interval_timer = time::interval(self.interval);
+        info!("Set interval timer to {} seconds", self.interval.as_secs());
 
         loop {
             interval_timer.tick().await;
-            if let Err(e) = self.process_expired_receipts().await {
-                error!("Error processing receipts: {}", e);
+            info!("Tick: Starting new processing cycle");
+            
+            match self.process_expired_receipts().await {
+                Ok(_) => info!("Successfully processed expired receipts"),
+                Err(e) => error!("Error processing receipts: {}", e),
             }
         }
     }
