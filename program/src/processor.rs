@@ -641,7 +641,7 @@ fn create_pda_account<'a>(
     if new_pda_account.lamports() > 0 {
         // someone can transfer lamports to accounts before they're initialized
         // in that case, creating the account won't work.
-        // in order to get around it, you need to find the account with enough lamports to be rent exempt,
+        // in order to get around it, you need to fund the account with enough lamports to be rent exempt,
         // then allocate the required space and set the owner to the current program
         let required_lamports = rent
             .minimum_balance(space)

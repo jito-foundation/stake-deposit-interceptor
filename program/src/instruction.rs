@@ -416,7 +416,7 @@ pub fn create_deposit_stake_instruction(
 
 /// Creates instructions required to deposit into a stake pool, given a stake
 /// account owned by the user. StakePool program verifies the minimum tokens are minted.
-pub fn create_deposit_stake_with_slippage_nstruction(
+pub fn create_deposit_stake_with_slippage_instruction(
     program_id: &Pubkey,
     payer: &Pubkey,
     stake_pool_program_id: &Pubkey,
