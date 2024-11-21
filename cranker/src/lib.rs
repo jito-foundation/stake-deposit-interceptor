@@ -175,7 +175,7 @@ impl InterceptorCranker {
 
     async fn get_deposit_receipts(&self) -> Result<Vec<DepositReceipt>, CrankerError> {
         let discriminator = StakeDepositInterceptorDiscriminators::DepositReceipt as u8;
-        info!("Searching for deposit receipts";
+        info!("Searching for deposit receipts");
 
         let filters = vec![
             RpcFilterType::Memcmp(
