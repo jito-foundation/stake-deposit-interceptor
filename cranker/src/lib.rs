@@ -314,29 +314,7 @@ impl InterceptorCranker {
         }
 
         // Now proceed with claim
-        info!("Creating claim instruction after verification");
-
-        // Log account data for each account
-        for (i, account) in [
-            &receipt.base,
-            &receipt.owner,
-            &stake_pool_deposit_authority.vault,
-            &owner_ata,
-            &fee_wallet_token_account,
-            &receipt.stake_pool_deposit_stake_authority,
-            &stake_pool_deposit_authority.pool_mint,
-        ]
-            .iter()
-            .enumerate() {
-            if let Ok(acc_info) = self.rpc_client.get_account(account) {
-                info!("Account {} ({}):", i + 1, account);
-                info!("  Owner: {}", acc_info.owner);
-                info!("  Data len: {}", acc_info.data.len());
-                info!("  Executable: {}", acc_info.executable);
-            } else {
-                error!("Failed to fetch account {} ({})", i + 1, account);
-            }
-        }
+        info!("Creating claim instruction after verification");       
 
         let claim_ix = create_claim_pool_tokens_instruction(
             &self.program_id,
@@ -393,12 +371,6 @@ impl InterceptorCranker {
                 )
             );
         }
-
-        info!(
-            "Deserializing StakePoolDepositStakeAuthority - data length: {}, expected size: {}",
-            account.data.len(),
-            std::mem::size_of::<StakePoolDepositStakeAuthority>()
-        );
 
         bytemuck
             ::try_from_bytes::<StakePoolDepositStakeAuthority>(&account.data[8..])
