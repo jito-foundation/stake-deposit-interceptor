@@ -188,6 +188,11 @@ impl Processor {
         // Validate: program owns `StakePoolDepositStakeAuthority`
         check_account_owner(deposit_stake_authority_info, program_id)?;
 
+        // Validate: deposit_stake_authority must be writable
+        if !deposit_stake_authority_info.is_writable {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
         // Validate: authority is signer
         if !authority_info.is_signer {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
@@ -313,8 +318,10 @@ impl Processor {
         )?;
 
         let vault_token_account_after = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
-        let pool_tokens_minted =
-            vault_token_account_after.amount - vault_token_account_before.amount;
+        let pool_tokens_minted = vault_token_account_after
+            .amount
+            .checked_sub(vault_token_account_before.amount)
+            .expect("overflow");
 
         // Create the DepositReceipt
 
@@ -482,6 +489,11 @@ impl Processor {
                 return Err(StakeDepositInterceptorError::InvalidVault.into());
             }
 
+            // Validate: Pool mint should match that of the `StakePoolDepositStakeAuthority`, which is the StakePool's mint
+            if &deposit_stake_authority.pool_mint != pool_mint_info.key {
+                return Err(StakeDepositInterceptorError::InvalidPoolMint.into());
+            }
+
             let fee_token_account = Account::unpack(&fee_token_account_info.data.borrow())?;
 
             // Validate: Fee token account must be owned by `fee_wallet`
@@ -546,9 +558,7 @@ impl Processor {
                 Self::process_deposit_stake(program_id, accounts, args, None)?;
             }
             StakeDepositInterceptorInstruction::DepositStakeWithSlippage(args) => {
-                let deposit_stake_args = DepositStakeArgs {
-                    owner: args.owner,
-                };
+                let deposit_stake_args = DepositStakeArgs { owner: args.owner };
                 Self::process_deposit_stake(
                     program_id,
                     accounts,
@@ -631,7 +641,7 @@ fn create_pda_account<'a>(
     if new_pda_account.lamports() > 0 {
         // someone can transfer lamports to accounts before they're initialized
         // in that case, creating the account won't work.
-        // in order to get around it, you need to find the account with enough lamports to be rent exempt,
+        // in order to get around it, you need to fund the account with enough lamports to be rent exempt,
         // then allocate the required space and set the owner to the current program
         let required_lamports = rent
             .minimum_balance(space)
