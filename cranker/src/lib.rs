@@ -258,36 +258,6 @@ impl InterceptorCranker {
             &stake_pool_deposit_authority.pool_mint
         );
 
-        // Debug account data sizes and ownership
-        let debug_account = |name: &str, pubkey: &Pubkey| -> Result<(), CrankerError> {
-            match self.rpc_client.get_account(pubkey) {
-                Ok(account) => {
-                    info!(
-                        "Account {} ({}):\n  Owner: {}\n  Data len: {}\n  Lamports: {}",
-                        name,
-                        pubkey,
-                        account.owner,
-                        account.data.len(),
-                        account.lamports
-                    );
-                    Ok(())
-                }
-                Err(e) => {
-                    error!("Failed to fetch account {}: {}", name, e);
-                    Err(CrankerError::RpcError(e))
-                }
-            }
-        };
-
-        // Debug all accounts
-        debug_account("Receipt", &receipt.base)?;
-        debug_account("Owner", &receipt.owner)?;
-        debug_account("Vault", &stake_pool_deposit_authority.vault)?;
-        debug_account("Owner ATA", &owner_ata)?;
-        debug_account("Fee Wallet", &stake_pool_deposit_authority.fee_wallet)?;
-        debug_account("Deposit Authority", &receipt.stake_pool_deposit_stake_authority)?;
-        debug_account("Pool Mint", &stake_pool_deposit_authority.pool_mint)?;
-
         // Verify PDAs
         let (expected_authority_pda, authority_bump) = Pubkey::find_program_address(
             &[b"stake_deposit_authority", stake_pool_deposit_authority.stake_pool.as_ref()],
@@ -300,53 +270,6 @@ impl InterceptorCranker {
             receipt.stake_pool_deposit_stake_authority,
             authority_bump
         );
-
-        // Verify token accounts
-        let verify_token_account = |name: &str, pubkey: &Pubkey| -> Result<(), CrankerError> {
-            match self.rpc_client.get_account(pubkey) {
-                Ok(account) => {
-                    if account.owner == spl_token::id() {
-                        match TokenAccount::unpack(&account.data) {
-                            Ok(token_account) => {
-                                info!(
-                                    "Token Account {} ({}):\n  Owner: {}\n  Mint: {}\n  Amount: {}",
-                                    name,
-                                    pubkey,
-                                    token_account.owner,
-                                    token_account.mint,
-                                    token_account.amount
-                                );
-                                Ok(())
-                            }
-                            Err(e) => {
-                                error!("Failed to unpack token account {}: {}", name, e);
-                                Err(
-                                    CrankerError::TokenError(
-                                        format!("Invalid token account data: {}", e)
-                                    )
-                                )
-                            }
-                        }
-                    } else {
-                        error!("Account {} is not owned by Token program", name);
-                        Err(
-                            CrankerError::TokenError(
-                                format!("Invalid token account owner: {}", account.owner)
-                            )
-                        )
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to fetch token account {}: {}", name, e);
-                    Err(CrankerError::RpcError(e))
-                }
-            }
-        };
-
-        // Verify token accounts
-        verify_token_account("Vault", &stake_pool_deposit_authority.vault)?;
-        verify_token_account("Owner ATA", &owner_ata)?;
-        verify_token_account("Fee Wallet", &stake_pool_deposit_authority.fee_wallet)?;
 
         // After you fetch the fee wallet
         let fee_wallet = get_account(
@@ -390,18 +313,8 @@ impl InterceptorCranker {
             }
         }
 
-        info!("Fee Wallet Token Account Here: {}", fee_wallet_token_account);
-
         // Now proceed with claim
         info!("Creating claim instruction after verification");
-
-        info!("1. Receipt: {}", receipt.base);
-        info!("2. Owner: {}", receipt.owner);
-        info!("3. Vault: {}", stake_pool_deposit_authority.vault);
-        info!("4. Owner ATA: {}", owner_ata);
-        info!("5. Fee Wallet Token Account: {}", fee_wallet_token_account);
-        info!("6. Stake Pool Deposit Authority: {}", receipt.stake_pool_deposit_stake_authority);
-        info!("7. Pool Mint: {}", stake_pool_deposit_authority.pool_mint);
 
         // Log account data for each account
         for (i, account) in [
