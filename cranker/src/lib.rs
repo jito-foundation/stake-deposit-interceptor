@@ -30,6 +30,8 @@ use ::{
     spl_token::state::Account as TokenAccount,
 };
 
+use spl_associated_token_account::instruction::create_associated_token_account;
+
 #[derive(Clone)]
 pub struct CrankerConfig {
     pub rpc_url: String,
@@ -355,16 +357,74 @@ impl InterceptorCranker {
             e
         });
 
-        // Add this to get the associated token account
+        // Before creating the claim instruction
         let fee_wallet_token_account = get_associated_token_address(
-            &stake_pool_deposit_authority.fee_wallet, // fee wallet pubkey
-            &stake_pool_deposit_authority.pool_mint // pool mint pubkey
+            &stake_pool_deposit_authority.fee_wallet,
+            &stake_pool_deposit_authority.pool_mint
         );
+
+        // Check if account exists, if not create it
+        match self.rpc_client.get_account(&fee_wallet_token_account) {
+            Ok(_) => {
+                info!("Fee wallet token account exists: {}", fee_wallet_token_account);
+            }
+            Err(_) => {
+                info!("Creating fee wallet token account: {}", fee_wallet_token_account);
+                let create_ata_ix = create_associated_token_account(
+                    &self.payer.pubkey(),
+                    &stake_pool_deposit_authority.fee_wallet,
+                    &stake_pool_deposit_authority.pool_mint,
+                    &spl_token::id()
+                );
+
+                let recent_blockhash = self.rpc_client.get_latest_blockhash()?;
+                let create_ata_tx = Transaction::new_signed_with_payer(
+                    &[create_ata_ix],
+                    Some(&self.payer.pubkey()),
+                    &[self.payer.as_ref()],
+                    recent_blockhash
+                );
+
+                self.rpc_client.send_and_confirm_transaction(&create_ata_tx)?;
+                info!("Created fee wallet token account");
+            }
+        }
 
         info!("Fee Wallet Token Account Here: {}", fee_wallet_token_account);
 
         // Now proceed with claim
         info!("Creating claim instruction after verification");
+
+        info!("1. Receipt: {}", receipt.base);
+        info!("2. Owner: {}", receipt.owner);
+        info!("3. Vault: {}", stake_pool_deposit_authority.vault);
+        info!("4. Owner ATA: {}", owner_ata);
+        info!("5. Fee Wallet Token Account: {}", fee_wallet_token_account);
+        info!("6. Stake Pool Deposit Authority: {}", receipt.stake_pool_deposit_stake_authority);
+        info!("7. Pool Mint: {}", stake_pool_deposit_authority.pool_mint);
+
+        // Log account data for each account
+        for (i, account) in [
+            &receipt.base,
+            &receipt.owner,
+            &stake_pool_deposit_authority.vault,
+            &owner_ata,
+            &fee_wallet_token_account,
+            &receipt.stake_pool_deposit_stake_authority,
+            &stake_pool_deposit_authority.pool_mint,
+        ]
+            .iter()
+            .enumerate() {
+            if let Ok(acc_info) = self.rpc_client.get_account(account) {
+                info!("Account {} ({}):", i + 1, account);
+                info!("  Owner: {}", acc_info.owner);
+                info!("  Data len: {}", acc_info.data.len());
+                info!("  Executable: {}", acc_info.executable);
+            } else {
+                error!("Failed to fetch account {} ({})", i + 1, account);
+            }
+        }
+
         let claim_ix = create_claim_pool_tokens_instruction(
             &self.program_id,
             &receipt.base,
