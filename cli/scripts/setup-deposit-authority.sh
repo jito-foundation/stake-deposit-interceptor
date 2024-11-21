@@ -60,7 +60,7 @@ echo "Creating stake deposit authority..."
 STAKE_DEPOSIT_AUTHORITY=$(../target/debug/spl-stake-pool-interceptor interceptor create-stake-deposit-authority \
     --pool $STAKE_POOL \
     --fee-wallet $FEE_WALLET_TOKEN_ACCOUNT \
-    --authority $AUTHORITY_KEYPAIR \
+    --authority $AUTHORITY \
     --cool-down-seconds 10 \
     --initial-fee-bps 100 | tail -1)
 
