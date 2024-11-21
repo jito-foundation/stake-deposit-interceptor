@@ -257,19 +257,6 @@ impl InterceptorCranker {
             &stake_pool_deposit_authority.pool_mint
         );
 
-        // Verify PDAs
-        let (expected_authority_pda, authority_bump) = Pubkey::find_program_address(
-            &[b"stake_deposit_authority", stake_pool_deposit_authority.stake_pool.as_ref()],
-            &self.program_id
-        );
-
-        info!(
-            "PDA Verification:\n  Expected Authority: {}\n  Actual Authority: {}\n  Bump: {}",
-            expected_authority_pda,
-            receipt.stake_pool_deposit_stake_authority,
-            authority_bump
-        );
-
         // After you fetch the fee wallet
         let fee_wallet = get_account(
             &self.rpc_client,
