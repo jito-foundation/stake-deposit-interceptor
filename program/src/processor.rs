@@ -89,6 +89,9 @@ impl Processor {
             return Err(StakeDepositInterceptorError::InvalidStakePool.into());
         }
 
+        // Validate: token program must be one of the SPL Token programs
+        spl_token_2022::check_spl_token_program_account(token_program_info.key)?;
+
         // Validate: stake_pool's mint has same token program as given program
         if stake_pool_mint_info.owner != token_program_info.key {
             return Err(StakeDepositInterceptorError::InvalidTokenProgram.into());

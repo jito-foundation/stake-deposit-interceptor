@@ -167,7 +167,7 @@ async fn test_fail_invalid_system_program() {
 
 #[tokio::test]
 async fn test_success_with_prefunded_account() {
-    let (mut ctx, stake_pool_accounts, authority, deposit_authority_base, init_ix) =
+    let (mut ctx, stake_pool_accounts, _authority, deposit_authority_base, init_ix) =
         setup_with_ix().await;
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
         &stake_deposit_interceptor::id(),
@@ -180,7 +180,7 @@ async fn test_success_with_prefunded_account() {
     let tx = Transaction::new_signed_with_payer(
         &[transfer_ix, init_ix],
         Some(&ctx.payer.pubkey()),
-        &[&ctx.payer, &authority, &deposit_authority_base],
+        &[&ctx.payer, &deposit_authority_base],
         ctx.last_blockhash,
     );
 
