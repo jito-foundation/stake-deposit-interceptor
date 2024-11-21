@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+solana-keygen new -o ./keys/fee-wallet.json  
+
 STAKE_POOL_KEYPAIR_PATH="./keys/stake-pool.json"
 FEE_WALLET_KEYPAIR_PATH="./keys/fee-wallet.json"  # Add this keypair file
 AUTHORITY_KEYPAIR=$(solana config get | grep "Keypair Path" | awk '{print $3}')
