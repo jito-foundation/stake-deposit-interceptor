@@ -11,6 +11,7 @@ use ::{
         rpc_client::RpcClient,
         rpc_config::{ RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcSendTransactionConfig },
         rpc_filter::{ Memcmp, RpcFilterType },
+        nonce_utils::get_account,
     },
     std::{ sync::Arc, time::{ Duration, SystemTime, UNIX_EPOCH } },
     tokio::time,
@@ -287,13 +288,10 @@ impl InterceptorCranker {
 
         // Verify PDAs
         let (expected_authority_pda, authority_bump) = Pubkey::find_program_address(
-            &[
-                b"stake_deposit_authority",
-                stake_pool_deposit_authority.stake_pool.as_ref(),
-            ],
-            &self.program_id,
+            &[b"stake_deposit_authority", stake_pool_deposit_authority.stake_pool.as_ref()],
+            &self.program_id
         );
-        
+
         info!(
             "PDA Verification:\n  Expected Authority: {}\n  Actual Authority: {}\n  Bump: {}",
             expected_authority_pda,
@@ -320,18 +318,20 @@ impl InterceptorCranker {
                             }
                             Err(e) => {
                                 error!("Failed to unpack token account {}: {}", name, e);
-                                Err(CrankerError::TokenError(format!(
-                                    "Invalid token account data: {}", 
-                                    e
-                                )))
+                                Err(
+                                    CrankerError::TokenError(
+                                        format!("Invalid token account data: {}", e)
+                                    )
+                                )
                             }
                         }
                     } else {
                         error!("Account {} is not owned by Token program", name);
-                        Err(CrankerError::TokenError(format!(
-                            "Invalid token account owner: {}", 
-                            account.owner
-                        )))
+                        Err(
+                            CrankerError::TokenError(
+                                format!("Invalid token account owner: {}", account.owner)
+                            )
+                        )
                     }
                 }
                 Err(e) => {
@@ -346,6 +346,23 @@ impl InterceptorCranker {
         verify_token_account("Owner ATA", &owner_ata)?;
         verify_token_account("Fee Wallet", &stake_pool_deposit_authority.fee_wallet)?;
 
+        // After you fetch the fee wallet
+        let fee_wallet = get_account(
+            &self.rpc_client,
+            &stake_pool_deposit_authority.fee_wallet
+        ).map_err(|e| {
+            error!("Failed to fetch account Fee Wallet: {}", e);
+            e
+        });
+
+        // Add this to get the associated token account
+        let fee_wallet_token_account = get_associated_token_address(
+            &stake_pool_deposit_authority.fee_wallet, // fee wallet pubkey
+            &stake_pool_deposit_authority.pool_mint // pool mint pubkey
+        );
+
+        info!("Fee Wallet Token Account Here: {}", fee_wallet_token_account);
+
         // Now proceed with claim
         info!("Creating claim instruction after verification");
         let claim_ix = create_claim_pool_tokens_instruction(
@@ -354,7 +371,7 @@ impl InterceptorCranker {
             &receipt.owner,
             &stake_pool_deposit_authority.vault,
             &owner_ata,
-            &stake_pool_deposit_authority.fee_wallet,
+            &fee_wallet_token_account, // Changed from stake_pool_deposit_authority.fee_wallet
             &receipt.stake_pool_deposit_stake_authority,
             &stake_pool_deposit_authority.pool_mint,
             &spl_token::id(),
@@ -385,36 +402,36 @@ impl InterceptorCranker {
         }
     }
 
-async fn get_stake_pool_deposit_authority(
-    &self,
-    pubkey: &Pubkey
-) -> Result<StakePoolDepositStakeAuthority, CrankerError> {
-    let account = self.rpc_client.get_account(pubkey).map_err(CrankerError::RpcError)?;
+    async fn get_stake_pool_deposit_authority(
+        &self,
+        pubkey: &Pubkey
+    ) -> Result<StakePoolDepositStakeAuthority, CrankerError> {
+        let account = self.rpc_client.get_account(pubkey).map_err(CrankerError::RpcError)?;
 
-    // Skip 8-byte discriminator
-    if account.data.len() < 8 + std::mem::size_of::<StakePoolDepositStakeAuthority>() {
-        return Err(
-            CrankerError::DeserializeError(
-                format!(
-                    "Account data too short: {}, expected: {}",
-                    account.data.len(),
-                    8 + std::mem::size_of::<StakePoolDepositStakeAuthority>()
+        // Skip 8-byte discriminator
+        if account.data.len() < 8 + std::mem::size_of::<StakePoolDepositStakeAuthority>() {
+            return Err(
+                CrankerError::DeserializeError(
+                    format!(
+                        "Account data too short: {}, expected: {}",
+                        account.data.len(),
+                        8 + std::mem::size_of::<StakePoolDepositStakeAuthority>()
+                    )
                 )
-            )
+            );
+        }
+
+        info!(
+            "Deserializing StakePoolDepositStakeAuthority - data length: {}, expected size: {}",
+            account.data.len(),
+            std::mem::size_of::<StakePoolDepositStakeAuthority>()
         );
+
+        bytemuck
+            ::try_from_bytes::<StakePoolDepositStakeAuthority>(&account.data[8..])
+            .map(|auth| *auth)
+            .map_err(|e| CrankerError::DeserializeError(e.to_string()))
     }
-
-    info!(
-        "Deserializing StakePoolDepositStakeAuthority - data length: {}, expected size: {}",
-        account.data.len(),
-        std::mem::size_of::<StakePoolDepositStakeAuthority>()
-    );
-
-    bytemuck
-        ::try_from_bytes::<StakePoolDepositStakeAuthority>(&account.data[8..])
-        .map(|auth| *auth)
-        .map_err(|e| CrankerError::DeserializeError(e.to_string()))
-}
 }
 
 #[derive(Default)]
