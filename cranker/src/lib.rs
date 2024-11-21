@@ -25,6 +25,8 @@ use ::{
     },
     spl_associated_token_account::get_associated_token_address,
     std::thread,
+    solana_program::program_pack::Pack,
+    spl_token::state::Account as TokenAccount,
 };
 
 #[derive(Clone)]
@@ -39,10 +41,10 @@ pub struct CrankerConfig {
 
 pub struct InterceptorCranker {
     rpc_client: Arc<RpcClient>,
-    payer: Arc<Keypair>, // Update this too
+    payer: Arc<Keypair>,
     program_id: Pubkey,
     metrics: Arc<std::sync::Mutex<Metrics>>,
-    interval: Duration, // Add this field
+    interval: Duration,
 }
 
 impl InterceptorCranker {
@@ -241,146 +243,111 @@ impl InterceptorCranker {
     }
 
     async fn claim_pool_tokens(&self, receipt: &DepositReceipt) -> Result<(), CrankerError> {
-        info!("Claiming pool tokens for receipt {}", receipt.base);
+        info!("Starting detailed claim debug for receipt {}", receipt.base);
 
-        // 1. Get the stake pool deposit authority account
+        // Ensure this method exists or replace it with the correct one
         let stake_pool_deposit_authority = self.get_stake_pool_deposit_authority(
             &receipt.stake_pool_deposit_stake_authority
         ).await?;
 
-        info!(
-            "Claiming pool tokens for receipt {} with stake pool deposit authority {}",
-            receipt.base,
-            receipt.stake_pool_deposit_stake_authority
-        );
-
-        // 2. Get or create the owner's ATA
         let owner_ata = get_associated_token_address(
             &receipt.owner,
             &stake_pool_deposit_authority.pool_mint
         );
+
+        // Debug account data sizes and ownership
+        let debug_account = |name: &str, pubkey: &Pubkey| -> Result<(), CrankerError> {
+            match self.rpc_client.get_account(pubkey) {
+                Ok(account) => {
+                    info!(
+                        "Account {} ({}):\n  Owner: {}\n  Data len: {}\n  Lamports: {}",
+                        name,
+                        pubkey,
+                        account.owner,
+                        account.data.len(),
+                        account.lamports
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    error!("Failed to fetch account {}: {}", name, e);
+                    Err(CrankerError::RpcError(e))
+                }
+            }
+        };
+
+        // Debug all accounts
+        debug_account("Receipt", &receipt.base)?;
+        debug_account("Owner", &receipt.owner)?;
+        debug_account("Vault", &stake_pool_deposit_authority.vault)?;
+        debug_account("Owner ATA", &owner_ata)?;
+        debug_account("Fee Wallet", &stake_pool_deposit_authority.fee_wallet)?;
+        debug_account("Deposit Authority", &receipt.stake_pool_deposit_stake_authority)?;
+        debug_account("Pool Mint", &stake_pool_deposit_authority.pool_mint)?;
+
+        // Verify PDAs
+        let (expected_authority_pda, authority_bump) = Pubkey::find_program_address(
+            &[
+                b"stake_deposit_authority",
+                stake_pool_deposit_authority.stake_pool.as_ref(),
+            ],
+            &self.program_id,
+        );
+        
         info!(
-            "Checking ATA {} for owner {} and mint {}",
-            owner_ata,
-            receipt.owner,
-            stake_pool_deposit_authority.pool_mint
+            "PDA Verification:\n  Expected Authority: {}\n  Actual Authority: {}\n  Bump: {}",
+            expected_authority_pda,
+            receipt.stake_pool_deposit_stake_authority,
+            authority_bump
         );
 
-        // Check if ATA exists
-        match self.rpc_client.get_account(&owner_ata) {
-            Ok(_) => {
-                info!("ATA already exists");
-            }
-            Err(e) => {
-                info!("ATA doesn't exist, creating new one. Error: {}", e);
-
-                // Check if the mint account exists
-                info!("Verifying mint account {}", stake_pool_deposit_authority.pool_mint);
-                if
-                    let Err(e) = self.rpc_client.get_account(
-                        &stake_pool_deposit_authority.pool_mint
-                    )
-                {
-                    error!("Mint account not found: {}", e);
-                    return Err(CrankerError::RpcError(e));
-                }
-
-                let create_ata_ix =
-                    spl_associated_token_account::instruction::create_associated_token_account(
-                        &self.payer.pubkey(),
-                        &receipt.owner,
-                        &stake_pool_deposit_authority.pool_mint,
-                        &spl_token::id()
-                    );
-
-                info!("Created ATA instruction, getting blockhash");
-                let recent_blockhash = self.rpc_client.get_latest_blockhash()?;
-                info!("Got blockhash: {}", recent_blockhash);
-
-                // Create transaction with higher compute budget
-                let compute_budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(1_400_000);
-
-                info!("Creating ATA transaction with compute budget");
-                let ata_tx = Transaction::new_signed_with_payer(
-                    &[compute_budget_ix, create_ata_ix],
-                    Some(&self.payer.pubkey()),
-                    &[&*self.payer],
-                    recent_blockhash
-                );
-
-                info!("Sending ATA creation transaction");
-                match
-                    self.rpc_client.send_transaction_with_config(&ata_tx, RpcSendTransactionConfig {
-                        skip_preflight: true,
-                        preflight_commitment: Some(CommitmentLevel::Confirmed),
-                        encoding: None,
-                        max_retries: Some(3),
-                        min_context_slot: None,
-                    })
-                {
-                    Ok(sig) => {
-                        info!("ATA creation transaction sent with signature: {}", sig);
-
-                        // Set timeout duration
-                        let timeout = Duration::from_secs(30);
-                        let start = SystemTime::now();
-
-                        info!(
-                            "Waiting for ATA creation confirmation with {} second timeout",
-                            timeout.as_secs()
-                        );
-
-                        while SystemTime::now().duration_since(start).unwrap() < timeout {
-                            match self.rpc_client.get_signature_status(&sig)? {
-                                Some(Ok(_)) => {
-                                    info!("ATA creation confirmed");
-                                    // Verify ATA exists
-                                    match self.rpc_client.get_account(&owner_ata) {
-                                        Ok(_) => {
-                                            info!("ATA verified to exist");
-                                            break;
-                                        }
-                                        Err(e) => {
-                                            error!("ATA not found after creation: {}", e);
-                                            return Err(CrankerError::RpcError(e));
-                                        }
-                                    }
-                                }
-                                Some(Err(e)) => {
-                                    error!("ATA creation failed: {:?}", e);
-                                    return Err(
-                                        CrankerError::TransactionError(
-                                            format!("ATA creation failed: {:?}", e)
-                                        )
-                                    );
-                                }
-                                None => {
-                                    info!(
-                                        "Waiting for confirmation... ({} seconds elapsed)",
-                                        SystemTime::now().duration_since(start).unwrap().as_secs()
-                                    );
-                                    thread::sleep(Duration::from_secs(2));
-                                    continue;
-                                }
+        // Verify token accounts
+        let verify_token_account = |name: &str, pubkey: &Pubkey| -> Result<(), CrankerError> {
+            match self.rpc_client.get_account(pubkey) {
+                Ok(account) => {
+                    if account.owner == spl_token::id() {
+                        match TokenAccount::unpack(&account.data) {
+                            Ok(token_account) => {
+                                info!(
+                                    "Token Account {} ({}):\n  Owner: {}\n  Mint: {}\n  Amount: {}",
+                                    name,
+                                    pubkey,
+                                    token_account.owner,
+                                    token_account.mint,
+                                    token_account.amount
+                                );
+                                Ok(())
+                            }
+                            Err(e) => {
+                                error!("Failed to unpack token account {}: {}", name, e);
+                                Err(CrankerError::TokenError(format!(
+                                    "Invalid token account data: {}", 
+                                    e
+                                )))
                             }
                         }
-
-                        if SystemTime::now().duration_since(start).unwrap() >= timeout {
-                            error!("ATA creation timed out after {} seconds", timeout.as_secs());
-                            return Err(
-                                CrankerError::TimeoutError("ATA creation timed out".to_string())
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        error!("Failed to send ATA creation transaction: {}", e);
-                        return Err(CrankerError::RpcError(e));
+                    } else {
+                        error!("Account {} is not owned by Token program", name);
+                        Err(CrankerError::TokenError(format!(
+                            "Invalid token account owner: {}", 
+                            account.owner
+                        )))
                     }
                 }
+                Err(e) => {
+                    error!("Failed to fetch token account {}: {}", name, e);
+                    Err(CrankerError::RpcError(e))
+                }
             }
-        }
+        };
 
-        info!("Creating claim instruction");
+        // Verify token accounts
+        verify_token_account("Vault", &stake_pool_deposit_authority.vault)?;
+        verify_token_account("Owner ATA", &owner_ata)?;
+        verify_token_account("Fee Wallet", &stake_pool_deposit_authority.fee_wallet)?;
+
+        // Now proceed with claim
+        info!("Creating claim instruction after verification");
         let claim_ix = create_claim_pool_tokens_instruction(
             &self.program_id,
             &receipt.base,
@@ -394,10 +361,7 @@ impl InterceptorCranker {
             true
         );
 
-        info!("Getting blockhash for claim transaction");
         let recent_blockhash = self.rpc_client.get_latest_blockhash()?;
-
-        info!("Creating and signing claim transaction");
         let claim_tx = Transaction::new_signed_with_payer(
             &[claim_ix],
             Some(&self.payer.pubkey()),
@@ -405,7 +369,6 @@ impl InterceptorCranker {
             recent_blockhash
         );
 
-        info!("Sending claim transaction");
         match self.rpc_client.send_and_confirm_transaction(&claim_tx) {
             Ok(sig) => {
                 info!(
@@ -421,37 +384,37 @@ impl InterceptorCranker {
             }
         }
     }
-    
-    async fn get_stake_pool_deposit_authority(
-        &self,
-        pubkey: &Pubkey
-    ) -> Result<StakePoolDepositStakeAuthority, CrankerError> {
-        let account = self.rpc_client.get_account(pubkey).map_err(CrankerError::RpcError)?;
 
-        // Skip 8-byte discriminator
-        if account.data.len() < 8 + std::mem::size_of::<StakePoolDepositStakeAuthority>() {
-            return Err(
-                CrankerError::DeserializeError(
-                    format!(
-                        "Account data too short: {}, expected: {}",
-                        account.data.len(),
-                        8 + std::mem::size_of::<StakePoolDepositStakeAuthority>()
-                    )
+async fn get_stake_pool_deposit_authority(
+    &self,
+    pubkey: &Pubkey
+) -> Result<StakePoolDepositStakeAuthority, CrankerError> {
+    let account = self.rpc_client.get_account(pubkey).map_err(CrankerError::RpcError)?;
+
+    // Skip 8-byte discriminator
+    if account.data.len() < 8 + std::mem::size_of::<StakePoolDepositStakeAuthority>() {
+        return Err(
+            CrankerError::DeserializeError(
+                format!(
+                    "Account data too short: {}, expected: {}",
+                    account.data.len(),
+                    8 + std::mem::size_of::<StakePoolDepositStakeAuthority>()
                 )
-            );
-        }
-
-        info!(
-            "Deserializing StakePoolDepositStakeAuthority - data length: {}, expected size: {}",
-            account.data.len(),
-            std::mem::size_of::<StakePoolDepositStakeAuthority>()
+            )
         );
-
-        bytemuck
-            ::try_from_bytes::<StakePoolDepositStakeAuthority>(&account.data[8..])
-            .map(|auth| *auth)
-            .map_err(|e| CrankerError::DeserializeError(e.to_string()))
     }
+
+    info!(
+        "Deserializing StakePoolDepositStakeAuthority - data length: {}, expected size: {}",
+        account.data.len(),
+        std::mem::size_of::<StakePoolDepositStakeAuthority>()
+    );
+
+    bytemuck
+        ::try_from_bytes::<StakePoolDepositStakeAuthority>(&account.data[8..])
+        .map(|auth| *auth)
+        .map_err(|e| CrankerError::DeserializeError(e.to_string()))
+}
 }
 
 #[derive(Default)]
@@ -476,4 +439,6 @@ pub enum CrankerError {
     #[error("Deserialize error: {0}")] DeserializeError(String),
 
     #[error("Timeout error: {0}")] TimeoutError(String),
+
+    #[error("Token error: {0}")] TokenError(String),
 }

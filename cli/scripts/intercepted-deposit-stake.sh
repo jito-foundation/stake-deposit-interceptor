@@ -16,12 +16,13 @@ stake_account_keypair="./keys/stake-account.json"
 # First update the pool
 echo "Updating stake pool..."
 spl-stake-pool update $stake_pool --no-merge
-sleep 2
+sleep 20
 spl-stake-pool update $stake_pool
 
 # Request airdrop
 echo "Requesting airdrop of $amount SOL"
 solana airdrop $amount
+sleep 5
 
 # Create stake account
 echo "Generating a new keypair"
@@ -39,7 +40,7 @@ solana delegate-stake --force $stake_account_keypair $vote_account
 # Update pool again after delegation
 echo "Updating stake pool after delegation..."
 spl-stake-pool update $stake_pool --no-merge
-sleep 2
+sleep 20
 spl-stake-pool update $stake_pool
 
 echo "Depositing stake via Interceptor"
