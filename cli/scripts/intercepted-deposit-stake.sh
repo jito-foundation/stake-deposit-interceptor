@@ -5,11 +5,12 @@ set -e
 # $1 - Path to staker keypair (withdraw authority)
 # $2 - Stake deposit authority
 # $3 - Amount to deposit
+# $4 - Stake pool
 
 staker_keypair=$1
 stake_deposit_authority=$2
 amount=$3
-stake_pool="HYV3n5Qj3ycbZxJdDPgRp8ok8peVAychHw6jGqHRpqrF"
+stake_pool=$4
 stake_account_keypair="./keys/stake-account.json"
 
 # First update the pool
