@@ -353,7 +353,7 @@ impl InterceptorCranker {
             &self.rpc_client,
             &stake_pool_deposit_authority.fee_wallet
         ).map_err(|e| {
-            error!("Failed to fetch account Fee Wallet: {}", e);
+            // error!("Failed to fetch account Fee Wallet: {}", e);
             e
         });
 
