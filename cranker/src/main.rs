@@ -8,7 +8,6 @@ use ::{
     std::{ str::FromStr, time::Duration, sync::Arc },
     dotenv::dotenv,
     tracing::{ info, Level },
-    tracing_subscriber::fmt, // Changed import
 };
 
 fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {

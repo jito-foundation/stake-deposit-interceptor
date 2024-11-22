@@ -4,14 +4,12 @@ use ::{
         signature::Keypair,
         signer::Signer,
         transaction::Transaction,
-        compute_budget::ComputeBudgetInstruction,
-        commitment_config::{ CommitmentConfig, CommitmentLevel },
+        commitment_config::CommitmentConfig,
     },
     solana_client::{
-        rpc_client::RpcClient,
-        rpc_config::{ RpcAccountInfoConfig, RpcProgramAccountsConfig, RpcSendTransactionConfig },
+        nonblocking::rpc_client::RpcClient,
+        rpc_config::{ RpcAccountInfoConfig, RpcProgramAccountsConfig }, // Added explicit imports
         rpc_filter::{ Memcmp, RpcFilterType },
-        nonce_utils::get_account,
     },
     std::{ sync::Arc, time::{ Duration, SystemTime, UNIX_EPOCH } },
     tokio::time,
@@ -24,13 +22,12 @@ use ::{
         },
         instruction::create_claim_pool_tokens_instruction,
     },
-    spl_associated_token_account::get_associated_token_address,
-    std::thread,
-    solana_program::program_pack::Pack,
-    spl_token::state::Account as TokenAccount,
+    spl_associated_token_account::{
+        get_associated_token_address,
+        instruction::create_associated_token_account,
+    },
+    jito_bytemuck::AccountDeserialize,
 };
-
-use spl_associated_token_account::instruction::create_associated_token_account;
 
 #[derive(Clone)]
 pub struct CrankerConfig {
@@ -93,23 +90,16 @@ impl InterceptorCranker {
 
         for receipt in receipts {
             // Get raw bytes using bytemuck and interpret as little-endian
-            let deposit_time_bytes = bytemuck::bytes_of(&receipt.deposit_time);
-            let deposit_time = u64::from_le_bytes(deposit_time_bytes.try_into().unwrap());
-
-            let cool_down_bytes = bytemuck::bytes_of(&receipt.cool_down_seconds);
-            let cool_down = u64::from_le_bytes(cool_down_bytes.try_into().unwrap());
+            let deposit_time = u64::from(receipt.deposit_time);
+            let cool_down = u64::from(receipt.cool_down_seconds);
 
             info!(
                 "Receipt {} raw bytes:\n\
-                 deposit_time: {:?}\n\
-                 cool_down: {:?}\n\
                  Interpreted values:\n\
                  deposit_time: {}\n\
                  cool_down: {}\n\
                  current_time: {}",
                 receipt.base,
-                deposit_time_bytes,
-                cool_down_bytes,
                 deposit_time,
                 cool_down,
                 now
@@ -177,25 +167,18 @@ impl InterceptorCranker {
         let discriminator = StakeDepositInterceptorDiscriminators::DepositReceipt as u8;
         info!("Searching for deposit receipts");
 
-        let filters = vec![
-            RpcFilterType::Memcmp(
-                Memcmp::new_base58_encoded(
-                    0, // offset
-                    &[discriminator] // data to match
-                )
-            )
-        ];
-
         let accounts = self.rpc_client
             .get_program_accounts_with_config(&self.program_id, RpcProgramAccountsConfig {
-                filters: Some(filters),
+                filters: Some(
+                    vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(0, &[discriminator]))]
+                ),
                 account_config: RpcAccountInfoConfig {
                     encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
                     commitment: Some(CommitmentConfig::confirmed()),
                     ..Default::default()
                 },
                 ..Default::default()
-            })
+            }).await
             .map_err(CrankerError::RpcError)?;
 
         info!("Found {} raw accounts", accounts.len());
@@ -204,38 +187,15 @@ impl InterceptorCranker {
             accounts
                 .into_iter()
                 .filter_map(|(pubkey, account)| {
-                    // Skip the 8-byte discriminator
-                    let data = &account.data[8..];
-
-                    // Ensure we have enough data
-                    if data.len() < std::mem::size_of::<DepositReceipt>() {
-                        error!(
-                            "Account {} data too short: {}, expected: {}",
-                            pubkey,
-                            data.len(),
-                            std::mem::size_of::<DepositReceipt>()
-                        );
-                        return None;
-                    }
-
-                    // Take only the bytes we need for DepositReceipt
-                    let receipt_data = &data[..std::mem::size_of::<DepositReceipt>()];
-
-                    match bytemuck::try_from_bytes::<DepositReceipt>(receipt_data) {
+                    match DepositReceipt::try_from_slice_unchecked(account.data.as_slice()) {
                         Ok(receipt) => {
-                            info!("Successfully deserialized receipt for {}", pubkey);
-                            let mut receipt = *receipt;
+                            // removed mut as it's not needed
+                            let mut receipt = receipt.clone(); // clone first, then modify
                             receipt.base = pubkey;
                             Some(receipt)
                         }
                         Err(e) => {
-                            error!(
-                                "Failed to deserialize receipt for {}: {}. Data length: {}, Expected: {}",
-                                pubkey,
-                                e,
-                                receipt_data.len(),
-                                std::mem::size_of::<DepositReceipt>()
-                            );
+                            error!("Failed to deserialize receipt for {}: {}", pubkey, e);
                             None
                         }
                     }
@@ -247,7 +207,6 @@ impl InterceptorCranker {
     async fn claim_pool_tokens(&self, receipt: &DepositReceipt) -> Result<(), CrankerError> {
         info!("Starting detailed claim debug for receipt {}", receipt.base);
 
-        // Ensure this method exists or replace it with the correct one
         let stake_pool_deposit_authority = self.get_stake_pool_deposit_authority(
             &receipt.stake_pool_deposit_stake_authority
         ).await?;
@@ -257,23 +216,13 @@ impl InterceptorCranker {
             &stake_pool_deposit_authority.pool_mint
         );
 
-        // After you fetch the fee wallet
-        let fee_wallet = get_account(
-            &self.rpc_client,
-            &stake_pool_deposit_authority.fee_wallet
-        ).map_err(|e| {
-            // error!("Failed to fetch account Fee Wallet: {}", e);
-            e
-        });
-
-        // Before creating the claim instruction
         let fee_wallet_token_account = get_associated_token_address(
             &stake_pool_deposit_authority.fee_wallet,
             &stake_pool_deposit_authority.pool_mint
         );
 
-        // Check if account exists, if not create it
-        match self.rpc_client.get_account(&fee_wallet_token_account) {
+        // Check if account exists
+        match self.rpc_client.get_account(&fee_wallet_token_account).await {
             Ok(_) => {
                 info!("Fee wallet token account exists: {}", fee_wallet_token_account);
             }
@@ -286,7 +235,7 @@ impl InterceptorCranker {
                     &spl_token::id()
                 );
 
-                let recent_blockhash = self.rpc_client.get_latest_blockhash()?;
+                let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
                 let create_ata_tx = Transaction::new_signed_with_payer(
                     &[create_ata_ix],
                     Some(&self.payer.pubkey()),
@@ -294,13 +243,10 @@ impl InterceptorCranker {
                     recent_blockhash
                 );
 
-                self.rpc_client.send_and_confirm_transaction(&create_ata_tx)?;
+                self.rpc_client.send_and_confirm_transaction(&create_ata_tx).await?;
                 info!("Created fee wallet token account");
             }
         }
-
-        // Now proceed with claim
-        info!("Creating claim instruction after verification");       
 
         let claim_ix = create_claim_pool_tokens_instruction(
             &self.program_id,
@@ -308,14 +254,14 @@ impl InterceptorCranker {
             &receipt.owner,
             &stake_pool_deposit_authority.vault,
             &owner_ata,
-            &fee_wallet_token_account, // Changed from stake_pool_deposit_authority.fee_wallet
+            &fee_wallet_token_account,
             &receipt.stake_pool_deposit_stake_authority,
             &stake_pool_deposit_authority.pool_mint,
             &spl_token::id(),
             true
         );
 
-        let recent_blockhash = self.rpc_client.get_latest_blockhash()?;
+        let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
         let claim_tx = Transaction::new_signed_with_payer(
             &[claim_ix],
             Some(&self.payer.pubkey()),
@@ -323,7 +269,7 @@ impl InterceptorCranker {
             recent_blockhash
         );
 
-        match self.rpc_client.send_and_confirm_transaction(&claim_tx) {
+        match self.rpc_client.send_and_confirm_transaction(&claim_tx).await {
             Ok(sig) => {
                 info!(
                     "Successfully claimed pool tokens for receipt {}. Transaction signature: {}",
@@ -343,24 +289,10 @@ impl InterceptorCranker {
         &self,
         pubkey: &Pubkey
     ) -> Result<StakePoolDepositStakeAuthority, CrankerError> {
-        let account = self.rpc_client.get_account(pubkey).map_err(CrankerError::RpcError)?;
+        let account = self.rpc_client.get_account(pubkey).await.map_err(CrankerError::RpcError)?;
 
-        // Skip 8-byte discriminator
-        if account.data.len() < 8 + std::mem::size_of::<StakePoolDepositStakeAuthority>() {
-            return Err(
-                CrankerError::DeserializeError(
-                    format!(
-                        "Account data too short: {}, expected: {}",
-                        account.data.len(),
-                        8 + std::mem::size_of::<StakePoolDepositStakeAuthority>()
-                    )
-                )
-            );
-        }
-
-        bytemuck
-            ::try_from_bytes::<StakePoolDepositStakeAuthority>(&account.data[8..])
-            .map(|auth| *auth)
+        StakePoolDepositStakeAuthority::try_from_slice_unchecked(account.data.as_slice())
+            .map(|auth| auth.clone())
             .map_err(|e| CrankerError::DeserializeError(e.to_string()))
     }
 }
