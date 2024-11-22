@@ -207,7 +207,6 @@ impl InterceptorCranker {
                                 ).0
                             );
 
-                            // For now, let's accept all receipts and set the base
                             let receipt = receipt.clone();
                             Some(receipt)
                         }
@@ -267,9 +266,9 @@ impl InterceptorCranker {
 
         // Derive the correct PDA
         let (derived_receipt_address, _) = derive_stake_deposit_receipt(
+            &self.program_id,
             &receipt.stake_pool,
-            &receipt.base,
-            &self.program_id
+            &receipt.base
         );
 
         let claim_ix = create_claim_pool_tokens_instruction(
