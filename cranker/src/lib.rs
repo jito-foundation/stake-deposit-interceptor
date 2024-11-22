@@ -208,8 +208,7 @@ impl InterceptorCranker {
                             );
 
                             // For now, let's accept all receipts and set the base
-                            let mut receipt = receipt.clone();
-                            receipt.base = pubkey;
+                            let receipt = receipt.clone();
                             Some(receipt)
                         }
                         Err(e) => {
@@ -266,9 +265,16 @@ impl InterceptorCranker {
             }
         }
 
+        // Derive the correct PDA
+        let (derived_receipt_address, _) = derive_stake_deposit_receipt(
+            &receipt.stake_pool,
+            &receipt.base,
+            &self.program_id
+        );
+
         let claim_ix = create_claim_pool_tokens_instruction(
             &self.program_id,
-            &receipt.base,
+            &derived_receipt_address,  // Use the derived address here instead of receipt.base
             &receipt.owner,
             &stake_pool_deposit_authority.vault,
             &owner_ata,

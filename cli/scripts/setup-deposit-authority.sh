@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+echo "Building spl-stake-pool-interceptor..."
+cargo build
+
 solana-keygen new -o ./keys/fee-wallet.json  
 
 STAKE_POOL_KEYPAIR_PATH="./keys/stake-pool.json"
@@ -60,7 +63,7 @@ echo "Creating stake deposit authority..."
 STAKE_DEPOSIT_AUTHORITY=$(../target/debug/spl-stake-pool-interceptor interceptor create-stake-deposit-authority \
     --pool $STAKE_POOL \
     --fee-wallet $FEE_WALLET_TOKEN_ACCOUNT \
-    --authority "$AUTHORITY_KEYPAIR_PATH" \
+    --authority $AUTHORITY \
     --cool-down-seconds 10 \
     --initial-fee-bps 100 | tail -1)
 
