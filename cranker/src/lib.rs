@@ -21,12 +21,14 @@ use ::{
             StakeDepositInterceptorDiscriminators,
         },
         instruction::create_claim_pool_tokens_instruction,
+        instruction::derive_stake_deposit_receipt,
     },
     spl_associated_token_account::{
         get_associated_token_address,
         instruction::create_associated_token_account,
     },
     jito_bytemuck::AccountDeserialize,
+    solana_account_decoder::UiAccountEncoding,
 };
 
 #[derive(Clone)]
@@ -173,7 +175,7 @@ impl InterceptorCranker {
                     vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(0, &[discriminator]))]
                 ),
                 account_config: RpcAccountInfoConfig {
-                    encoding: Some(solana_account_decoder::UiAccountEncoding::Base64),
+                    encoding: Some(UiAccountEncoding::Base64),
                     commitment: Some(CommitmentConfig::confirmed()),
                     ..Default::default()
                 },
@@ -189,8 +191,24 @@ impl InterceptorCranker {
                 .filter_map(|(pubkey, account)| {
                     match DepositReceipt::try_from_slice_unchecked(account.data.as_slice()) {
                         Ok(receipt) => {
-                            // removed mut as it's not needed
-                            let mut receipt = receipt.clone(); // clone first, then modify
+                            info!(
+                                "Found receipt:\n\
+                                 Account pubkey: {}\n\
+                                 Receipt base: {}\n\
+                                 Receipt stake pool: {}\n\
+                                 Derived PDA: {}",
+                                pubkey,
+                                receipt.base,
+                                receipt.stake_pool,
+                                derive_stake_deposit_receipt(
+                                    &receipt.stake_pool,
+                                    &pubkey,
+                                    &self.program_id
+                                ).0
+                            );
+
+                            // For now, let's accept all receipts and set the base
+                            let mut receipt = receipt.clone();
                             receipt.base = pubkey;
                             Some(receipt)
                         }

@@ -4,8 +4,8 @@ set -e
 solana-keygen new -o ./keys/fee-wallet.json  
 
 STAKE_POOL_KEYPAIR_PATH="./keys/stake-pool.json"
-FEE_WALLET_KEYPAIR_PATH="./keys/fee-wallet.json"  # Add this keypair file
-AUTHORITY_KEYPAIR=$(solana config get | grep "Keypair Path" | awk '{print $3}')
+FEE_WALLET_KEYPAIR_PATH="./keys/fee-wallet.json"
+AUTHORITY_KEYPAIR_PATH=$(solana config get | grep "Keypair Path" | awk '{print $3}')
 
 # Verify keypair files exist
 if [ ! -f "$STAKE_POOL_KEYPAIR_PATH" ]; then
@@ -21,7 +21,7 @@ fi
 # Get public keys
 STAKE_POOL=$(solana-keygen pubkey "$STAKE_POOL_KEYPAIR_PATH")
 FEE_WALLET=$(solana-keygen pubkey "$FEE_WALLET_KEYPAIR_PATH")
-AUTHORITY=$(solana-keygen pubkey "$AUTHORITY_KEYPAIR")
+AUTHORITY=$(solana-keygen pubkey "$AUTHORITY_KEYPAIR_PATH")
 
 echo "STAKE_POOL: $STAKE_POOL"
 echo "FEE_WALLET: $FEE_WALLET"
@@ -29,7 +29,7 @@ echo "AUTHORITY: $AUTHORITY"
 
 # Fund fee wallet if needed
 echo "Funding fee wallet..."
-solana transfer --keypair $AUTHORITY_KEYPAIR $FEE_WALLET 1 --allow-unfunded-recipient
+solana transfer --keypair "$AUTHORITY_KEYPAIR_PATH" $FEE_WALLET 1 --allow-unfunded-recipient
 sleep 5
 
 # Get pool token mint
@@ -41,7 +41,7 @@ echo "Pool Token Mint: $POOL_TOKEN_MINT"
 echo "Creating token account for fee wallet..."
 FEE_WALLET_TOKEN_ACCOUNT=$(spl-token create-account $POOL_TOKEN_MINT \
     --owner $FEE_WALLET \
-    --fee-payer $AUTHORITY_KEYPAIR \
+    --fee-payer "$AUTHORITY_KEYPAIR_PATH" \
     | grep "Creating account" | awk '{print $3}' || echo "Account already exists")
 
 if [[ "$FEE_WALLET_TOKEN_ACCOUNT" == "Account already exists" ]]; then
@@ -60,7 +60,7 @@ echo "Creating stake deposit authority..."
 STAKE_DEPOSIT_AUTHORITY=$(../target/debug/spl-stake-pool-interceptor interceptor create-stake-deposit-authority \
     --pool $STAKE_POOL \
     --fee-wallet $FEE_WALLET_TOKEN_ACCOUNT \
-    --authority $AUTHORITY \
+    --authority "$AUTHORITY_KEYPAIR_PATH" \
     --cool-down-seconds 10 \
     --initial-fee-bps 100 | tail -1)
 
@@ -68,7 +68,10 @@ echo "STAKE_DEPOSIT_AUTHORITY: $STAKE_DEPOSIT_AUTHORITY"
 
 # Update stake pool's funding authority
 echo "Updating stake pool's stake_deposit_authority..."
-spl-stake-pool set-funding-authority $STAKE_POOL stake-deposit $STAKE_DEPOSIT_AUTHORITY
+spl-stake-pool set-funding-authority $STAKE_POOL \
+    stake-deposit \
+    $STAKE_DEPOSIT_AUTHORITY \
+    --funding-authority "$AUTHORITY_KEYPAIR_PATH"
 
 if [ $? -ne 0 ]; then
     echo "Error: Failed to update stake_deposit_authority."
