@@ -463,9 +463,11 @@ impl Processor {
             let deposit_receipt =
                 DepositReceipt::try_from_slice_unchecked(&deposit_receipt_data).unwrap();
 
-            let cool_down_end_time = u64::from(deposit_receipt.deposit_time)
+            let cool_down_end_time: i64 = u64::from(deposit_receipt.deposit_time)
                 .checked_add(deposit_receipt.cool_down_seconds.into())
-                .expect("overflow") as i64;
+                .expect("overflow")
+                .try_into()
+                .expect("overflow");
 
             // Validate: Owner must be signer during cool down to prevent unintended fee payment
             if cool_down_end_time > clock.unix_timestamp && !owner_info.is_signer {
