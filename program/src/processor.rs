@@ -227,6 +227,10 @@ impl Processor {
             deposit_stake_authority.cool_down_seconds = cool_down_seconds.into();
         }
         if let Some(initial_fee_bps) = update_deposit_stake_authority_args.initial_fee_bps {
+            // Validate: `initial_fee_bps` cannot exceed 100%
+            if initial_fee_bps.gt(&DepositReceipt::FEE_BPS_DENOMINATOR) {
+                return Err(StakeDepositInterceptorError::InitialFeeRateMaxExceeded.into());
+            }
             deposit_stake_authority.inital_fee_bps = initial_fee_bps.into();
         }
         if let Some(fee_wallet) = update_deposit_stake_authority_args.fee_wallet {
@@ -273,6 +277,11 @@ impl Processor {
         // Validate: DepositReceipt should be owned by system program and not initialized
         check_system_account(deposit_receipt_info, true)?;
 
+        // Validate: base signed the TX
+        if !base_info.is_signer {
+            return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
         // NOTE: we assume that stake-pool program makes all of the assertions that the SPL stake-pool program does.
 
         let deposit_stake_authority_data = deposit_stake_authority_info.try_borrow_data()?;
@@ -289,6 +298,16 @@ impl Processor {
         // Validate Vault token account to receive pool tokens is coorect.
         if pool_tokens_vault_info.key != &deposit_stake_authority.vault {
             return Err(StakeDepositInterceptorError::InvalidVault.into());
+        }
+
+        // Validate: stake-pool program must match the program used to set up the authority
+        if &deposit_stake_authority.stake_pool_program_id != stake_pool_program_info.key {
+            return Err(StakeDepositInterceptorError::InvalidStakePoolProgram.into());
+        }
+
+        // Validate: StakePool must match the `StakePoolDepositStakeAuthority` StakePool
+        if &deposit_stake_authority.stake_pool != stake_pool_info.key {
+            return Err(StakeDepositInterceptorError::InvalidStakePool.into());
         }
 
         let vault_token_account_before = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
