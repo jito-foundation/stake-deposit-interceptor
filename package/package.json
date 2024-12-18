@@ -1,9 +1,21 @@
 {
   "name": "stake-deposit-interceptor-sdk",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "module": "dist/index.es.js",
+  "types": "dist/index.d.ts",
   "license": "MIT",
-  "devDependencies": {},
+  "scripts": {
+    "build": "tsc",
+    "build:package": "yarn clean && rollup -c",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "rollup -c"
+  },
+  "devDependencies": {
+    "rollup": "^4.28.1",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "typescript": "^5.7.2"
+  },
   "dependencies": {
     "@metaplex-foundation/beet": "^0.7.2",
     "@metaplex-foundation/beet-solana": "^0.4.1",
