@@ -1,0 +1,45 @@
+name: Publish package
+
+on:
+  push:
+    tags: ['v[0-9].[0-9]+.[0-9]+']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      # Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Setup Node
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      # Extract version from the tag
+      - name: Extract version
+        id: extract-version
+        run: |
+          VERSION=$(echo "$GITHUB_REF" | sed 's/refs\/tags\/v//')
+          echo "version=$VERSION" >> $GITHUB_ENV
+
+      # Update package.json with the new version
+      - name: Update package.json version
+        working-directory: ./package
+        run: |
+          yarn version --new-version "$VERSION" --no-git-tag-version
+
+      # Install dependencies
+      - name: Install dependencies
+        working-directory: ./package
+        run: yarn
+
+      # Publish to npm
+      - name: Publish package
+        working-directory: ./package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: yarn publish

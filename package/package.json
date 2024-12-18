@@ -5,6 +5,7 @@
   "module": "dist/index.es.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
+  "private": false,
   "scripts": {
     "build": "tsc",
     "build:package": "yarn clean && rollup -c",
