@@ -23,12 +23,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'yarn'
           
-      - name: Install and Build
+      - name: Install and Prepare
         working-directory: ./package
         run: |
           yarn install --frozen-lockfile
           yarn clean
-          yarn build
+          yarn prepare
           
       - name: Publish to NPM
         working-directory: ./package

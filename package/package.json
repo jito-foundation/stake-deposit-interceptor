@@ -2,24 +2,17 @@
   "name": "@jito-foundation/stake-deposit-interceptor-sdk",
   "version": "1.0.0",
   "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "files": [
     "dist",
     "src"
   ],
   "license": "MIT",
   "scripts": {
-    "build": "tsc",
-    "prepare": "yarn build",
-    "prepublishOnly": "yarn build",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist && mkdir dist",
+    "prepare": "yarn clean && cp -r src/* dist/"
   },
   "publishConfig": {
     "access": "public"
-  },
-  "devDependencies": {
-    "typescript": "^4.9.0",
-    "@types/node": "^18.0.0"
   },
   "dependencies": {
     "@metaplex-foundation/beet": "^0.7.2",
