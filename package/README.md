@@ -8,30 +8,38 @@ More information available in the [Jito governance forum](https://forum.jito.net
 
 ```bash
 npm install @jito-foundation/stake-deposit-interceptor-sdk
-# or
-yarn add @jito-foundation/stake-deposit-interceptor-sdk
 ```
 
-## Key Features
+## Core Functionality
 
-- 🛡️ **Time-Decaying Fees**: Implements fees that linearly decay to zero over a configurable period
-- 🔐 **Stake Pool Integration**: Acts as stake deposit authority for SPL stake pools
-- 🎫 **Deposit Management**: Handles stake deposits with receipt tracking
-- 🤖 **Automated Claims**: Permissionless cranking system for fee-free claims after cooldown
-- 📝 **Type Safety**: Fully typed TypeScript SDK
+The SDK provides functionality to interact with the stake deposit interceptor program:
 
-## Important Concepts
+### Deposit Stake
+```typescript
+import { depositStake } from '@jito-foundation/stake-deposit-interceptor-sdk';
 
-### Deposit Flow
-1. User deposits stake using `depositStake()` or `depositStakeWithSlippage()`
-2. Stake begins earning rewards immediately
-3. LST tokens are minted and held by the program
-4. User can either:
-   - Claim LST early with a fee
-   - Wait for cooldown and claim fee-free (can be automated by cranker)
+const { instructions, signers } = await depositStake(
+  connection,
+  payer,
+  stakePoolAddress,
+  authorizedPubkey,
+  validatorVote,
+  depositStake,
+  poolTokenReceiverAccount // optional
+);
+```
 
-### Slippage Protection
-`depositStakeWithSlippage()` allows setting a minimum LST output to protect against unfavorable rate changes during transaction processing.
+Note: When depositing stake, the LST tokens are not immediately sent to the token account. Instead:
+1. The tokens are minted and held by the program in its vault
+2. A deposit receipt is created with `authorizedPubkey` as the owner
+3. The owner can later claim the LST tokens:
+   - During cooldown period: Pay a time-decaying fee
+   - After cooldown period: Claim without fees (can be done by anyone)
+
+### Generated Instructions
+The SDK also includes generated instruction builders for:
+- `createDepositStakeWithSlippageInstruction`: Deposit with minimum LST output protection
+- `createClaimPoolTokensInstruction`: Claim LST tokens (with fees during cooldown)
 
 ## Program Accounts
 
@@ -68,26 +76,19 @@ interface DepositReceipt {
 }
 ```
 
-## Instructions
+## How It Works
 
-### Stake Operations
-- `depositStake()`: Deposit stake into the pool, creating a deposit receipt
-- `depositStakeWithSlippage()`: Deposit stake with added slippage protection
-- `claimPoolTokens()`: Claim LST tokens (with fees if before cooldown)
-
-### Authority Management
-- `initStakePoolDepositStakeAuthority()`: Initialize the deposit authority for a stake pool
-- `updateStakePoolDepositStakeAuthority()`: Update authority parameters
-
-### Receipt Management
-- `updateOwner()`: Transfer deposit receipt ownership to a new address
+1. When a user deposits stake, the program acts as the stake pool's deposit authority
+2. LST tokens are minted but held by the program in its vault
+3. Users can:
+   - Claim LST early by paying a time-decaying fee
+   - Wait for the cooldown period to claim without fees
+4. After cooldown, claims can be processed by anyone (permissionless cranking)
 
 ## License
 
 MIT
 
-## Support
+## More Information
 
-For more information and support:
-- Governance Forum: [Jito Forum](https://forum.jito.network/t/jip-9-adopt-interceptor-liquidity-defense/444)
-- Issues: [GitHub Repository Issues]
+For more details about the program and its mechanics, see the [Jito governance forum](https://forum.jito.network/t/jip-9-adopt-interceptor-liquidity-defense/444).
