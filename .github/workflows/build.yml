@@ -1,0 +1,38 @@
+name: Build
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  verified_build:
+    name: verified_build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: "1.75.0"
+      - name: Install solana-verify from crates.io
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: solana-verify
+          version: "0.4.0"
+      - name: install solana toolsuite
+        run: sh -c "$(curl -sSfL https://release.solana.com/v1.18.26/install)"
+      - name: add to path
+        run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+      - run: solana-verify build --library-name stake_deposit_interceptor
+      - name: Upload program artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: program.so
+          path: target/deploy/*.so
+
