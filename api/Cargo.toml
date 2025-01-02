@@ -21,7 +21,7 @@ solana-rpc-client-api = { workspace = true }
 solana-sdk = { workspace = true }
 spl-stake-pool = { workspace = true }
 spl-token = { workspace = true }
-stake-deposit-interceptor = { path = "../program", features = ["no-entrypoint"] }
+stake-deposit-interceptor = { path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }
 thiserror = "1.0.37"
 tokio = { version = "1.41.1", features = ["full"] }
 tracing = "0.1.40"
