@@ -24,7 +24,7 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
           crate: solana-verify
-          version: "0.3.1"
+          version: "0.2.11"
       - name: install solana toolsuite
         run: sh -c "$(curl -sSfL https://release.solana.com/v1.18.11/install)"
       - name: add to path
