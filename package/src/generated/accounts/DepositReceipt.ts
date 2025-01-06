@@ -8,6 +8,7 @@
 import * as web3 from '@solana/web3.js'
 import * as beet from '@metaplex-foundation/beet'
 import * as beetSolana from '@metaplex-foundation/beet-solana'
+import * as customSerializer from '../../custom/deposit-receipt-serializer'
 
 /**
  * Arguments used to create {@link DepositReceipt}
@@ -116,7 +117,7 @@ export class DepositReceipt implements DepositReceiptArgs {
    * @returns a tuple of the account data and the offset up to which the buffer was read to obtain it.
    */
   static deserialize(buf: Buffer, offset = 0): [DepositReceipt, number] {
-    return depositReceiptBeet.deserialize(buf, offset)
+    return resolvedDeserialize(buf, offset)
   }
 
   /**
@@ -124,7 +125,7 @@ export class DepositReceipt implements DepositReceiptArgs {
    * @returns a tuple of the created Buffer and the offset up to which the buffer was written to store it.
    */
   serialize(): [Buffer, number] {
-    return depositReceiptBeet.serialize(this)
+    return resolvedSerialize(this)
   }
 
   /**
@@ -203,3 +204,17 @@ export const depositReceiptBeet = new beet.BeetStruct<
   DepositReceipt.fromArgs,
   'DepositReceipt'
 )
+
+const serializer = customSerializer as unknown as {
+  serialize: typeof depositReceiptBeet.serialize
+  deserialize: typeof depositReceiptBeet.deserialize
+}
+
+const resolvedSerialize =
+  typeof serializer.serialize === 'function'
+    ? serializer.serialize.bind(serializer)
+    : depositReceiptBeet.serialize.bind(depositReceiptBeet)
+const resolvedDeserialize =
+  typeof serializer.deserialize === 'function'
+    ? serializer.deserialize.bind(serializer)
+    : depositReceiptBeet.deserialize.bind(depositReceiptBeet)
