@@ -8,6 +8,7 @@
 import * as web3 from '@solana/web3.js'
 import * as beet from '@metaplex-foundation/beet'
 import * as beetSolana from '@metaplex-foundation/beet-solana'
+import * as customSerializer from '../../custom/stake-pool-deposit-stake-authority-serializer'
 
 /**
  * Arguments used to create {@link StakePoolDepositStakeAuthority}
@@ -129,7 +130,7 @@ export class StakePoolDepositStakeAuthority
     buf: Buffer,
     offset = 0
   ): [StakePoolDepositStakeAuthority, number] {
-    return stakePoolDepositStakeAuthorityBeet.deserialize(buf, offset)
+    return resolvedDeserialize(buf, offset)
   }
 
   /**
@@ -137,7 +138,7 @@ export class StakePoolDepositStakeAuthority
    * @returns a tuple of the created Buffer and the offset up to which the buffer was written to store it.
    */
   serialize(): [Buffer, number] {
-    return stakePoolDepositStakeAuthorityBeet.serialize(this)
+    return resolvedSerialize(this)
   }
 
   /**
@@ -217,3 +218,21 @@ export const stakePoolDepositStakeAuthorityBeet = new beet.BeetStruct<
   StakePoolDepositStakeAuthority.fromArgs,
   'StakePoolDepositStakeAuthority'
 )
+
+const serializer = customSerializer as unknown as {
+  serialize: typeof stakePoolDepositStakeAuthorityBeet.serialize
+  deserialize: typeof stakePoolDepositStakeAuthorityBeet.deserialize
+}
+
+const resolvedSerialize =
+  typeof serializer.serialize === 'function'
+    ? serializer.serialize.bind(serializer)
+    : stakePoolDepositStakeAuthorityBeet.serialize.bind(
+        stakePoolDepositStakeAuthorityBeet
+      )
+const resolvedDeserialize =
+  typeof serializer.deserialize === 'function'
+    ? serializer.deserialize.bind(serializer)
+    : stakePoolDepositStakeAuthorityBeet.deserialize.bind(
+        stakePoolDepositStakeAuthorityBeet
+      )

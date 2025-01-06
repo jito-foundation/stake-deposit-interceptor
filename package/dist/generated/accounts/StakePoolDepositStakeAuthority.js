@@ -43,6 +43,7 @@ exports.stakePoolDepositStakeAuthorityBeet = exports.StakePoolDepositStakeAuthor
 const web3 = __importStar(require("@solana/web3.js"));
 const beet = __importStar(require("@metaplex-foundation/beet"));
 const beetSolana = __importStar(require("@metaplex-foundation/beet-solana"));
+const customSerializer = __importStar(require("../../custom/stake-pool-deposit-stake-authority-serializer"));
 /**
  * Holds the data for the {@link StakePoolDepositStakeAuthority} Account and provides de/serialization
  * functionality for that data
@@ -104,14 +105,14 @@ class StakePoolDepositStakeAuthority {
      * @returns a tuple of the account data and the offset up to which the buffer was read to obtain it.
      */
     static deserialize(buf, offset = 0) {
-        return exports.stakePoolDepositStakeAuthorityBeet.deserialize(buf, offset);
+        return resolvedDeserialize(buf, offset);
     }
     /**
      * Serializes the {@link StakePoolDepositStakeAuthority} into a Buffer.
      * @returns a tuple of the created Buffer and the offset up to which the buffer was written to store it.
      */
     serialize() {
-        return exports.stakePoolDepositStakeAuthorityBeet.serialize(this);
+        return resolvedSerialize(this);
     }
     /**
      * Returns the byteSize of a {@link Buffer} holding the serialized data of
@@ -174,3 +175,10 @@ exports.stakePoolDepositStakeAuthorityBeet = new beet.BeetStruct([
     ['bumpSeed', beet.u8],
     ['reserved', beet.uniformFixedSizeArray(beet.u8, 256)],
 ], StakePoolDepositStakeAuthority.fromArgs, 'StakePoolDepositStakeAuthority');
+const serializer = customSerializer;
+const resolvedSerialize = typeof serializer.serialize === 'function'
+    ? serializer.serialize.bind(serializer)
+    : exports.stakePoolDepositStakeAuthorityBeet.serialize.bind(exports.stakePoolDepositStakeAuthorityBeet);
+const resolvedDeserialize = typeof serializer.deserialize === 'function'
+    ? serializer.deserialize.bind(serializer)
+    : exports.stakePoolDepositStakeAuthorityBeet.deserialize.bind(exports.stakePoolDepositStakeAuthorityBeet);
