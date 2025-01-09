@@ -70,7 +70,7 @@ exports.updateStakePoolDepositStakeAuthorityInstructionDiscriminator = 1;
  * @category UpdateStakePoolDepositStakeAuthority
  * @category generated
  */
-function createUpdateStakePoolDepositStakeAuthorityInstruction(accounts, args, programId = new web3.PublicKey('5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV')) {
+function createUpdateStakePoolDepositStakeAuthorityInstruction(accounts, args, programId = new web3.PublicKey('4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1')) {
     const [data] = exports.UpdateStakePoolDepositStakeAuthorityStruct.serialize({
         instructionDiscriminator: exports.updateStakePoolDepositStakeAuthorityInstructionDiscriminator,
         ...args,

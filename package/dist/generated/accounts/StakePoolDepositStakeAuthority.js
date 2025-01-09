@@ -97,7 +97,7 @@ class StakePoolDepositStakeAuthority {
      *
      * @param programId - the program that owns the accounts we are filtering
      */
-    static gpaBuilder(programId = new web3.PublicKey('5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV')) {
+    static gpaBuilder(programId = new web3.PublicKey('4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1')) {
         return beetSolana.GpaBuilder.fromStruct(programId, exports.stakePoolDepositStakeAuthorityBeet);
     }
     /**

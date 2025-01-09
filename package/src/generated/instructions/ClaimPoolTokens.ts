@@ -55,7 +55,7 @@ export const claimPoolTokensInstructionDiscriminator = 5
  */
 export function createClaimPoolTokensInstruction(
   accounts: ClaimPoolTokensInstructionAccounts,
-  programId = new web3.PublicKey('5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV')
+  programId = new web3.PublicKey('4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1')
 ) {
   const [data] = ClaimPoolTokensStruct.serialize({
     instructionDiscriminator: claimPoolTokensInstructionDiscriminator,

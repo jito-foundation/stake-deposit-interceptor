@@ -58,7 +58,7 @@ exports.changeDepositReceiptOwnerInstructionDiscriminator = 4;
  * @category ChangeDepositReceiptOwner
  * @category generated
  */
-function createChangeDepositReceiptOwnerInstruction(accounts, programId = new web3.PublicKey('5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV')) {
+function createChangeDepositReceiptOwnerInstruction(accounts, programId = new web3.PublicKey('4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1')) {
     const [data] = exports.ChangeDepositReceiptOwnerStruct.serialize({
         instructionDiscriminator: exports.changeDepositReceiptOwnerInstructionDiscriminator,
     });

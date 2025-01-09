@@ -100,7 +100,7 @@ export const depositStakeWithSlippageInstructionDiscriminator = 3
 export function createDepositStakeWithSlippageInstruction(
   accounts: DepositStakeWithSlippageInstructionAccounts,
   args: DepositStakeWithSlippageInstructionArgs,
-  programId = new web3.PublicKey('5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV')
+  programId = new web3.PublicKey('4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1')
 ) {
   const [data] = DepositStakeWithSlippageStruct.serialize({
     instructionDiscriminator: depositStakeWithSlippageInstructionDiscriminator,

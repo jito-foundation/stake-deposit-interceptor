@@ -106,7 +106,7 @@ export class DepositReceipt implements DepositReceiptArgs {
    */
   static gpaBuilder(
     programId: web3.PublicKey = new web3.PublicKey(
-      '5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV'
+      '4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1'
     )
   ) {
     return beetSolana.GpaBuilder.fromStruct(programId, depositReceiptBeet)

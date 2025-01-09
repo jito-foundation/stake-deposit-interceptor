@@ -65,7 +65,7 @@ exports.depositStakeWithSlippageInstructionDiscriminator = 3;
  * @category DepositStakeWithSlippage
  * @category generated
  */
-function createDepositStakeWithSlippageInstruction(accounts, args, programId = new web3.PublicKey('5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV')) {
+function createDepositStakeWithSlippageInstruction(accounts, args, programId = new web3.PublicKey('4yQFAAaf4wCKF375qihmKcHJkpkgAj8RoBxvNqt2KWf1')) {
     const [data] = exports.DepositStakeWithSlippageStruct.serialize({
         instructionDiscriminator: exports.depositStakeWithSlippageInstructionDiscriminator,
         ...args,
