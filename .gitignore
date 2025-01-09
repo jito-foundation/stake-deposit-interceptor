@@ -5,3 +5,5 @@
 **/node_modules/
 **/.crates/
 cranker/.env
+.DS_Store
+**/.DS_Store

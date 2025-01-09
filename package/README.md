@@ -10,22 +10,25 @@ More information available in the [Jito governance forum](https://forum.jito.net
 npm install @jito-foundation/stake-deposit-interceptor-sdk
 ```
 
-## Core Functionality
+## Migration from @solana/spl-stake-pool
 
-The SDK provides functionality to interact with the stake deposit interceptor program:
+This SDK extends the standard SPL stake pool functionality by adding a cool-down period and fee mechanism for stake deposits.
 
-### Deposit Stake
+### Depositing Stake
+When depositing stake, instead of receiving LST tokens immediately, they are held by the interceptor program until claimed. All you need to do is swap out the spl stake pool program depositStake method for the jito interceptor version:
+
 ```typescript
 import { depositStake } from '@jito-foundation/stake-deposit-interceptor-sdk';
 
+// Returns instructions to deposit stake and create a deposit receipt
 const { instructions, signers } = await depositStake(
   connection,
-  payer,
-  stakePoolAddress,
-  authorizedPubkey,
-  validatorVote,
-  depositStake,
-  poolTokenReceiverAccount // optional
+  wallet.publicKey,  // payer for deposit receipt rent
+  stakePoolAddress,  // stake pool to deposit into
+  wallet.publicKey,  // authorized withdrawer/staker
+  validatorVote,     // validator vote account
+  stakeAccount,      // stake account to deposit
+  poolTokenReceiverAccount // optional, will create ATA if not provided
 );
 ```
 
@@ -40,6 +43,64 @@ Note: When depositing stake, the LST tokens are not immediately sent to the toke
 The SDK also includes generated instruction builders for:
 - `createDepositStakeWithSlippageInstruction`: Deposit with minimum LST output protection
 - `createClaimPoolTokensInstruction`: Claim LST tokens (with fees during cooldown)
+
+### Claiming Deposited Stake
+After the deposit, you can claim the LST tokens. A fee may apply if claiming before the cool-down period ends:
+
+```typescript
+import { 
+  createClaimPoolTokensInstruction,
+  StakePoolDepositStakeAuthority,
+  PROGRAM_ID
+} from '@jito-foundation/stake-deposit-interceptor-sdk';
+
+// Get the deposit authority account which contains fee/vault info
+const depositAuthority = await StakePoolDepositStakeAuthority.fromAccountAddress(
+  connection,
+  receipt.stakePoolDepositStakeAuthority
+);
+
+// Create claim instruction
+const claimIx = createClaimPoolTokensInstruction({
+  depositReceipt: receiptAddress,    // address of the deposit receipt
+  owner: wallet.publicKey,           // receipt owner
+  vault: depositAuthority.vault,     // vault holding LST tokens
+  destination: destinationTokenAccount, // where to send claimed tokens
+  feeWallet: feeWalletAta,          // where fees are sent if applicable
+  depositAuthority: receipt.stakePoolDepositStakeAuthority,
+  poolMint,                         // LST mint
+  tokenProgram: TOKEN_PROGRAM_ID,
+  systemProgram: SystemProgram.programId,
+});
+```
+
+### Finding Deposit Receipts
+To fetch all unclaimed deposits for a wallet:
+
+```typescript
+import { DepositReceipt, PROGRAM_ID } from '@jito-foundation/stake-deposit-interceptor-sdk';
+
+// Fetch all receipts for a wallet
+const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
+  filters: [
+    // Filter by owner (40 bytes offset: 8 bytes discriminator + 32 bytes base)
+    { memcmp: { offset: 40, bytes: walletPublicKey.toBase58() } },
+  ],
+});
+
+// Parse the receipt accounts
+const receipts = accounts.map(({ pubkey, account }) => {
+  const [receipt] = DepositReceipt.fromAccountInfo(account);
+  return {
+    address: pubkey,    // deposit receipt address
+    receipt,           // parsed receipt data including:
+                      // - lstAmount: amount of LST to claim
+                      // - depositTime: when stake was deposited
+                      // - coolDownSeconds: required wait for fee-free claim
+                      // - initialFeeBps: starting fee rate
+  };
+});
+```
 
 ## Program Accounts
 
@@ -57,6 +118,7 @@ interface StakePoolDepositStakeAuthority {
     initialFeeBps: number;
     feeWallet: PublicKey;
     bumpSeed: number;
+    reserved: number[]; // 256 bytes of reserved space
 }
 ```
 
@@ -73,6 +135,7 @@ interface DepositReceipt {
     coolDownSeconds: BN;
     initialFeeBps: number;
     bumpSeed: number;
+    reserved: number[]; // 256 bytes of reserved space
 }
 ```
 
