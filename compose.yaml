@@ -1,0 +1,4 @@
+services:
+  cranker:
+    build:
+      dockerfile: ./cranker.Dockerfile
