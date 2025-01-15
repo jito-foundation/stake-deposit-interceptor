@@ -11,7 +11,7 @@ solana-program = "2.0.14"
 solana-account-decoder = "2.0.14"
 
 # Local dependency
-stake-deposit-interceptor = { path = "../program" }
+stake-deposit-interceptor = { path = "../stake_deposit_interceptor" }
 
 # SPL dependencies - match program versions
 spl-stake-pool = { version = "2.0.0", features = ["no-entrypoint"] }
