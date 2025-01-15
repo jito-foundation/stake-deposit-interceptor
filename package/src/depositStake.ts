@@ -9,11 +9,8 @@ import {
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   TransactionInstruction,
+  AccountMeta,
 } from "@solana/web3.js";
-import {
-  getStakePoolAccount,
-  STAKE_POOL_PROGRAM_ID,
-} from "@solana/spl-stake-pool";
 import {
   createDepositStakeInstruction,
   DepositStakeInstructionAccounts,
@@ -26,6 +23,67 @@ import {
   getAssociatedTokenAddressSync,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import BN from "bn.js";
+import { struct, u8, publicKey, u64 } from '@coral-xyz/borsh';
+
+/**
+ * Copied from @solana/spl-stake-pool for compatibility reasons.
+ * Source: https://github.com/solana-labs/solana-program-library/blob/b7dd8fee/stake-pool/js/src/index.ts
+ */
+const STAKE_POOL_PROGRAM_ID = new PublicKey("SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy");
+
+/**
+ * Copied from @solana/spl-stake-pool for compatibility.
+ * We only need the account data structure, not the full package.
+ */
+type StakePoolLayout = {
+  accountType: number;
+  manager: PublicKey;
+  staker: PublicKey;
+  stakeDepositAuthority: PublicKey;
+  stakeWithdrawBumpSeed: number;
+  validatorList: PublicKey;
+  reserveStake: PublicKey;
+  poolMint: PublicKey;
+  managerFeeAccount: PublicKey;
+  tokenProgramId: PublicKey;
+  totalLamports: BN;
+  poolTokenSupply: BN;
+  lastUpdateEpoch: BN;
+};
+
+const StakePoolLayout = struct<StakePoolLayout>([
+  u8('accountType'),
+  publicKey('manager'),
+  publicKey('staker'),
+  publicKey('stakeDepositAuthority'),
+  u8('stakeWithdrawBumpSeed'),
+  publicKey('validatorList'),
+  publicKey('reserveStake'),
+  publicKey('poolMint'),
+  publicKey('managerFeeAccount'),
+  publicKey('tokenProgramId'),
+  u64('totalLamports'),
+  u64('poolTokenSupply'),
+  u64('lastUpdateEpoch'),
+]);
+
+const getStakePoolAccount = async (
+  connection: Connection,
+  stakePoolAddress: PublicKey
+) => {
+  const account = await connection.getAccountInfo(stakePoolAddress);
+  if (!account) throw new Error("Stake pool account not found");
+  
+  const data = StakePoolLayout.decode(account.data) as StakePoolLayout;
+  
+  return {
+    pubkey: stakePoolAddress,
+    account: {
+      data
+    }
+  };
+};
 
 /**
  * Creates instructions required to deposit stake to stake pool via
@@ -38,6 +96,7 @@ import {
  * @param validatorVote
  * @param depositStake
  * @param poolTokenReceiverAccount
+ * @param remainingAccounts - optional additional accounts to append to the instruction
  */
 export const depositStake = async (
   connection: Connection,
@@ -46,7 +105,8 @@ export const depositStake = async (
   authorizedPubkey: PublicKey,
   validatorVote: PublicKey,
   depositStake: PublicKey,
-  poolTokenReceiverAccount?: PublicKey
+  poolTokenReceiverAccount?: PublicKey,
+  remainingAccounts?: AccountMeta[]
 ) => {
   const stakePool = await getStakePoolAccount(connection, stakePoolAddress);
   const stakePoolDepositAuthority =
@@ -147,6 +207,12 @@ export const depositStake = async (
     depositStakeIxAccounts,
     depositStakeIxArgs
   );
+
+  // Add any remaining accounts to the instruction
+  if (remainingAccounts?.length) {
+    depositStakeIx.keys.push(...remainingAccounts);
+  }
+
   instructions.push(depositStakeIx);
 
   return {

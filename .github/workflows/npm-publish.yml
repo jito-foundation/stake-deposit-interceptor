@@ -1,11 +1,6 @@
 name: Publish Package to NPM
 
 on:
-  push:
-    branches: [ master ]
-    paths:
-      - 'package/**'
-      - '.github/workflows/npm-publish.yml'
   workflow_dispatch:
 
 jobs:

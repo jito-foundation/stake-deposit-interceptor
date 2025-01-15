@@ -113,9 +113,9 @@ export declare class DepositReceipt implements DepositReceiptArgs {
         owner: string;
         stakePool: string;
         stakePoolDepositStakeAuthority: string;
-        depositTime: any;
-        lstAmount: any;
-        coolDownSeconds: any;
+        depositTime: beet.bignum;
+        lstAmount: beet.bignum;
+        coolDownSeconds: beet.bignum;
         initialFeeBps: number;
         bumpSeed: number;
         reserved: number[];
