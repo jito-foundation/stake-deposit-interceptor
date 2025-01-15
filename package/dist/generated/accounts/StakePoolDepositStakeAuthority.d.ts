@@ -118,7 +118,7 @@ export declare class StakePoolDepositStakeAuthority implements StakePoolDepositS
         authority: string;
         vault: string;
         stakePoolProgramId: string;
-        coolDownSeconds: any;
+        coolDownSeconds: beet.bignum;
         initalFeeBps: number;
         feeWallet: string;
         bumpSeed: number;
