@@ -1957,18 +1957,15 @@ fn command_set_funding_authority(
 }
 
 fn command_get_set_funding_authority_ix_serialized(
-    config: &Config,
+    manager_address: &Pubkey,
     stake_pool_address: &Pubkey,
     new_authority: Option<Pubkey>,
     funding_type: FundingType,
 ) -> CommandResult {
-    if !config.no_update {
-        command_update(config, stake_pool_address, false, false, false)?;
-    }
     let ix = spl_stake_pool::instruction::set_funding_authority(
         &spl_stake_pool::id(),
         stake_pool_address,
-        &config.manager.pubkey(),
+        manager_address,
         new_authority.as_ref(),
         funding_type,
     );
@@ -2872,6 +2869,16 @@ fn main() {
                     .help("Public key for the new stake pool funding authority."),
             )
             .arg(
+                Arg::with_name("manager_address")
+                    .index(4)
+                    .validator(is_pubkey)
+                    .value_name("MANAGER_ADDRESS")
+                    .takes_value(true)
+                    // Note the manager here is not required to sign as part of the CLI allowing
+                    // this command to work for externally governed stake pools.
+                    .help("Pubic key for the stake pool's manager (that is not required to sign)"),
+            )
+            .arg(
                 Arg::with_name("unset")
                     .long("unset")
                     .takes_value(false)
@@ -3376,6 +3383,7 @@ fn main() {
         }
         ("set-funding-authority-ix-serialized", Some(arg_matches)) => {
             let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
+            let manager_address = pubkey_of(arg_matches, "manager_address").unwrap();
             let new_authority = pubkey_of(arg_matches, "new_authority");
             let funding_type = match arg_matches.value_of("funding_type").unwrap() {
                 "sol-deposit" => FundingType::SolDeposit,
@@ -3385,7 +3393,7 @@ fn main() {
             };
             let _unset = arg_matches.is_present("unset");
             command_get_set_funding_authority_ix_serialized(
-                &config,
+                &manager_address,
                 &stake_pool_address,
                 new_authority,
                 funding_type,
