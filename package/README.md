@@ -29,6 +29,7 @@ const { instructions, signers } = await depositStake(
   validatorVote,     // validator vote account
   stakeAccount,      // stake account to deposit
   poolTokenReceiverAccount // optional, will create ATA if not provided
+  remainingAccounts  // optional additional accounts to append to the instruction
 );
 ```
 
