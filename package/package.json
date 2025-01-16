@@ -1,6 +1,6 @@
 {
   "name": "@jito-foundation/stake-deposit-interceptor-sdk",
-  "version": "1.7.0-canary.testpool.2",
+  "version": "1.7.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
