@@ -3,6 +3,8 @@ mod client;
 mod interceptor;
 mod output;
 
+use std::io::Cursor;
+
 use interceptor::command_create_stake_deposit_authority;
 // use instruction::create_associated_token_account once ATA 1.0.5 is released
 #[allow(deprecated)]
@@ -12,7 +14,9 @@ use {
         client::*,
         output::{CliStakePool, CliStakePoolDetails, CliStakePoolStakeAccountInfo, CliStakePools},
     },
+    base64::prelude::*,
     bincode::deserialize,
+    borsh::BorshSerialize,
     clap::{
         crate_description, crate_name, crate_version, value_t, value_t_or_exit, App, AppSettings,
         Arg, ArgGroup, ArgMatches, SubCommand,
@@ -49,6 +53,7 @@ use {
         transaction::Transaction,
     },
     spl_associated_token_account::get_associated_token_address,
+    // spl_governance
     spl_stake_pool::{
         self, find_stake_program_address, find_transient_stake_program_address,
         find_withdraw_authority_program_address,
@@ -1951,6 +1956,31 @@ fn command_set_funding_authority(
     Ok(())
 }
 
+fn command_get_set_funding_authority_ix_serialized(
+    manager_address: &Pubkey,
+    stake_pool_address: &Pubkey,
+    new_authority: Option<Pubkey>,
+    funding_type: FundingType,
+) -> CommandResult {
+    let ix = spl_stake_pool::instruction::set_funding_authority(
+        &spl_stake_pool::id(),
+        stake_pool_address,
+        manager_address,
+        new_authority.as_ref(),
+        funding_type,
+    );
+
+    let gov_ix_data = spl_governance::state::proposal_transaction::InstructionData::from(ix);
+    let mut buffer = Cursor::new(Vec::new());
+    if let Err(err) = gov_ix_data.serialize(&mut buffer) {
+        return Err(format!("Failed to serialize InstructionData: {}", err).into());
+    }
+    let base64_ix = BASE64_STANDARD.encode(buffer.into_inner());
+    println!("Base64 InstructionData: {:?}", base64_ix);
+
+    Ok(())
+}
+
 fn command_set_fee(
     config: &Config,
     stake_pool_address: &Pubkey,
@@ -2810,6 +2840,56 @@ fn main() {
                 .required(true)
             )
         )
+        .subcommand(SubCommand::with_name("set-funding-authority-ix-serialized")
+            .about("Print a serialized instruction for changing one of the funding authorities for the stake pool. Must be signed by the manager.")
+            .arg(
+                Arg::with_name("pool")
+                    .index(1)
+                    .validator(is_pubkey)
+                    .value_name("POOL_ADDRESS")
+                    .takes_value(true)
+                    .required(true)
+                    .help("Stake pool address."),
+            )
+            .arg(
+                Arg::with_name("funding_type")
+                    .index(2)
+                    .value_name("FUNDING_TYPE")
+                    .possible_values(&["stake-deposit", "sol-deposit", "sol-withdraw"]) // FundingType enum
+                    .takes_value(true)
+                    .required(true)
+                    .help("Funding type to be updated."),
+            )
+            .arg(
+                Arg::with_name("new_authority")
+                    .index(3)
+                    .validator(is_pubkey)
+                    .value_name("AUTHORITY_ADDRESS")
+                    .takes_value(true)
+                    .help("Public key for the new stake pool funding authority."),
+            )
+            .arg(
+                Arg::with_name("manager_address")
+                    .index(4)
+                    .validator(is_pubkey)
+                    .value_name("MANAGER_ADDRESS")
+                    .takes_value(true)
+                    // Note the manager here is not required to sign as part of the CLI allowing
+                    // this command to work for externally governed stake pools.
+                    .help("Pubic key for the stake pool's manager (that is not required to sign)"),
+            )
+            .arg(
+                Arg::with_name("unset")
+                    .long("unset")
+                    .takes_value(false)
+                    .help("Unset the stake deposit authority. The program will use a program derived address.")
+            )
+            .group(ArgGroup::with_name("validator")
+                .arg("new_authority")
+                .arg("unset")
+                .required(true)
+            )
+        )
         .subcommand(SubCommand::with_name("set-fee")
             .about("Change the [epoch/withdraw/stake deposit/sol deposit] fee assessed by the stake pool. Must be signed by the manager.")
             .arg(
@@ -3301,6 +3381,24 @@ fn main() {
             let _unset = arg_matches.is_present("unset");
             command_set_funding_authority(&config, &stake_pool_address, new_authority, funding_type)
         }
+        ("set-funding-authority-ix-serialized", Some(arg_matches)) => {
+            let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
+            let manager_address = pubkey_of(arg_matches, "manager_address").unwrap();
+            let new_authority = pubkey_of(arg_matches, "new_authority");
+            let funding_type = match arg_matches.value_of("funding_type").unwrap() {
+                "sol-deposit" => FundingType::SolDeposit,
+                "stake-deposit" => FundingType::StakeDeposit,
+                "sol-withdraw" => FundingType::SolWithdraw,
+                _ => unreachable!(),
+            };
+            let _unset = arg_matches.is_present("unset");
+            command_get_set_funding_authority_ix_serialized(
+                &manager_address,
+                &stake_pool_address,
+                new_authority,
+                funding_type,
+            )
+        }
         ("set-fee", Some(arg_matches)) => {
             let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
             let numerator = value_t_or_exit!(arg_matches, "fee_numerator", u64);
@@ -3369,6 +3467,7 @@ fn main() {
                 &referrer,
             )
         }
+        // ("")
         ("interceptor", Some(interceptor_matches)) => match interceptor_matches.subcommand() {
             ("create-stake-deposit-authority", Some(arg_matches)) => {
                 let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();

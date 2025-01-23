@@ -4,6 +4,11 @@ A Solana program intended to become the `stake_deposit_authority` of a StakePool
 
 More information in the Jito governance forum [here](https://forum.jito.network/t/jip-9-adopt-interceptor-liquidity-defense/444).
 
+## Audit Reports
+[Certora Security Report](./Certora_interceptor_security_report.pdf)
+
+[OffsideLabs Security Report](./OffsideLabs_interceptor_report.pdf)
+
 ## Program State
 
 ```rust
