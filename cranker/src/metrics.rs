@@ -9,7 +9,7 @@ use crate::CrankerError;
 
 pub fn emit_error(message: String) {
     error!(message);
-    datapoint_info!("sdi-test-error", ("message", message, String),);
+    datapoint_info!("sdi-error", ("message", message, String),);
 }
 
 pub async fn emit_heartbeat(rpc_client: Arc<RpcClient>, tick: u64) -> Result<(), CrankerError> {
@@ -19,7 +19,7 @@ pub async fn emit_heartbeat(rpc_client: Arc<RpcClient>, tick: u64) -> Result<(),
         (current_slot as f64 % DEFAULT_SLOTS_PER_EPOCH as f64) / DEFAULT_SLOTS_PER_EPOCH as f64;
 
     datapoint_info!(
-        "sdi-test-tick",
+        "sdi-tick",
         ("tick", tick, i64),
         ("current-epoch", current_epoch, i64),
         ("current-slot", current_slot, i64),
@@ -36,7 +36,7 @@ pub fn emit_crank(
     claimed_receipts: u64,
 ) {
     datapoint_info!(
-        "sdi-test-crank",
+        "sdi-crank",
         ("total-deposit-receipts", deposit_receipts, i64),
         ("future-deposits", future_deposits, i64),
         ("not-yet-expired-receipts", not_yet_expired_receipts, i64),
@@ -58,7 +58,7 @@ pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt) {
 
     let account_string = format!("{:?}", deposit_receipt);
     datapoint_info!(
-        "sdi-test-deposit-receipt",
+        "sdi-deposit-receipt",
         ("base", base, String),
         ("cool-down-seconds", cool_down_seconds, i64),
         ("deposit-time", deposit_time, i64),
