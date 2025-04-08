@@ -15,9 +15,10 @@ solana-keygen new -o ./credentials/keypair.json
 
 ### ENV
 
-In the root directory create `.env` file
+In the cranker directory create `.env` file
 
 ```bash
+cd cranker
 touch .env
 ```
 
@@ -40,7 +41,7 @@ REGION=local
 RUST_LOG="info,solana_gossip=error,solana_metrics=info"
 
 # Path to keypair used to execute tranasactions
-KEYPAIR_PATH=./credentials/keypair.json
+KEYPAIR_PATH=../credentials/keypair.json
 
 # Program ID (Pubkey as base58 string)
 PROGRAM_ID=5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV
@@ -76,7 +77,7 @@ docker logs interceptor-cranker -f
 ### Stop Docker\*\*
 
 ```bash
-docker stop interceptor-cranker; docker rm stakenet-keeper;
+docker stop interceptor-cranker; docker rm interceptor-cranker;
 ```
 
 ## Running as Binary
