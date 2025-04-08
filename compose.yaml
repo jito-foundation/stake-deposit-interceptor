@@ -1,5 +1,5 @@
 services:
-  cranker:
+  interceptor-cranker:
     build:
       dockerfile: ./cranker.Dockerfile
     environment:

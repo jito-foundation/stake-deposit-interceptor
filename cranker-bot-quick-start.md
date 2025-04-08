@@ -64,33 +64,19 @@ Once the setup is complete use the following commands to run/manage the docker c
 ### Start Docker
 
 ```bash
-docker compose --env-file .env up -d --build  stakenet-keeper --remove-orphans
+docker compose --env-file .env up -d --build  interceptor-cranker --remove-orphans
 ```
 
 ### View Logs
 
 ```bash
-docker logs stakenet-keeper -f
+docker logs interceptor-cranker -f
 ```
 
 ### Stop Docker\*\*
 
 ```bash
-docker stop stakenet-keeper; docker rm stakenet-keeper;
-```
-
-## Run from Dockerhub
-
-This image is available on Dockerhub at: https://hub.docker.com/r/jitolabs/stakenet-keeper
-
-```bash
-docker pull jitolabs/stakenet-keeper:latest
-docker run -d \
-  --name stakenet-keeper \
-  --env-file .env \
-  -v $(pwd)/credentials:/credentials \
-  --restart on-failure:5 \
-  jitolabs/stakenet-keeper:latest
+docker stop interceptor-cranker; docker rm stakenet-keeper;
 ```
 
 ## Running as Binary
@@ -100,18 +86,19 @@ To run the keeper in terminal, build for release and run the program.
 ### Build for Release
 
 ```bash
-cargo build --release --bin stakenet-keeper
+cd cranker
+cargo build --release
 ```
 
 ### Run Keeper
 
 ```bash
-RUST_LOG=info ./target/release/stakenet-keeper
+RUST_LOG=info ./target/release/stake-deposit-interceptor-cranker
 ```
 
 To see all available parameters run:
 
 ```bash
-RUST_LOG=info ./target/release/stakenet-keeper -h
+RUST_LOG=info ./target/release/stake-deposit-interceptor-cranker -h
 ```
 
