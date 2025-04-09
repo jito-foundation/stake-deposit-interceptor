@@ -1,11 +1,12 @@
 use ::{
     stake_deposit_interceptor_cranker::{ InterceptorCranker, CrankerConfig },
+    solana_metrics::set_host_id,
     solana_sdk::{
         signature::{ read_keypair_file, Signer }, // Added Signer trait
         pubkey::Pubkey,
         commitment_config::CommitmentConfig,
     },
-    std::{ str::FromStr, time::Duration, sync::Arc },
+    std::{ str::FromStr, time::Duration, process::Command, sync::Arc },
     dotenv::dotenv,
     tracing::{ info, Level },
 };
@@ -40,6 +41,12 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
             .map_err(|_| "INTERVAL_SECONDS must be a valid number")?
     );
 
+    let cluster = std::env::var("CLUSTER")
+        .map_err(|_| "CLUSTER not found in environment")?;
+
+    let region = std::env::var("REGION")
+        .map_err(|_| "REGION not found in environment")?;
+ 
     Ok(CrankerConfig {
         rpc_url,
         ws_url,
@@ -47,6 +54,8 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
         payer,
         interval,
         commitment: CommitmentConfig::confirmed(),
+        cluster: cluster,
+        region: region,
     })
 }
 
@@ -77,6 +86,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Program ID: {}", config.program_id);
     info!("Payer: {}", config.payer.as_ref().pubkey()); // Signer trait now in scope
     info!("Interval: {}s", config.interval.as_secs());
+    info!("Cluster: {}", config.cluster);
+    info!("Region: {}", config.region);
+
+    // Set host ID
+    let hostname_cmd = Command::new("hostname")
+        .output()
+        .expect("Failed to execute hostname command");
+
+    let hostname = String::from_utf8_lossy(&hostname_cmd.stdout)
+        .trim()
+        .to_string();
+
+    set_host_id(format!(
+        "interceptor-cranker_{}_{}_{}",
+        config.region, config.cluster, hostname
+    ));
 
     // Initialize cranker
     let cranker = InterceptorCranker::new(config);

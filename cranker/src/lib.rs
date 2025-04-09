@@ -38,6 +38,8 @@ pub struct CrankerConfig {
     pub payer: Arc<Keypair>, // Wrapped in Arc
     pub interval: Duration,
     pub commitment: CommitmentConfig,
+    pub cluster: String,
+    pub region: String,
 }
 
 pub struct InterceptorCranker {
