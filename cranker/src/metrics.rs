@@ -9,7 +9,7 @@ use crate::CrankerError;
 
 pub fn emit_error(message: String, cluster_name: &str) {
     error!(message);
-    datapoint_info!("sdi-error", ("message", message, String),);
+    datapoint_info!("sdi-error", ("message", message, String), "cluster" => cluster_name);
 }
 
 pub async fn emit_heartbeat(
