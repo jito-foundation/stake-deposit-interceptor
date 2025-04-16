@@ -48,6 +48,7 @@ pub struct InterceptorCranker {
     program_id: Pubkey,
     metrics: Arc<std::sync::Mutex<Metrics>>,
     interval: Duration,
+    cluster_name: String,
 }
 
 impl InterceptorCranker {
@@ -63,6 +64,7 @@ impl InterceptorCranker {
             program_id: config.program_id,
             metrics: Arc::new(std::sync::Mutex::new(Metrics::default())),
             interval: config.interval, // Store the interval
+            cluster_name: config.cluster.clone(),
         }
     }
 
@@ -75,14 +77,20 @@ impl InterceptorCranker {
         loop {
             interval_timer.tick().await;
             info!("Tick: Starting new processing cycle");
-            match emit_heartbeat(self.rpc_client.clone(), tick).await {
+            match emit_heartbeat(self.rpc_client.clone(), tick, &self.cluster_name).await {
                 Ok(_) => tick += 1,
-                Err(e) => emit_error(format!("Failed to emit heartbeat: {}", e)),
+                Err(e) => emit_error(
+                    format!("Failed to emit heartbeat: {}", e),
+                    &self.cluster_name,
+                ),
             }
 
             match self.process_expired_receipts().await {
                 Ok(_) => info!("Successfully processed expired receipts"),
-                Err(e) => emit_error(format!("Error processing receipts: {}", e)),
+                Err(e) => emit_error(
+                    format!("Error processing receipts: {}", e),
+                    &self.cluster_name,
+                ),
             }
         }
     }
@@ -114,7 +122,7 @@ impl InterceptorCranker {
                  current_time: {}",
                 receipt.base, deposit_time, cool_down, now
             );
-            emit_deposit_receipt(&receipt);
+            emit_deposit_receipt(&receipt, &self.cluster_name);
 
             if deposit_time > now {
                 info!(
@@ -143,10 +151,13 @@ impl InterceptorCranker {
                                 claimed_receipts += 1;
                             }
                             Err(e) => {
-                                emit_error(format!(
-                                    "Failed to claim tokens for receipt {}: {}",
-                                    receipt.base, e
-                                ));
+                                emit_error(
+                                    format!(
+                                        "Failed to claim tokens for receipt {}: {}",
+                                        receipt.base, e
+                                    ),
+                                    &self.cluster_name,
+                                );
                                 let mut metrics = self.metrics.lock().unwrap();
                                 metrics.failed_claims += 1;
                             }
@@ -165,7 +176,7 @@ impl InterceptorCranker {
                         receipt.base,
                         deposit_time,
                         cool_down
-                    ));
+                    ), &self.cluster_name);
                 }
             }
         }
@@ -175,6 +186,7 @@ impl InterceptorCranker {
             future_deposits,
             not_yet_expired_receipts,
             claimed_receipts,
+            &self.cluster_name,
         );
 
         Ok(())
@@ -232,10 +244,10 @@ impl InterceptorCranker {
                         Some(receipt)
                     }
                     Err(e) => {
-                        emit_error(format!(
-                            "Failed to deserialize receipt for {}: {}",
-                            pubkey, e
-                        ));
+                        emit_error(
+                            format!("Failed to deserialize receipt for {}: {}", pubkey, e),
+                            &self.cluster_name,
+                        );
                         None
                     }
                 }
@@ -331,10 +343,13 @@ impl InterceptorCranker {
                 Ok(())
             }
             Err(e) => {
-                emit_error(format!(
-                    "Failed to claim pool tokens for receipt {}. Error: {}",
-                    receipt.base, e
-                ));
+                emit_error(
+                    format!(
+                        "Failed to claim pool tokens for receipt {}. Error: {}",
+                        receipt.base, e
+                    ),
+                    &self.cluster_name,
+                );
                 Err(CrankerError::RpcError(e))
             }
         }
