@@ -7,12 +7,16 @@ use tracing::error;
 
 use crate::CrankerError;
 
-pub fn emit_error(message: String) {
+pub fn emit_error(message: String, cluster_name: &str) {
     error!(message);
-    datapoint_info!("sdi-error", ("message", message, String),);
+    datapoint_info!("sdi-error", ("message", message, String), "cluster" => cluster_name);
 }
 
-pub async fn emit_heartbeat(rpc_client: Arc<RpcClient>, tick: u64) -> Result<(), CrankerError> {
+pub async fn emit_heartbeat(
+    rpc_client: Arc<RpcClient>,
+    tick: u64,
+    cluster_name: &str,
+) -> Result<(), CrankerError> {
     let current_slot = rpc_client.get_slot().await?;
     let current_epoch = rpc_client.get_epoch_info().await?.epoch;
     let epoch_percentage =
@@ -24,6 +28,7 @@ pub async fn emit_heartbeat(rpc_client: Arc<RpcClient>, tick: u64) -> Result<(),
         ("current-epoch", current_epoch, i64),
         ("current-slot", current_slot, i64),
         ("epoch-percentage", epoch_percentage, f64),
+        "cluster" => cluster_name,
     );
 
     Ok(())
@@ -34,6 +39,7 @@ pub fn emit_crank(
     future_deposits: u64,
     not_yet_expired_receipts: u64,
     claimed_receipts: u64,
+    cluster_name: &str,
 ) {
     datapoint_info!(
         "sdi-crank",
@@ -41,10 +47,11 @@ pub fn emit_crank(
         ("future-deposits", future_deposits, i64),
         ("not-yet-expired-receipts", not_yet_expired_receipts, i64),
         ("claimed-receipts", claimed_receipts, i64),
+        "cluster" => cluster_name,
     );
 }
 
-pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt) {
+pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt, cluster_name: &str) {
     let base = deposit_receipt.base.to_string();
     let cool_down_seconds: u64 = deposit_receipt.cool_down_seconds.into();
     let deposit_time: u64 = deposit_receipt.deposit_time.into();
@@ -72,5 +79,6 @@ pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt) {
             String
         ),
         ("account-string", account_string, String),
+        "cluster" => cluster_name,
     );
 }
