@@ -18,7 +18,10 @@ use stake_deposit_interceptor::{
     instruction::create_deposit_stake_instruction, state::StakePoolDepositStakeAuthority,
 };
 
-use crate::{error::ApiError, utils::{pubkey_from_str, Instruction}};
+use crate::{
+    error::ApiError,
+    utils::{pubkey_from_str, Instruction},
+};
 
 use super::RouterState;
 
@@ -50,7 +53,7 @@ struct GetDepositStakeResponse {
 }
 
 /// Constructs the instructions necessary to `DepositStake` via the stake-pool-interceptor program.
-/// 
+///
 pub(crate) async fn get_deposit_stake_instructions(
     State(state): State<Arc<RouterState>>,
     Query(query): Query<GetDepositStakeQuery>,

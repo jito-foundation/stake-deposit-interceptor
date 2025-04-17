@@ -88,7 +88,7 @@ async fn test_update_deposit_stake_authority() {
         .unwrap();
 
     let deposit_stake_authority =
-        StakePoolDepositStakeAuthority::try_from_slice_unchecked(&account.data.as_slice()).unwrap();
+        StakePoolDepositStakeAuthority::try_from_slice_unchecked(account.data.as_slice()).unwrap();
 
     let actual_cool_down_seconds: u64 = deposit_stake_authority.cool_down_seconds.into();
     let actual_initial_fee_bps: u32 = deposit_stake_authority.inital_fee_bps.into();

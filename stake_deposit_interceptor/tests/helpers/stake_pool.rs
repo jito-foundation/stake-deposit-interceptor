@@ -112,7 +112,7 @@ pub async fn create_stake_account(
     let tx = Transaction::new_signed_with_payer(
         &create_stake_account_ix,
         Some(&payer.pubkey()),
-        &[&payer, &keypair],
+        &[payer, &keypair],
         recent_blockhash,
     );
 
@@ -143,6 +143,7 @@ pub async fn delegate_stake_account(
 }
 
 /// Add a Validator to a given StakePool.
+#[allow(clippy::too_many_arguments)]
 pub async fn add_validator_to_pool(
     banks_client: &mut BanksClient,
     payer: &Keypair,
@@ -170,7 +171,10 @@ pub async fn add_validator_to_pool(
         &[payer, staker],
         *recent_blockhash,
     );
-    banks_client.process_transaction(transaction).await;
+    banks_client
+        .process_transaction(transaction)
+        .await
+        .expect("failed to add validator");
 }
 
 /// Holds all relevant keys for a StakePool
@@ -313,6 +317,7 @@ pub async fn update_stake_deposit_authority(
 }
 
 /// Deposit Sol into the stake pool
+#[allow(clippy::too_many_arguments)]
 pub async fn deposit_sol(
     banks_client: &mut BanksClient,
     payer: &Keypair,
@@ -328,7 +333,7 @@ pub async fn deposit_sol(
     let signers = vec![payer];
     let instruction = spl_stake_pool::instruction::deposit_sol(
         &spl_stake_pool::id(),
-        &stake_pool,
+        stake_pool,
         withdraw_authority,
         reserve_stake_account,
         &payer.pubkey(),

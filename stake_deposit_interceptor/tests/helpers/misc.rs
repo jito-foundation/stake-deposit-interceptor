@@ -1,8 +1,7 @@
-use solana_program_test::{processor, BanksClientError, ProgramTest, ProgramTestContext};
+use solana_program_test::{processor, ProgramTest, ProgramTestContext};
 use solana_sdk::{
     account::AccountSharedData,
     instruction::InstructionError,
-    program_error::ProgramError,
     pubkey::Pubkey,
     transaction::{Transaction, TransactionError},
     transport::TransportError,
