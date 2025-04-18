@@ -4,8 +4,8 @@ use solana_security_txt::security_txt;
 
 pub mod error;
 pub mod instruction;
-pub mod processor;
 pub mod macros;
+pub mod processor;
 pub mod state;
 
 #[cfg(not(feature = "no-entrypoint"))]
