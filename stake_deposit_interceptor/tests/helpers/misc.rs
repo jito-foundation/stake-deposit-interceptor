@@ -1,8 +1,7 @@
-use solana_program_test::{processor, BanksClientError, ProgramTest, ProgramTestContext};
+use solana_program_test::{processor, ProgramTest, ProgramTestContext};
 use solana_sdk::{
     account::AccountSharedData,
     instruction::InstructionError,
-    program_error::ProgramError,
     pubkey::Pubkey,
     transaction::{Transaction, TransactionError},
     transport::TransportError,
@@ -36,6 +35,7 @@ pub async fn program_test_context_with_stake_pool_state() -> (ProgramTestContext
 
 /// Clones all the existing account information and data to a new account. Returns the
 /// new address of the account.
+#[allow(dead_code)]
 pub async fn clone_account_to_new_address(
     ctx: &mut ProgramTestContext,
     address: &Pubkey,
@@ -65,8 +65,7 @@ pub async fn assert_transaction_err(
         .banks_client
         .process_transaction(tx)
         .await
-        .err()
-        .expect("Should have errored")
+        .expect_err("Transaction should fail")
         .into();
 
     match transaction_error {

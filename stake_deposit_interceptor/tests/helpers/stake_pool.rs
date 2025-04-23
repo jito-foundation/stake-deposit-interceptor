@@ -18,10 +18,13 @@ use spl_stake_pool::MAX_VALIDATORS_TO_UPDATE;
 use super::{create_mint, create_token_account, create_vote, get_account};
 
 // Copied from SPL stake-pool program
+#[allow(dead_code)]
 pub const DEFAULT_VALIDATOR_STAKE_SEED: Option<NonZeroU32> = NonZeroU32::new(1_010);
+#[allow(dead_code)]
 pub const DEFAULT_TRANSIENT_STAKE_SEED: u64 = 42;
 
 // Copied from SPL stake-pool program
+#[allow(dead_code)]
 pub struct ValidatorStakeAccount {
     pub stake_account: Pubkey,
     pub transient_stake_account: Pubkey,
@@ -32,6 +35,7 @@ pub struct ValidatorStakeAccount {
     pub stake_pool: Pubkey,
 }
 
+#[allow(dead_code)]
 impl ValidatorStakeAccount {
     pub fn new(
         stake_pool: &Pubkey,
@@ -65,6 +69,7 @@ impl ValidatorStakeAccount {
 }
 
 /// Get the minimum amount of lamports needed for a delegation.
+#[allow(dead_code)]
 pub async fn stake_get_minimum_delegation(
     banks_client: &mut BanksClient,
     payer: &Keypair,
@@ -112,7 +117,7 @@ pub async fn create_stake_account(
     let tx = Transaction::new_signed_with_payer(
         &create_stake_account_ix,
         Some(&payer.pubkey()),
-        &[&payer, &keypair],
+        &[payer, &keypair],
         recent_blockhash,
     );
 
@@ -122,6 +127,7 @@ pub async fn create_stake_account(
 }
 
 /// Delegate stake to a specific validator.
+#[allow(dead_code)]
 pub async fn delegate_stake_account(
     banks_client: &mut BanksClient,
     payer: &Keypair,
@@ -143,6 +149,8 @@ pub async fn delegate_stake_account(
 }
 
 /// Add a Validator to a given StakePool.
+#[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 pub async fn add_validator_to_pool(
     banks_client: &mut BanksClient,
     payer: &Keypair,
@@ -170,10 +178,14 @@ pub async fn add_validator_to_pool(
         &[payer, staker],
         *recent_blockhash,
     );
-    banks_client.process_transaction(transaction).await;
+    banks_client
+        .process_transaction(transaction)
+        .await
+        .expect("failed to add validator");
 }
 
 /// Holds all relevant keys for a StakePool
+#[allow(dead_code)]
 pub struct StakePoolAccounts {
     pub stake_pool: Pubkey,
     pub reserve_stake_account: Pubkey,
@@ -289,6 +301,7 @@ pub async fn create_stake_pool(ctx: &mut ProgramTestContext) -> StakePoolAccount
 }
 
 /// Updates the stake_deposit_authority on the given StakePool.
+#[allow(dead_code)]
 pub async fn update_stake_deposit_authority(
     banks_client: &mut BanksClient,
     stake_pool_accounts: &StakePoolAccounts,
@@ -313,6 +326,8 @@ pub async fn update_stake_deposit_authority(
 }
 
 /// Deposit Sol into the stake pool
+#[allow(clippy::too_many_arguments)]
+#[allow(dead_code)]
 pub async fn deposit_sol(
     banks_client: &mut BanksClient,
     payer: &Keypair,
@@ -328,7 +343,7 @@ pub async fn deposit_sol(
     let signers = vec![payer];
     let instruction = spl_stake_pool::instruction::deposit_sol(
         &spl_stake_pool::id(),
-        &stake_pool,
+        stake_pool,
         withdraw_authority,
         reserve_stake_account,
         &payer.pubkey(),
@@ -349,6 +364,7 @@ pub async fn deposit_sol(
 }
 
 // Creates a Validator and adds them to the StakePool.
+#[allow(dead_code)]
 pub async fn create_validator_and_add_to_pool(
     ctx: &mut ProgramTestContext,
     stake_pool_accounts: &StakePoolAccounts,
@@ -411,6 +427,7 @@ pub async fn create_validator_and_add_to_pool(
 }
 
 /// Updates all validator balances and StakePool balances
+#[allow(dead_code)]
 pub async fn stake_pool_update_all(
     banks_client: &mut BanksClient,
     payer: &Keypair,

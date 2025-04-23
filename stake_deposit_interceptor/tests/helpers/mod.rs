@@ -8,8 +8,10 @@ pub mod vote;
 
 pub use misc::*;
 pub use spl::*;
+#[allow(unused_imports)]
 pub use stake_deposit_interceptor::*;
 pub use stake_pool::*;
 pub use system::*;
+#[allow(unused_imports)]
 pub use sysvar::*;
 pub use vote::*;
