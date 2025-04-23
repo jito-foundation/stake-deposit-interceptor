@@ -313,8 +313,7 @@ async fn success_error_with_slippage() {
         .banks_client
         .process_transaction(tx)
         .await
-        .err()
-        .expect("Should have errored")
+        .expect_err("Should have errored")
         .into();
 
     match transaction_error {

@@ -6,6 +6,7 @@ use solana_sdk::{
 };
 
 /// Airdrop tokens from the `ProgramTestContext` payer to a designated Pubkey.
+#[allow(dead_code)]
 pub async fn airdrop_lamports(ctx: &mut ProgramTestContext, receiver: &Pubkey, amount: u64) {
     ctx.banks_client
         .process_transaction(Transaction::new_signed_with_payer(
@@ -23,6 +24,7 @@ pub async fn airdrop_lamports(ctx: &mut ProgramTestContext, receiver: &Pubkey, a
 }
 
 /// Fetch an Account from ProgramTestContext.
+#[allow(dead_code)]
 pub async fn get_account(banks_client: &mut BanksClient, pubkey: &Pubkey) -> SolanaAccount {
     banks_client
         .get_account(*pubkey)
@@ -32,6 +34,7 @@ pub async fn get_account(banks_client: &mut BanksClient, pubkey: &Pubkey) -> Sol
 }
 
 /// Fetch an account and deserialize based on type.
+#[allow(dead_code)]
 pub async fn get_account_data_deserialized<T: AccountDeserialize>(
     banks_client: &mut BanksClient,
     pubkey: &Pubkey,
