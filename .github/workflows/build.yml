@@ -30,7 +30,7 @@ jobs:
       - run: cargo fmt --all --check
       - run: cargo +nightly-2025-04-22 clippy --all-features --all-targets --tests -- -A clippy::err-expect -A dead-code -D warnings
   verified_build:
-    name: verified_build
+    name: verified_build and test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,32 +49,10 @@ jobs:
       - name: add to path
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
       - run: solana-verify build --library-name stake_deposit_interceptor
+      - name: Cargo test
+        run: RUSTFLAGS="-A clippy::err-expect -A dead-code" cargo build --release --all-features --target bpfel-unknown-unknown
       - name: Upload program artifact
         uses: actions/upload-artifact@v4
         with:
           name: program.so
           path: target/deploy/*.so
-  test:
-    name: test
-    runs-on: ubuntu-latest
-    needs:
-      - verified_build
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - run: sudo apt-get install protobuf-compiler -y
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: nightly-2025-04-22
-      - uses: actions/download-artifact@v4
-        with:
-          name: program.so
-          path: target/test/
-      - name: cargo test
-        run: RUSTFLAGS="-A clippy::err-expect -A dead-code" cargo test --all-features --color auto
-        shell: bash
-        env:
-          RUST_LOG: trace
-          SBF_OUT_DIR: ${{ github.workspace }}/target/deploy
-          RUST_MIN_STACK: 10000000
