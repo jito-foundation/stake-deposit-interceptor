@@ -3101,6 +3101,11 @@ fn main() {
                         .long("after-cooldown")
                         .help("Skip fee calculation if claiming after cooldown period"),
                 )
+                .arg(
+                    Arg::with_name("create_ata")
+                        .long("create-ata")
+                        .help("Create the destination ATA if it doesn't exist"),
+                )
             )
         )
         .get_matches();
@@ -3577,11 +3582,13 @@ fn main() {
                 let receipt_address = pubkey_of(arg_matches, "receipt_address").unwrap();
                 let destination = pubkey_of(arg_matches, "destination");
                 let after_cooldown = arg_matches.is_present("after_cooldown");
+                let create_ata = arg_matches.is_present("create_ata");
                 interceptor::command_claim_tokens(
                     &config,
                     &receipt_address,
                     destination.as_ref(),
                     after_cooldown,
+                    create_ata,
                 )
             }
             _ => unreachable!(),

@@ -189,6 +189,7 @@ pub struct ReceiptInfo {
     pub is_expired: bool,
     pub lst_amount: u64,
     pub current_fee_amount: u64,
+    pub owner_ata_exists: bool,
 }
 
 /// Get all deposit receipts for the program, optionally filtered by stake pool
@@ -240,7 +241,11 @@ pub fn get_all_deposit_receipts(
 }
 
 /// Calculate receipt status and timing information
-pub fn calculate_receipt_info(receipt_address: Pubkey, receipt: &DepositReceipt) -> ReceiptInfo {
+pub fn calculate_receipt_info(
+    rpc_client: &RpcClient,
+    receipt_address: Pubkey,
+    receipt: &DepositReceipt,
+) -> ReceiptInfo {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -257,6 +262,13 @@ pub fn calculate_receipt_info(receipt_address: Pubkey, receipt: &DepositReceipt)
         receipt.calculate_fee_amount(now as i64)
     };
 
+    // Check if owner has an ATA for the J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn token
+    let jitosol_mint = "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn"
+        .parse::<Pubkey>()
+        .unwrap();
+    let owner_ata = get_associated_token_address(&receipt.owner, &jitosol_mint);
+    let owner_ata_exists = rpc_client.get_account(&owner_ata).is_ok();
+
     ReceiptInfo {
         receipt_address,
         base: receipt.base,
@@ -268,6 +280,7 @@ pub fn calculate_receipt_info(receipt_address: Pubkey, receipt: &DepositReceipt)
         is_expired,
         lst_amount: u64::from(receipt.lst_amount),
         current_fee_amount,
+        owner_ata_exists,
     }
 }
 
@@ -291,7 +304,7 @@ pub fn command_list_receipts(
 
     let mut receipt_infos: Vec<ReceiptInfo> = receipts
         .into_iter()
-        .map(|(addr, receipt)| calculate_receipt_info(addr, &receipt))
+        .map(|(addr, receipt)| calculate_receipt_info(&config.rpc_client, addr, &receipt))
         .collect();
 
     // Apply filters
@@ -313,18 +326,23 @@ pub fn command_list_receipts(
 
     // Display results
     println!("\nDeposit Receipts:");
-    println!("{:-<150}", "");
+    println!("{:-<170}", "");
     println!(
-        "{:<45} {:<45} {:<45} {:<10} {:<15}",
-        "Receipt Address", "Base", "Owner", "Status", "LST Amount"
+        "{:<45} {:<45} {:<45} {:<10} {:<15} {:<10}",
+        "Receipt Address", "Base", "Owner", "Status", "LST Amount", "JitoSOL ATA"
     );
-    println!("{:-<150}", "");
+    println!("{:-<170}", "");
 
     for info in &receipt_infos {
         let status = if info.is_expired { "EXPIRED" } else { "ACTIVE" };
+        let ata_status = if info.owner_ata_exists {
+            "EXISTS"
+        } else {
+            "MISSING"
+        };
         println!(
-            "{:<45} {:<45} {:<45} {:<10} {:<15}",
-            info.receipt_address, info.base, info.owner, status, info.lst_amount
+            "{:<45} {:<45} {:<45} {:<10} {:<15} {:<10}",
+            info.receipt_address, info.base, info.owner, status, info.lst_amount, ata_status
         );
 
         if !info.is_expired && info.current_fee_amount > 0 {
@@ -345,6 +363,7 @@ pub fn command_claim_tokens(
     receipt_address: &Pubkey,
     destination: Option<&Pubkey>,
     after_cooldown: bool,
+    create_ata: bool,
 ) -> CommandResult {
     // Get the receipt data
     let receipt_account = config
@@ -354,6 +373,15 @@ pub fn command_claim_tokens(
 
     let receipt = DepositReceipt::try_from_slice_unchecked(receipt_account.data.as_slice())
         .map_err(|e| format!("Failed to deserialize receipt: {}", e))?;
+
+    // Determine after_cooldown automatically: true if fee payer is not the owner
+    let auto_after_cooldown = config.fee_payer.pubkey() != receipt.owner;
+    let final_after_cooldown = after_cooldown || auto_after_cooldown;
+
+    if auto_after_cooldown && !after_cooldown {
+        println!("Note: Setting after_cooldown=true because fee payer ({}) is not the receipt owner ({})", 
+                 config.fee_payer.pubkey(), receipt.owner);
+    }
 
     // Get the stake pool deposit authority
     let authority_account = config
@@ -379,37 +407,57 @@ pub fn command_claim_tokens(
         &stake_pool_deposit_authority.pool_mint,
     );
 
-    // Check if fee account exists, create if not
+    // Collect all instructions
+    let mut instructions = Vec::new();
+
+    // Check if destination account exists, add creation instruction if needed
+    if config
+        .rpc_client
+        .get_account(&destination_token_account)
+        .is_err()
+    {
+        if create_ata {
+            println!(
+                "Will create destination token account: {}",
+                destination_token_account
+            );
+
+            let create_ata_ix =
+                spl_associated_token_account::instruction::create_associated_token_account(
+                    &config.fee_payer.pubkey(),
+                    &receipt.owner,
+                    &stake_pool_deposit_authority.pool_mint,
+                    &spl_token::id(),
+                );
+            instructions.push(create_ata_ix);
+        } else {
+            return Err(format!(
+                "Destination token account {} does not exist. Use --create-ata to create it.",
+                destination_token_account
+            )
+            .into());
+        }
+    }
+
+    // Check if fee account exists, add creation instruction if needed
     if config
         .rpc_client
         .get_account(&fee_wallet_token_account)
         .is_err()
     {
         println!(
-            "Creating fee wallet token account: {}",
+            "Will create fee wallet token account: {}",
             fee_wallet_token_account
         );
 
-        let create_ata_ix =
+        let create_fee_ata_ix =
             spl_associated_token_account::instruction::create_associated_token_account(
                 &config.fee_payer.pubkey(),
                 &stake_pool_deposit_authority.fee_wallet,
                 &stake_pool_deposit_authority.pool_mint,
                 &spl_token::id(),
             );
-
-        let recent_blockhash = config.rpc_client.get_latest_blockhash()?;
-        let create_ata_tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[create_ata_ix],
-            Some(&config.fee_payer.pubkey()),
-            &[config.fee_payer.as_ref()],
-            recent_blockhash,
-        );
-
-        config
-            .rpc_client
-            .send_and_confirm_transaction(&create_ata_tx)?;
-        println!("Created fee wallet token account");
+        instructions.push(create_fee_ata_ix);
     }
 
     // Create the claim instruction
@@ -423,11 +471,12 @@ pub fn command_claim_tokens(
         &receipt.stake_pool_deposit_stake_authority,
         &stake_pool_deposit_authority.pool_mint,
         &spl_token::id(),
-        after_cooldown,
+        final_after_cooldown,
     );
+    instructions.push(claim_ix);
 
     let transaction =
-        checked_transaction_with_signers(config, &[claim_ix], &[config.fee_payer.as_ref()])?;
+        checked_transaction_with_signers(config, &instructions, &[config.fee_payer.as_ref()])?;
 
     match send_transaction(config, transaction) {
         Ok(_) => {
@@ -436,6 +485,7 @@ pub fn command_claim_tokens(
                 receipt_address
             );
             println!("Tokens sent to: {}", destination_token_account);
+            println!("After cooldown: {}", final_after_cooldown);
             Ok(())
         }
         Err(e) => Err(format!("Failed to claim pool tokens: {}", e).into()),
