@@ -8,8 +8,3 @@ services:
       - KEYPAIR_PATH=${KEYPAIR_PATH}
       - PROGRAM_ID=${PROGRAM_ID:-5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV}
       - INTERVAL_SECONDS=${INTERVAL_SECONDS:-60}
-      - SOLANA_METRICS_CONFIG=${SOLANA_METRICS_CONFIG}
-      - CLUSTER=${CLUSTER}
-      - REGION=${REGION}
-    volumes:
-      - ./credentials:/var/secrets

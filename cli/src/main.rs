@@ -3012,7 +3012,7 @@ fn main() {
                 )
             )
             .subcommand(SubCommand::with_name("deposit-stake")
-                .about("Deposit active stake account into the stake pool and receive a receipt to calim pool tokens later")
+                .about("Deposit active stake account into the stake pool and receive a receipt to claim pool tokens later")
                 .arg(
                     Arg::with_name("stake_deposit_authority")
                         .index(1)
@@ -3047,7 +3047,61 @@ fn main() {
                         .help("Pool token account to receive the referral fees for deposits. \
                             Defaults to the token receiver."),
                 )
-        )
+            )
+            .subcommand(SubCommand::with_name("list-receipts")
+                .about("List all deposit receipts with their status (active/expired)")
+                .arg(
+                    Arg::with_name("program_id")
+                        .long("program-id")
+                        .validator(is_pubkey)
+                        .value_name("PROGRAM_ID")
+                        .takes_value(true)
+                        .help("Stake deposit interceptor program ID [default: known program ID]"),
+                )
+                .arg(
+                    Arg::with_name("stake_pool")
+                        .long("stake-pool")
+                        .validator(is_pubkey)
+                        .value_name("STAKE_POOL")
+                        .takes_value(true)
+                        .help("Filter by specific stake pool address"),
+                )
+                .arg(
+                    Arg::with_name("show_expired_only")
+                        .long("expired-only")
+                        .help("Only show expired receipts"),
+                )
+                .arg(
+                    Arg::with_name("show_active_only")
+                        .long("active-only")
+                        .help("Only show active receipts"),
+                )
+            )
+            .subcommand(SubCommand::with_name("claim-tokens")
+                .about("Claim pool tokens for a specific deposit receipt")
+                .arg(
+                    Arg::with_name("receipt_address")
+                        .index(1)
+                        .validator(is_pubkey)
+                        .value_name("RECEIPT_ADDRESS")
+                        .takes_value(true)
+                        .required(true)
+                        .help("The deposit receipt PDA address"),
+                )
+                .arg(
+                    Arg::with_name("destination")
+                        .long("destination")
+                        .validator(is_pubkey)
+                        .value_name("DESTINATION")
+                        .takes_value(true)
+                        .help("Destination token account [default: owner's ATA]"),
+                )
+                .arg(
+                    Arg::with_name("after_cooldown")
+                        .long("after-cooldown")
+                        .help("Skip fee calculation if claiming after cooldown period"),
+                )
+            )
         )
         .get_matches();
 
@@ -3504,6 +3558,30 @@ fn main() {
                     &stake_account,
                     withdraw_authority,
                     &referrer,
+                )
+            }
+            ("list-receipts", Some(arg_matches)) => {
+                let program_id = pubkey_of(arg_matches, "program_id");
+                let stake_pool = pubkey_of(arg_matches, "stake_pool");
+                let show_expired_only = arg_matches.is_present("show_expired_only");
+                let show_active_only = arg_matches.is_present("show_active_only");
+                interceptor::command_list_receipts(
+                    &config,
+                    program_id.as_ref(),
+                    stake_pool.as_ref(),
+                    show_expired_only,
+                    show_active_only,
+                )
+            }
+            ("claim-tokens", Some(arg_matches)) => {
+                let receipt_address = pubkey_of(arg_matches, "receipt_address").unwrap();
+                let destination = pubkey_of(arg_matches, "destination");
+                let after_cooldown = arg_matches.is_present("after_cooldown");
+                interceptor::command_claim_tokens(
+                    &config,
+                    &receipt_address,
+                    destination.as_ref(),
+                    after_cooldown,
                 )
             }
             _ => unreachable!(),
