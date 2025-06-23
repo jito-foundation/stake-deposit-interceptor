@@ -39,13 +39,17 @@ impl Serialize for Instruction {
 
         state.serialize_field("programId", &self.program_id.to_string())?;
 
-        let accounts_as_objects: Vec<_> = self.accounts.iter().map(|a| {
-            serde_json::json!({
-                "pubkey": a.pubkey.to_string(),
-                "isSigner": a.is_signer,
-                "isWritable": a.is_writable
+        let accounts_as_objects: Vec<_> = self
+            .accounts
+            .iter()
+            .map(|a| {
+                serde_json::json!({
+                    "pubkey": a.pubkey.to_string(),
+                    "isSigner": a.is_signer,
+                    "isWritable": a.is_writable
+                })
             })
-        }).collect();
+            .collect();
         state.serialize_field("accounts", &accounts_as_objects)?;
 
         state.serialize_field(

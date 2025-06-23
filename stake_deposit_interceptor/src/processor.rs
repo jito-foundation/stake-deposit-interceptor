@@ -135,7 +135,7 @@ impl Processor {
         // Create and initialize the Vault ATA
         invoke_signed(
             &spl_associated_token_account::instruction::create_associated_token_account_idempotent(
-                &payer_info.key,              // Funding account
+                payer_info.key,               // Funding account
                 &deposit_stake_authority_pda, // Owner of the ATA
                 &stake_pool.pool_mint,        // Mint address for the token
                 token_program_info.key,
@@ -211,7 +211,7 @@ impl Processor {
         check_deposit_stake_authority_address(
             program_id,
             deposit_stake_authority_info.key,
-            &deposit_stake_authority,
+            deposit_stake_authority,
         )?;
 
         // Validate: authority matches
@@ -293,7 +293,7 @@ impl Processor {
         check_deposit_stake_authority_address(
             program_id,
             deposit_stake_authority_info.key,
-            &deposit_stake_authority,
+            deposit_stake_authority,
         )?;
         // Validate Vault token account to receive pool tokens is coorect.
         if pool_tokens_vault_info.key != &deposit_stake_authority.vault {
@@ -331,7 +331,7 @@ impl Processor {
             clock_info,
             stake_history_info,
             stake_program_info,
-            &deposit_stake_authority,
+            deposit_stake_authority,
             minimum_pool_tokens_out,
         )?;
 
@@ -413,7 +413,7 @@ impl Processor {
             DepositReceipt::try_from_slice_unchecked_mut(&mut deposit_receipt_data).unwrap();
 
         // Validate: DepositReceipt address must match expected PDA
-        check_deposit_receipt_address(program_id, deposit_receipt_info.key, &deposit_receipt)?;
+        check_deposit_receipt_address(program_id, deposit_receipt_info.key, deposit_receipt)?;
 
         // Validate: owner should match that of the DepositReceipt
         if owner_info.key != &deposit_receipt.owner {
@@ -499,11 +499,11 @@ impl Processor {
             check_deposit_stake_authority_address(
                 program_id,
                 deposit_stake_authority_info.key,
-                &deposit_stake_authority,
+                deposit_stake_authority,
             )?;
 
             // Validate: DepositReceipt address must match expected PDA
-            check_deposit_receipt_address(program_id, deposit_receipt_info.key, &deposit_receipt)?;
+            check_deposit_receipt_address(program_id, deposit_receipt_info.key, deposit_receipt)?;
 
             // Validate: StakePoolDepositStakeAuthority must match the same during creation of DepositReceipt
             if deposit_stake_authority_info.key
@@ -552,7 +552,7 @@ impl Processor {
                 deposit_stake_authority_info.clone(),
                 fee_amount,
                 pool_mint.decimals,
-                &deposit_stake_authority,
+                deposit_stake_authority,
             )?;
 
             let amount = u64::from(deposit_receipt.lst_amount)
@@ -567,7 +567,7 @@ impl Processor {
                 deposit_stake_authority_info.clone(),
                 amount,
                 pool_mint.decimals,
-                &deposit_stake_authority,
+                deposit_stake_authority,
             )?;
         }
 
@@ -661,6 +661,7 @@ fn check_system_account(account_info: &AccountInfo, is_writable: bool) -> Result
 }
 
 /// Create a PDA account for the given seeds
+#[allow(clippy::too_many_arguments)]
 fn create_pda_account<'a>(
     payer: &AccountInfo<'a>,
     rent: &Rent,
@@ -719,6 +720,7 @@ fn create_pda_account<'a>(
 }
 
 /// Invokes the `DepositStake` instruction for the given stake-pool program.
+#[allow(clippy::too_many_arguments)]
 fn deposit_stake_cpi<'a>(
     program_info: &AccountInfo<'a>,
     stake_pool_info: &AccountInfo<'a>,
@@ -791,14 +793,13 @@ fn deposit_stake_cpi<'a>(
         accounts,
         data,
     };
-    let ret = invoke_signed(
+    invoke_signed(
         &ix,
         &account_infos,
         &[deposit_stake_authority_signer_seeds!(
             deposit_stake_authority
         )],
-    );
-    ret
+    )
 }
 
 /// Check the validity of the supplied deposit_stake_authority given the relevant seeds.
@@ -832,6 +833,7 @@ pub fn check_deposit_receipt_address(
 }
 
 /// Transfer tokens using SPL Token or Token2022 based on the given token program.
+#[allow(clippy::too_many_arguments)]
 pub fn transfer_tokens_cpi<'a>(
     token_program: AccountInfo<'a>,
     source: AccountInfo<'a>,
@@ -873,5 +875,5 @@ pub fn close_account<'a>(
     **source.lamports.borrow_mut() = 0;
 
     source.assign(&system_program::ID);
-    source.realloc(0, false).map_err(Into::into)
+    source.realloc(0, false)
 }

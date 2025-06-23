@@ -80,7 +80,7 @@ async fn test_init_deposit_stake_authority() {
         .unwrap();
 
     let deposit_stake_authority =
-        StakePoolDepositStakeAuthority::try_from_slice_unchecked(&account.data.as_slice()).unwrap();
+        StakePoolDepositStakeAuthority::try_from_slice_unchecked(account.data.as_slice()).unwrap();
     let vault_token_account =
         spl_token::state::Account::unpack(vault_account.data.as_slice()).unwrap();
     assert_eq!(vault_token_account.mint, stake_pool_accounts.pool_mint);

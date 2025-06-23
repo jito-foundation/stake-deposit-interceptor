@@ -9,6 +9,7 @@ use solana_sdk::pubkey::Pubkey;
 use thiserror::Error;
 use tracing::error;
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Error, Debug)]
 pub enum ApiError {
     #[error("Rpc Error")]
@@ -41,7 +42,10 @@ impl IntoResponse for ApiError {
             }
             ApiError::ParseStakeDepositAuthorityError(e) => {
                 error!("Parse StakePoolDepositStakeAuthority error: {e}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Pubkey StakePoolDepositStakeAuthority error")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Pubkey StakePoolDepositStakeAuthority error",
+                )
             }
             ApiError::ParseStakePoolError(e) => {
                 error!("Parse StakePool error: {e}");
@@ -53,9 +57,15 @@ impl IntoResponse for ApiError {
             }
             ApiError::ParseValidatorListError(e) => {
                 error!("Parse ValidatorList error: {e}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "Pubkey ValidatorList error")
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Pubkey ValidatorList error",
+                )
             }
-            ApiError::InvalidStakeVoteAccount => (StatusCode::BAD_REQUEST, "Stake voter_pubkey is invalid or missing"),
+            ApiError::InvalidStakeVoteAccount => (
+                StatusCode::BAD_REQUEST,
+                "Stake voter_pubkey is invalid or missing",
+            ),
             ApiError::InternalError => (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"),
         };
         (

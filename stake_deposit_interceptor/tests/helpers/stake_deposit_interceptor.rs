@@ -3,6 +3,7 @@ use solana_program_test::ProgramTestContext;
 use solana_sdk::{signature::Keypair, signer::Signer, transaction::Transaction};
 
 /// Create and initialize a `StakePoolDepositStakeAuthority`.
+#[allow(dead_code)]
 pub async fn create_stake_deposit_authority(
     ctx: &mut ProgramTestContext,
     stake_pool_pubkey: &Pubkey,
@@ -21,7 +22,7 @@ pub async fn create_stake_deposit_authority(
         stake_deposit_interceptor::instruction::create_init_deposit_stake_authority_instruction(
             &stake_deposit_interceptor::id(),
             &ctx.payer.pubkey(),
-            &stake_pool_pubkey,
+            stake_pool_pubkey,
             stake_pool_mint,
             &spl_stake_pool::id(),
             &spl_token::id(),
@@ -35,7 +36,7 @@ pub async fn create_stake_deposit_authority(
     let tx = Transaction::new_signed_with_payer(
         &[init_ix],
         Some(&ctx.payer.pubkey()),
-        &[&ctx.payer, &base],
+        &[&ctx.payer, base],
         ctx.last_blockhash,
     );
 

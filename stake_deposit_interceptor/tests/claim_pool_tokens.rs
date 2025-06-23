@@ -279,12 +279,12 @@ async fn test_success_claim_pool_tokens() {
     let destination_token_account_info =
         get_account(&mut ctx.banks_client, &depositor_pool_token_account).await;
     let destination_token_account =
-        Account::unpack(&destination_token_account_info.data.as_slice()).unwrap();
+        Account::unpack(destination_token_account_info.data.as_slice()).unwrap();
     assert_eq!(destination_token_account.amount, user_amount);
 
     // Fees should have been paid
     let fee_token_account_info = get_account(&mut ctx.banks_client, &fee_token_account).await;
-    let fee_token_account = Account::unpack(&fee_token_account_info.data.as_slice()).unwrap();
+    let fee_token_account = Account::unpack(fee_token_account_info.data.as_slice()).unwrap();
     assert_eq!(fee_token_account.amount, fee_amount,);
 
     // DepositReceipt account should have been closed
@@ -399,7 +399,7 @@ async fn test_success_permissionless_claim() {
     let destination_token_account_info =
         get_account(&mut ctx.banks_client, &destination_token_account).await;
     let destination_token_account =
-        Account::unpack(&destination_token_account_info.data.as_slice()).unwrap();
+        Account::unpack(destination_token_account_info.data.as_slice()).unwrap();
     assert_eq!(destination_token_account.amount, user_amount);
 }
 
@@ -753,7 +753,7 @@ async fn test_fail_invalid_pool_mint() {
     // TODO
     let (
         mut ctx,
-        stake_pool_accounts,
+        _stake_pool_accounts,
         depositor,
         _deposit_receipt_pda,
         _deposit_stake_authority_pubkey,
