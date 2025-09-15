@@ -1,4 +1,4 @@
-# Cranker Bot Quick-start
+# Stake deposit interceptor cranker
 
 Below are the steps to configuring and running the Stake Deposit Interceptor Bot. We recommend running it as a docker container.
 
