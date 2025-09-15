@@ -3,6 +3,9 @@ name = "stake-deposit-interceptor"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "lib"]
+
 [features]
 no-entrypoint = []
 
@@ -29,6 +32,3 @@ solana-program-test = "2.0.14"
 solana-sdk = { workspace = true }
 solana-vote-program = "2.0.14"
 tokio = "1.41.0"
-
-[lib]
-crate-type = ["cdylib", "lib"]

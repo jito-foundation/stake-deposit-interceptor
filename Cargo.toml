@@ -1,8 +1,5 @@
 [workspace]
-members = [
-  "api",
-  "stake_deposit_interceptor"
-]
+members = ["api", "stake_deposit_interceptor"]
 exclude = ["cli", "cranker"]
 
 [workspace.dependencies]
