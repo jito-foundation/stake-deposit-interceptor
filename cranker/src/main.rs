@@ -24,16 +24,17 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
             let seed_bytes: Vec<u8> = serde_json::from_str(&seed_str)
                 .map_err(|_| "Failed to parse KEYPAIR_SEED as JSON array")?;
 
-            Arc::new(keypair_from_seed(&seed_bytes).map_err(|_| format!("Failed to read keypair"))?)
+            Arc::new(
+                keypair_from_seed(&seed_bytes).map_err(|_| "Failed to read keypair".to_string())?,
+            )
         }
         Err(_e) => {
             let keypair_path = std::env::var("KEYPAIR_PATH")
                 .map_err(|_| "KEYPAIR_PATH not found in environment")?;
-            let payer = Arc::new(
+            Arc::new(
                 read_keypair_file(&keypair_path)
                     .map_err(|_| format!("Failed to read keypair from {}", keypair_path))?,
-            );
-            payer
+            )
         }
     };
 
@@ -60,8 +61,8 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
         payer,
         interval,
         commitment: CommitmentConfig::confirmed(),
-        cluster: cluster,
-        region: region,
+        cluster,
+        region,
     })
 }
 
