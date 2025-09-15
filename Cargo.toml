@@ -1,9 +1,10 @@
 [workspace]
-members = ["api", "stake_deposit_interceptor"]
-exclude = ["cli", "cranker"]
+members = ["api", "stake_deposit_interceptor", "cranker"]
+exclude = ["cli"]
 
 [workspace.dependencies]
 jito-bytemuck = { git = "https://github.com/jito-foundation/restaking.git", rev = "4c37d76102496edd784bb25436cb9c4340f0df01" }
+serde_json = "1.0.145"
 solana-client = ">=1.18.11,<=2"
 solana-rpc-client = ">=1.18.11,<=2"
 solana-rpc-client-api = ">=1.18.11,<=2"

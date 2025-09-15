@@ -4,7 +4,7 @@ use ::{
     solana_sdk::{
         commitment_config::CommitmentConfig,
         pubkey::Pubkey,
-        signature::{read_keypair_file, Signer}, // Added Signer trait
+        signature::{keypair_from_seed, read_keypair_file, Signer}, // Added Signer trait
     },
     stake_deposit_interceptor_cranker::{CrankerConfig, InterceptorCranker},
     std::{process::Command, str::FromStr, sync::Arc, time::Duration},
@@ -19,13 +19,23 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
 
     let ws_url = std::env::var("WS_URL").map_err(|_| "WS_URL not found in environment")?;
 
-    let keypair_path =
-        std::env::var("KEYPAIR_PATH").map_err(|_| "KEYPAIR_PATH not found in environment")?;
+    let payer = match std::env::var("KEYPAIR_SEED") {
+        Ok(seed_str) => {
+            let seed_bytes: Vec<u8> = serde_json::from_str(&seed_str)
+                .map_err(|_| "Failed to parse KEYPAIR_SEED as JSON array")?;
 
-    let payer = Arc::new(
-        read_keypair_file(&keypair_path)
-            .map_err(|_| format!("Failed to read keypair from {}", keypair_path))?,
-    );
+            Arc::new(keypair_from_seed(&seed_bytes).map_err(|_| format!("Failed to read keypair"))?)
+        }
+        Err(_e) => {
+            let keypair_path = std::env::var("KEYPAIR_PATH")
+                .map_err(|_| "KEYPAIR_PATH not found in environment")?;
+            let payer = Arc::new(
+                read_keypair_file(&keypair_path)
+                    .map_err(|_| format!("Failed to read keypair from {}", keypair_path))?,
+            );
+            payer
+        }
+    };
 
     let program_id = Pubkey::from_str(
         &std::env::var("PROGRAM_ID").map_err(|_| "PROGRAM_ID not found in environment")?,

@@ -3,6 +3,10 @@ name = "stake-deposit-interceptor-cranker"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "stake-deposit-interceptor-cranker"
+path = "src/main.rs"
+
 [dependencies]
 # Solana dependencies
 solana-sdk = "2.0.14"
@@ -29,6 +33,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }  # Add env-filter feature
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = { workspace = true }
 config = "0.13"
 metrics = "0.21"
 dotenv = "0.15"

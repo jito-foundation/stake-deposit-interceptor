@@ -4,7 +4,7 @@
 **/local_validators.txt
 **/node_modules/
 **/.crates/
-cranker/.env
+.env
 .DS_Store
 **/.DS_Store
 credentials/

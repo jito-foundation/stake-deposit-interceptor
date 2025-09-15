@@ -40,7 +40,12 @@ REGION=local
 # Log levels
 RUST_LOG="info,solana_gossip=error,solana_metrics=info"
 
-# Path to keypair used to execute tranasactions
+# Keypair Configuration (choose ONE of the following methods):
+
+# Method 1: Use keypair seed as JSON array (recommended for production)
+KEYPAIR_SEED=[1,1,1,1,1,1,1,....]
+
+# Method 2: Use keypair file path (if KEYPAIR_SEED is not provided)
 KEYPAIR_PATH=../credentials/keypair.json
 
 # Program ID (Pubkey as base58 string)
@@ -55,6 +60,29 @@ RUST_LOG="info,solana_gossip=error,solana_metrics=info"
 # Metrics upload influx server (optional)
 SOLANA_METRICS_CONFIG=""
 ```
+
+#### Configuration Details:
+
+**Keypair Configuration**:
+
+**KEYPAIR_SEED**: Provide your keypair as a JSON array of 64 u8 values. This is the recommended method for production deployments as it avoids file system dependencies.
+
+- To get the seed from an existing keypair file: cat ./credentials/keypair.json
+- The bot will prioritize KEYPAIR_SEED if both are provided
+
+**KEYPAIR_PATH**: Alternative method using a file path to your keypair JSON file
+
+**Network Configuration**:
+
+- RPC_URL: Must be a reliable RPC endpoint that supports getProgramAccounts calls
+- WS_URL: WebSocket endpoint for real-time updates (should match your RPC provider)
+- CLUSTER: Network identifier for logging and metrics
+- REGION: Geographic region for monitoring purposes
+
+**Operation Settings**:
+
+- PROGRAM_ID: The Solana program this cranker monitors and interacts with
+- INTERVAL_SECONDS: How frequently (in seconds) the bot checks for cranking opportunities
 
 ## Running Docker image from source
 
