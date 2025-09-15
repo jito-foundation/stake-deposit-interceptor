@@ -365,7 +365,7 @@ impl InterceptorCranker {
             .map_err(CrankerError::RpcError)?;
 
         StakePoolDepositStakeAuthority::try_from_slice_unchecked(account.data.as_slice())
-            .map(|auth| *auth)
+            .copied()
             .map_err(|e| CrankerError::DeserializeError(e.to_string()))
     }
 }
