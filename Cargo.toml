@@ -1,10 +1,5 @@
 [workspace]
-members = [
-    "api",
-    "cli",
-    "cranker",
-    "stake_deposit_interceptor"
-]
+members = ["api", "cli", "cranker", "stake_deposit_interceptor"]
 resolver = "2"
 
 [workspace.dependencies]
