@@ -1,4 +1,4 @@
-# Cranker Bot Quick-start
+# Stake Deposit Interceptor Cranker
 
 Below are the steps to configuring and running the Stake Deposit Interceptor Bot. We recommend running it as a docker container.
 
@@ -22,14 +22,11 @@ cd cranker
 touch .env
 ```
 
-Then copy file contents below into the cranker sub-directory dotenv file at `./cranker/.env`. Everything should be set as-is, however you will need to include an `RPC_URL` and `WS_URL` that can handle getProgramAccounts calls.
+Then copy file contents below into the cranker sub-directory dotenv file at `./cranker/.env`. Everything should be set as-is, however you will need to include an `RPC_URL` that can handle getProgramAccounts calls.
 
 ```bash
 # RPC URL for the cluster
 RPC_URL="YOUR RPC URL"
-
-# Websocket URL for the cluster
-WS_URL="YOUR RPC WS URL"
 
 # Cluster to specify (mainnet, testnet, devnet)
 CLUSTER=mainnet

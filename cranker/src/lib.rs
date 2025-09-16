@@ -33,7 +33,6 @@ use metrics::{emit_crank, emit_deposit_receipt, emit_error, emit_heartbeat};
 #[derive(Clone)]
 pub struct CrankerConfig {
     pub rpc_url: String,
-    pub ws_url: String,
     pub program_id: Pubkey,
     pub payer: Arc<Keypair>, // Wrapped in Arc
     pub interval: Duration,
@@ -240,8 +239,7 @@ impl InterceptorCranker {
                             .0
                         );
 
-                        let receipt = receipt.clone();
-                        Some(receipt)
+                        Some(*receipt)
                     }
                     Err(e) => {
                         emit_error(
@@ -366,7 +364,7 @@ impl InterceptorCranker {
             .map_err(CrankerError::RpcError)?;
 
         StakePoolDepositStakeAuthority::try_from_slice_unchecked(account.data.as_slice())
-            .map(|auth| auth.clone())
+            .copied()
             .map_err(|e| CrankerError::DeserializeError(e.to_string()))
     }
 }
