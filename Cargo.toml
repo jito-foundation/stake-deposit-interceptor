@@ -1,6 +1,11 @@
 [workspace]
-members = ["api", "cranker", "stake_deposit_interceptor"]
-exclude = ["cli"]
+members = [
+    "api",
+    "cli",
+    "cranker",
+    "stake_deposit_interceptor"
+]
+resolver = "2"
 
 [workspace.dependencies]
 jito-bytemuck = { git = "https://github.com/jito-foundation/restaking.git", rev = "4c37d76102496edd784bb25436cb9c4340f0df01" }
