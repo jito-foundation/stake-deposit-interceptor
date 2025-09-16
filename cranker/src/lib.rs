@@ -239,8 +239,7 @@ impl InterceptorCranker {
                             .0
                         );
 
-                        let receipt = receipt.clone();
-                        Some(receipt)
+                        Some(*receipt)
                     }
                     Err(e) => {
                         emit_error(
@@ -365,7 +364,7 @@ impl InterceptorCranker {
             .map_err(CrankerError::RpcError)?;
 
         StakePoolDepositStakeAuthority::try_from_slice_unchecked(account.data.as_slice())
-            .map(|auth| auth.clone())
+            .copied()
             .map_err(|e| CrankerError::DeserializeError(e.to_string()))
     }
 }
