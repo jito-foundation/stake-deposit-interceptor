@@ -4,10 +4,17 @@ description = "stake deposit interceptor CLI"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "spl-stake-pool-interceptor"
+path = "src/main.rs"
+
 [dependencies]
 base64 = "0.22.1"
+bincode = "1.3.1"
 borsh = "1.5.1"
+bs58 = "0.4.0"
 clap = "2.33.3"
+jito-bytemuck = { git = "https://github.com/jito-foundation/restaking.git", rev = "4c37d76102496edd784bb25436cb9c4340f0df01" }
 serde = "1.0.203"
 serde_derive = "1.0.130"
 serde_json = "1.0.117"
@@ -21,15 +28,8 @@ solana-program = ">=1.18.11,<=2"
 solana-remote-wallet = ">=1.18.11,<=2"
 solana-sdk = ">=1.18.11,<=2"
 spl-associated-token-account = { version = "=3.0.2", git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
-spl-stake-pool = { version = "=1.0.0", git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
 spl-governance = { git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
+spl-stake-pool = { version = "=1.0.0", git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
 spl-token = { version = "=5.0", git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
-bs58 = "0.4.0"
-bincode = "1.3.1"
 # Added deps from fork
 stake-deposit-interceptor = { version = "0.1.0", path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }
-jito-bytemuck = { git = "https://github.com/jito-foundation/restaking.git", rev = "4c37d76102496edd784bb25436cb9c4340f0df01" }
-
-[[bin]]
-name = "spl-stake-pool-interceptor"
-path = "src/main.rs"
