@@ -17,8 +17,6 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
     // Load each environment variable with better error messages
     let rpc_url = std::env::var("RPC_URL").map_err(|_| "RPC_URL not found in environment")?;
 
-    let ws_url = std::env::var("WS_URL").map_err(|_| "WS_URL not found in environment")?;
-
     let keypair_path =
         std::env::var("KEYPAIR_PATH").map_err(|_| "KEYPAIR_PATH not found in environment")?;
 
@@ -45,7 +43,6 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
 
     Ok(CrankerConfig {
         rpc_url,
-        ws_url,
         program_id,
         payer,
         interval,
@@ -77,7 +74,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Configuration loaded successfully:");
     info!("RPC URL: {}", config.rpc_url);
-    info!("WS URL: {}", config.ws_url);
     info!("Program ID: {}", config.program_id);
     info!("Payer: {}", config.payer.as_ref().pubkey()); // Signer trait now in scope
     info!("Interval: {}s", config.interval.as_secs());

@@ -33,7 +33,6 @@ use metrics::{emit_crank, emit_deposit_receipt, emit_error, emit_heartbeat};
 #[derive(Clone)]
 pub struct CrankerConfig {
     pub rpc_url: String,
-    pub ws_url: String,
     pub program_id: Pubkey,
     pub payer: Arc<Keypair>, // Wrapped in Arc
     pub interval: Duration,
