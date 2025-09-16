@@ -47,8 +47,8 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
         payer,
         interval,
         commitment: CommitmentConfig::confirmed(),
-        cluster: cluster,
-        region: region,
+        cluster,
+        region,
     })
 }
 
