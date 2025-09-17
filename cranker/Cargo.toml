@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+base64 = { workspace = true }
 bytemuck = { version = "1.13", features = ["derive"] }  # Add this line
 clap = { version = "4.4", features = ["derive"] }
 config = "0.13"

@@ -11,7 +11,6 @@ COPY stake_deposit_interceptor stake_deposit_interceptor
 COPY api api
 
 # Copy project files (excluding env)
-COPY ./cranker/Cargo.lock ./cranker/Cargo.lock
 COPY ./cranker/Cargo.toml ./cranker/Cargo.toml
 COPY ./cranker/src ./cranker/src
 RUN --mount=type=cache,mode=0777,target=/home/root/app/target \
