@@ -1,10 +1,9 @@
 services:
   interceptor-cranker:
     build:
-      dockerfile: ./cranker.Dockerfile
+      dockerfile: ./cranker/Dockerfile
     environment:
       - RPC_URL=${RPC_URL:-https://api.devnet.solana.com}
-      - WS_URL=${WS_URL:-wss://api.devnet.solana.com}
       - KEYPAIR_PATH=${KEYPAIR_PATH}
       - PROGRAM_ID=${PROGRAM_ID:-5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV}
       - INTERVAL_SECONDS=${INTERVAL_SECONDS:-60}
