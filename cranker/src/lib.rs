@@ -115,21 +115,21 @@ impl InterceptorCranker {
 
             info!(
                 "Receipt {} raw bytes:\n\
-                 Interpreted values:\n\
-                 deposit_time: {}\n\
-                 cool_down: {}\n\
-                 current_time: {}",
+                  Interpreted values:\n\
+                  deposit_time: {}\n\
+                  cool_down: {}\n\
+                  current_time: {}",
                 receipt.base, deposit_time, cool_down, now
             );
             emit_deposit_receipt(&receipt, &self.cluster_name);
 
             if deposit_time > now {
                 info!(
-                    "Receipt {} not yet expired (future deposit time). Current time: {}, Deposit time: {}",
-                    receipt.base,
-                    now,
-                    deposit_time
-                );
+                     "Receipt {} not yet expired (future deposit time). Current time: {}, Deposit time: {}",
+                     receipt.base,
+                     now,
+                     deposit_time
+                 );
                 future_deposits += 1;
                 continue;
             }
@@ -171,11 +171,11 @@ impl InterceptorCranker {
                 }
                 None => {
                     emit_error(format!(
-                        "Receipt {} has invalid timing values - would overflow. Deposit time: {}, Cool down: {}",
-                        receipt.base,
-                        deposit_time,
-                        cool_down
-                    ), &self.cluster_name);
+                         "Receipt {} has invalid timing values - would overflow. Deposit time: {}, Cool down: {}",
+                         receipt.base,
+                         deposit_time,
+                         cool_down
+                     ), &self.cluster_name);
                 }
             }
         }
@@ -262,6 +262,35 @@ impl InterceptorCranker {
 
         let owner_ata =
             get_associated_token_address(&receipt.owner, &stake_pool_deposit_authority.pool_mint);
+
+        // Check if account exists
+        match self.rpc_client.get_account(&owner_ata).await {
+            Ok(_) => {
+                info!("Owner token account exists: {owner_ata}");
+            }
+            Err(_) => {
+                info!("Creating owner token account: {owner_ata}");
+                let create_ata_ix = create_associated_token_account(
+                    &self.payer.pubkey(),
+                    &receipt.owner,
+                    &stake_pool_deposit_authority.pool_mint,
+                    &spl_token::id(),
+                );
+
+                let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
+                let create_ata_tx = Transaction::new_signed_with_payer(
+                    &[create_ata_ix],
+                    Some(&self.payer.pubkey()),
+                    &[self.payer.as_ref()],
+                    recent_blockhash,
+                );
+
+                self.rpc_client
+                    .send_and_confirm_transaction(&create_ata_tx)
+                    .await?;
+                info!("Created owner ata token account");
+            }
+        }
 
         let fee_wallet_token_account = get_associated_token_address(
             &stake_pool_deposit_authority.fee_wallet,
