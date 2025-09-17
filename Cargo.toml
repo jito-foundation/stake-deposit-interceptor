@@ -3,7 +3,6 @@ members = ["api", "cli", "cranker", "stake_deposit_interceptor"]
 resolver = "2"
 
 [workspace.dependencies]
-base64 = "0.22.1"
 jito-bytemuck = { git = "https://github.com/jito-foundation/restaking.git", rev = "4c37d76102496edd784bb25436cb9c4340f0df01" }
 solana-client = ">=1.18.11,<=2"
 solana-rpc-client = ">=1.18.11,<=2"

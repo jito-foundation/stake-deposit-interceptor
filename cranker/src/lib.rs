@@ -1,5 +1,3 @@
-use base64::{engine::general_purpose, Engine};
-use solana_client::rpc_filter::MemcmpEncodedBytes;
 use ::{
     jito_bytemuck::AccountDeserialize,
     solana_account_decoder::UiAccountEncoding,
@@ -197,17 +195,14 @@ impl InterceptorCranker {
         let discriminator = StakeDepositInterceptorDiscriminators::DepositReceipt as u8;
         info!("Searching for deposit receipts");
 
-        let encoded_discriminator =
-            general_purpose::STANDARD.encode(vec![discriminator, 0, 0, 0, 0, 0, 0, 0]);
-
         let accounts = self
             .rpc_client
             .get_program_accounts_with_config(
                 &self.program_id,
                 RpcProgramAccountsConfig {
-                    filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new(
+                    filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
                         0,
-                        MemcmpEncodedBytes::Base64(encoded_discriminator),
+                        &[discriminator],
                     ))]),
                     account_config: RpcAccountInfoConfig {
                         encoding: Some(UiAccountEncoding::Base64),

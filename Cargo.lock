@@ -6385,7 +6385,6 @@ dependencies = [
 name = "stake-deposit-interceptor-cranker"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
  "bytemuck",
  "clap 4.5.47",
  "config",
