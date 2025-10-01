@@ -3107,6 +3107,18 @@ fn main() {
                         .help("Create the destination ATA if it doesn't exist"),
                 )
             )
+            .subcommand(SubCommand::with_name("get-stake-deposit-authority")
+                .about("Claim pool tokens for a specific deposit receipt")
+                .arg(
+                    Arg::with_name("stake_deposit_authority")
+                        .index(1)
+                        .validator(is_pubkey)
+                        .value_name("STAKE_DEPOSIT_AUTHORITY")
+                        .takes_value(true)
+                        .required(true)
+                        .help("stake_deposit_authority of the stake pool that will be deposited to"),
+                )
+            )
         )
         .get_matches();
 
@@ -3590,6 +3602,11 @@ fn main() {
                     after_cooldown,
                     create_ata,
                 )
+            }
+            ("get-stake-deposit-authority", Some(arg_matches)) => {
+                let stake_deposit_authority =
+                    pubkey_of(arg_matches, "stake_deposit_authority").unwrap();
+                interceptor::command_get_stake_deposit_authority(&config, &stake_deposit_authority)
             }
             _ => unreachable!(),
         },

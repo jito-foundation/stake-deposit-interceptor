@@ -1,4 +1,5 @@
 use std::num::NonZeroU32;
+use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jito_bytemuck::AccountDeserialize;
@@ -68,7 +69,7 @@ pub fn command_create_stake_deposit_authority(
         &config.fee_payer.pubkey(),
         stake_pool_address,
         &stake_pool.pool_mint,
-        &spl_stake_pool::id(),
+        &Pubkey::from_str("DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib").unwrap(),
         &spl_token::id(),
         fee_wallet,
         cool_down_seconds,
@@ -490,4 +491,47 @@ pub fn command_claim_tokens(
         }
         Err(e) => Err(format!("Failed to claim pool tokens: {}", e).into()),
     }
+}
+
+pub fn command_get_stake_deposit_authority(
+    config: &Config,
+    stake_deposit_authority_address: &Pubkey,
+) -> CommandResult {
+    let stake_deposit_authority =
+        get_stake_deposit_authority(&config.rpc_client, stake_deposit_authority_address)?;
+
+    println!("\nStake Pool Deposit Stake Authority");
+    println!("=====================================");
+    println!("Base:                    {}", stake_deposit_authority.base);
+    println!(
+        "Stake Pool:              {}",
+        stake_deposit_authority.stake_pool
+    );
+    println!(
+        "Pool Mint:               {}",
+        stake_deposit_authority.pool_mint
+    );
+    println!(
+        "Authority:               {}",
+        stake_deposit_authority.authority
+    );
+    println!("Vault:                   {}", stake_deposit_authority.vault);
+    println!(
+        "Stake Pool Program ID:   {}",
+        stake_deposit_authority.stake_pool_program_id
+    );
+    let cool_down_seconds: u64 = stake_deposit_authority.cool_down_seconds.into();
+    println!("Cool Down Seconds:       {cool_down_seconds}");
+    let initial_fee_bps: u32 = stake_deposit_authority.inital_fee_bps.into();
+    println!("Initial Fee (bps):       {initial_fee_bps}",);
+    println!(
+        "Fee Wallet:              {}",
+        stake_deposit_authority.fee_wallet
+    );
+    println!(
+        "Bump Seed:               {}",
+        stake_deposit_authority.bump_seed
+    );
+
+    Ok(())
 }

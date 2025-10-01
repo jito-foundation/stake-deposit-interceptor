@@ -11,7 +11,7 @@ pub mod state;
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
 
-declare_id!("5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV");
+declare_id!("2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu");
 
 #[cfg(not(feature = "no-entrypoint"))]
 security_txt! {
