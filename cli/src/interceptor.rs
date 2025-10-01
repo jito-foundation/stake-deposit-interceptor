@@ -1,6 +1,7 @@
-use std::num::NonZeroU32;
-use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    num::NonZeroU32,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use jito_bytemuck::AccountDeserialize;
 use solana_account_decoder::UiAccountEncoding;
@@ -69,7 +70,7 @@ pub fn command_create_stake_deposit_authority(
         &config.fee_payer.pubkey(),
         stake_pool_address,
         &stake_pool.pool_mint,
-        &Pubkey::from_str("DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib").unwrap(),
+        &spl_stake_pool::id(),
         &spl_token::id(),
         fee_wallet,
         cool_down_seconds,
@@ -493,6 +494,7 @@ pub fn command_claim_tokens(
     }
 }
 
+/// Command to get [`StakePoolDepositStakeAuthority`]
 pub fn command_get_stake_deposit_authority(
     config: &Config,
     stake_deposit_authority_address: &Pubkey,

@@ -3108,7 +3108,7 @@ fn main() {
                 )
             )
             .subcommand(SubCommand::with_name("get-stake-deposit-authority")
-                .about("Claim pool tokens for a specific deposit receipt")
+                .about("Get a stake deposit authority for a specific stake pool")
                 .arg(
                     Arg::with_name("stake_deposit_authority")
                         .index(1)
