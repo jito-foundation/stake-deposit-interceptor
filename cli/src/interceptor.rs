@@ -1,5 +1,6 @@
 use std::{
     num::NonZeroU32,
+    str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -122,7 +123,7 @@ pub fn command_deposit_stake(
 
     // Calculate validator stake account address linked to the pool
     let (validator_stake_account, _) = find_stake_program_address(
-        &spl_stake_pool::id(),
+        &Pubkey::from_str("DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib").unwrap(),
         &vote_account,
         &stake_deposit_authority.stake_pool,
         validator_seed,
@@ -138,7 +139,7 @@ pub fn command_deposit_stake(
     let referrer_token_account = referrer_token_account.unwrap_or(stake_deposit_authority.vault);
 
     let pool_withdraw_authority = find_withdraw_authority_program_address(
-        &spl_stake_pool::id(),
+        &Pubkey::from_str("DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib").unwrap(),
         &stake_deposit_authority.stake_pool,
     )
     .0;
@@ -150,10 +151,31 @@ pub fn command_deposit_stake(
 
     println!("Created DepositReceipt {}", deposit_receipt_base.pubkey());
 
+    println!(
+        "{} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
+        &stake_deposit_interceptor::id(),
+        &config.fee_payer.pubkey(),
+        &Pubkey::from_str("DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib").unwrap(),
+        &stake_deposit_authority.stake_pool,
+        &stake_pool.validator_list,
+        &pool_withdraw_authority,
+        stake,
+        &withdraw_authority.pubkey(),
+        &validator_stake_account,
+        &stake_pool.reserve_stake,
+        &stake_deposit_authority.vault,
+        &stake_pool.manager_fee_account,
+        &referrer_token_account,
+        &stake_pool.pool_mint,
+        &spl_token::id(),
+        &deposit_receipt_base.pubkey(),
+        &stake_deposit_authority.base,
+    );
+
     let ixs = create_deposit_stake_instruction(
         &stake_deposit_interceptor::id(),
         &config.fee_payer.pubkey(),
-        &spl_stake_pool::id(),
+        &Pubkey::from_str("DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib").unwrap(),
         &stake_deposit_authority.stake_pool,
         &stake_pool.validator_list,
         &pool_withdraw_authority,
