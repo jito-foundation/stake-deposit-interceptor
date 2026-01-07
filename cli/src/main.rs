@@ -1962,21 +1962,20 @@ fn command_set_manager(
         }
     };
 
-    signers.append(&mut vec![
-        config.fee_payer.as_ref(),
-        config.manager.as_ref(),
-    ]);
-    unique_signers!(signers);
-
     let ixs = &[spl_stake_pool::instruction::set_manager(
         &spl_stake_pool::id(),
         stake_pool_address,
-        &config.manager.pubkey(),
+        &stake_pool.manager,
         &new_manager_pubkey,
         &new_fee_receiver,
     )];
 
     if !maybe_print_tx(print_tx, print_gov_tx, ixs) {
+        signers.append(&mut vec![
+            config.fee_payer.as_ref(),
+            config.manager.as_ref(),
+        ]);
+        unique_signers!(signers);
         let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
         send_transaction(config, transaction)?;
     }
