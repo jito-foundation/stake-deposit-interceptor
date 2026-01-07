@@ -65,7 +65,21 @@ use {
     std::{cmp::Ordering, num::NonZeroU32, process::exit, rc::Rc},
 };
 
-pub fn print_base58_tx(ixs: &[Instruction]) {
+/// Print a human-readable representation of a list of Solana instructions.
+///
+/// For each instruction in `ixs`, this function prints to stdout:
+/// - A separator line: `------ IX ------`
+/// - The instruction's `program_id` on its own line
+/// - A table of all account metadata for the instruction, one account per line,
+///   with three columns:
+///   - The account public key, left-aligned in a fixed-width field
+///   - A `"W"` marker if the account is writable, otherwise an empty string
+///   - An `"S"` marker if the account is a signer, otherwise an empty string
+/// - A blank line followed by the base58-encoded instruction data on its own line
+///
+/// The `ixs` slice is iterated in order, and each instruction is printed in the
+/// above format to aid debugging and inspection of transaction contents.
+fn print_base58_tx(ixs: &[Instruction]) {
     ixs.iter().for_each(|ix| {
         println!("\n------ IX ------\n");
 
@@ -1924,10 +1938,11 @@ fn command_set_manager(
 
     if print_tx {
         print_base58_tx(ixs);
-    } else {
-        let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
-        send_transaction(config, transaction)?;
     }
+    // } else {
+    //     let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
+    //     send_transaction(config, transaction)?;
+    // }
     Ok(())
 }
 
