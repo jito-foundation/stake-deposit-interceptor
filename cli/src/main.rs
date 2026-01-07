@@ -1976,12 +1976,10 @@ fn command_set_manager(
         &new_fee_receiver,
     )];
 
-    if maybe_print_tx(print_tx, print_gov_tx, ixs) {}
-
-    // else {
-    //     let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
-    //     send_transaction(config, transaction)?;
-    // }
+    if !maybe_print_tx(print_tx, print_gov_tx, ixs) {
+        let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
+        send_transaction(config, transaction)?;
+    }
 
     Ok(())
 }
