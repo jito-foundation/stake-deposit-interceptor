@@ -9,6 +9,7 @@ use interceptor::command_create_stake_deposit_authority;
 // use instruction::create_associated_token_account once ATA 1.0.5 is released
 #[allow(deprecated)]
 use spl_associated_token_account::create_associated_token_account;
+use spl_governance::state::proposal_transaction::InstructionData;
 use {
     crate::{
         client::*,
@@ -65,6 +66,20 @@ use {
     std::{cmp::Ordering, num::NonZeroU32, process::exit, rc::Rc},
 };
 
+/// Decides whether to print the transaction in raw or governance format.
+/// Returns true if a print happened and caller should skip executing.
+pub fn maybe_print_tx(print_tx: bool, print_gov_tx: bool, ixs: &[Instruction]) -> bool {
+    if print_tx {
+        print_base58_tx(ixs);
+        true
+    } else if print_gov_tx {
+        print_governance_ix(ixs);
+        true
+    } else {
+        false
+    }
+}
+
 /// Print a human-readable representation of a list of Solana instructions.
 ///
 /// For each instruction in `ixs`, this function prints to stdout:
@@ -97,6 +112,30 @@ fn print_base58_tx(ixs: &[Instruction]) {
 
         let base58_string = bs58::encode(&ix.data).into_string();
         println!("{}\n", base58_string);
+    });
+}
+
+pub fn print_governance_ix(ixs: &[Instruction]) {
+    ixs.iter().for_each(|ix| {
+        println!("\n------ GOV IX ------\n");
+
+        // Convert the instruction to governance InstructionData format
+        let gov_ix_data = InstructionData::from(ix.clone());
+
+        let mut buffer = Cursor::new(Vec::new());
+        match gov_ix_data.serialize(&mut buffer) {
+            Ok(_) => {
+                for account in gov_ix_data.accounts {
+                    println!("Account: {:?}", account.pubkey);
+                }
+                println!("Data: {:?}", gov_ix_data.data);
+                let base64_ix = BASE64_STANDARD.encode(buffer.into_inner());
+                println!("Base64 InstructionData: {:?}\n", base64_ix);
+            }
+            Err(err) => {
+                println!("Failed to serialize InstructionData: {}", err);
+            }
+        }
     });
 }
 
@@ -1894,6 +1933,7 @@ fn command_set_manager(
     new_manager: &Option<Box<dyn Signer>>,
     new_fee_receiver: &Option<Pubkey>,
     print_tx: bool,
+    print_gov_tx: bool,
 ) -> CommandResult {
     if !config.no_update {
         command_update(config, stake_pool_address, false, false, false)?;
@@ -1936,12 +1976,12 @@ fn command_set_manager(
         &new_fee_receiver,
     )];
 
-    if print_tx {
-        print_base58_tx(ixs);
-    } else {
-        let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
-        send_transaction(config, transaction)?;
-    }
+    if maybe_print_tx(print_tx, print_gov_tx, ixs) {}
+
+    // else {
+    //     let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
+    //     send_transaction(config, transaction)?;
+    // }
 
     Ok(())
 }
@@ -2819,6 +2859,12 @@ fn main() {
                     .takes_value(false)
                     .help("Print the transaction instead of sending it."),
             )
+            .arg(
+                Arg::with_name("print_gov_tx")
+                    .long("print-gov-tx")
+                    .takes_value(false)
+                    .help("Print the gov transaction instead of sending it."),
+            )
             .group(ArgGroup::with_name("new_accounts")
                 .arg("new_manager")
                 .arg("new_fee_receiver")
@@ -3476,12 +3522,15 @@ fn main() {
             let new_fee_receiver: Option<Pubkey> = pubkey_of(arg_matches, "new_fee_receiver");
 
             let print_tx = arg_matches.is_present("print_tx");
+            let print_gov_tx = arg_matches.is_present("print_gov_tx");
+
             command_set_manager(
                 &config,
                 &stake_pool_address,
                 &new_manager,
                 &new_fee_receiver,
                 print_tx,
+                print_gov_tx,
             )
         }
         ("set-staker", Some(arg_matches)) => {
