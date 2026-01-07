@@ -1938,11 +1938,11 @@ fn command_set_manager(
 
     if print_tx {
         print_base58_tx(ixs);
+    } else {
+        let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
+        send_transaction(config, transaction)?;
     }
-    // } else {
-    //     let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
-    //     send_transaction(config, transaction)?;
-    // }
+
     Ok(())
 }
 
