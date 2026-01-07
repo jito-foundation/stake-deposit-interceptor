@@ -115,7 +115,7 @@ fn print_base58_tx(ixs: &[Instruction]) {
     });
 }
 
-pub fn print_governance_ix(ixs: &[Instruction]) {
+fn print_governance_ix(ixs: &[Instruction]) {
     ixs.iter().for_each(|ix| {
         println!("\n------ GOV IX ------\n");
 
@@ -2855,13 +2855,15 @@ fn main() {
                 Arg::with_name("print_tx")
                     .long("print-tx")
                     .takes_value(false)
+                    .conflicts_with("print_gov_tx")
                     .help("Print the transaction instead of sending it."),
             )
             .arg(
                 Arg::with_name("print_gov_tx")
                     .long("print-gov-tx")
                     .takes_value(false)
-                    .help("Print the gov transaction instead of sending it."),
+                    .conflicts_with("print_tx")
+                    .help("Print the transaction in governance format instead of sending it."),
             )
             .group(ArgGroup::with_name("new_accounts")
                 .arg("new_manager")
