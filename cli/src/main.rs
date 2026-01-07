@@ -65,6 +65,27 @@ use {
     std::{cmp::Ordering, num::NonZeroU32, process::exit, rc::Rc},
 };
 
+pub fn print_base58_tx(ixs: &[Instruction]) {
+    ixs.iter().for_each(|ix| {
+        println!("\n------ IX ------\n");
+
+        println!("{}\n", ix.program_id);
+
+        ix.accounts.iter().for_each(|account| {
+            let pubkey = format!("{}", account.pubkey);
+            let writable = if account.is_writable { "W" } else { "" };
+            let signer = if account.is_signer { "S" } else { "" };
+
+            println!("{:<44} {:>2} {:>1}", pubkey, writable, signer);
+        });
+
+        println!("\n");
+
+        let base58_string = bs58::encode(&ix.data).into_string();
+        println!("{}\n", base58_string);
+    });
+}
+
 pub(crate) struct Config {
     rpc_client: RpcClient,
     verbose: bool,
@@ -1858,6 +1879,7 @@ fn command_set_manager(
     stake_pool_address: &Pubkey,
     new_manager: &Option<Box<dyn Signer>>,
     new_fee_receiver: &Option<Pubkey>,
+    print_tx: bool,
 ) -> CommandResult {
     if !config.no_update {
         command_update(config, stake_pool_address, false, false, false)?;
@@ -1891,18 +1913,21 @@ fn command_set_manager(
         config.manager.as_ref(),
     ]);
     unique_signers!(signers);
-    let transaction = checked_transaction_with_signers(
-        config,
-        &[spl_stake_pool::instruction::set_manager(
-            &spl_stake_pool::id(),
-            stake_pool_address,
-            &config.manager.pubkey(),
-            &new_manager_pubkey,
-            &new_fee_receiver,
-        )],
-        &signers,
-    )?;
-    send_transaction(config, transaction)?;
+
+    let ixs = &[spl_stake_pool::instruction::set_manager(
+        &spl_stake_pool::id(),
+        stake_pool_address,
+        &config.manager.pubkey(),
+        &new_manager_pubkey,
+        &new_fee_receiver,
+    )];
+
+    if print_tx {
+        print_base58_tx(ixs);
+    } else {
+        let transaction = checked_transaction_with_signers(config, ixs, &signers)?;
+        send_transaction(config, transaction)?;
+    }
     Ok(())
 }
 
@@ -2773,6 +2798,12 @@ fn main() {
                     .takes_value(true)
                     .help("Public key for the new account to set as the stake pool fee receiver."),
             )
+            .arg(
+                Arg::with_name("print_tx")
+                    .long("print-tx")
+                    .takes_value(false)
+                    .help("Print the transaction instead of sending it."),
+            )
             .group(ArgGroup::with_name("new_accounts")
                 .arg("new_manager")
                 .arg("new_fee_receiver")
@@ -3428,11 +3459,14 @@ fn main() {
             };
 
             let new_fee_receiver: Option<Pubkey> = pubkey_of(arg_matches, "new_fee_receiver");
+
+            let print_tx = arg_matches.is_present("print_tx");
             command_set_manager(
                 &config,
                 &stake_pool_address,
                 &new_manager,
                 &new_fee_receiver,
+                print_tx,
             )
         }
         ("set-staker", Some(arg_matches)) => {
