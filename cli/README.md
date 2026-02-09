@@ -9,6 +9,12 @@ See https://spl.solana.com/stake-pool for the base functionality.
 ### set-funding-authority-ix-serialized
 A command that prints a serialized version of SetFundingAuthority instruction intended to be used within SPL Governance.
 
+### interceptor update-stake-pool-deposit-stake-authority
+Updates one or more mutable `StakePoolDepositStakeAuthority` fields:
+`new_authority`, `fee_wallet`, `cool_down_seconds`, and `initial_fee_bps`.
+Use `--print-gov-tx` to print a base64 SPL Governance `InstructionData`
+payload without sending a transaction.
+
 ### interceptor create-stake-deposit-authority
 Creates the StakePoolStakeDepositAuthority on the interceptor program. This account would become the `stake_deposit_authority` on any StakePool that should be proxied through the Interceptor program.
 

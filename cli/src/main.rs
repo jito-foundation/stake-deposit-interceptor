@@ -35,7 +35,7 @@ use {
     solana_client::rpc_client::RpcClient,
     solana_program::{
         borsh1::{get_instance_packed_len, get_packed_len},
-        instruction::Instruction,
+        instruction::{AccountMeta, Instruction},
         program_pack::Pack,
         pubkey::Pubkey,
         stake,
@@ -61,6 +61,9 @@ use {
         minimum_delegation,
         state::{Fee, FeeType, StakePool, ValidatorList, ValidatorStakeInfo},
         MINIMUM_RESERVE_LAMPORTS,
+    },
+    stake_deposit_interceptor::instruction::{
+        StakeDepositInterceptorInstruction, UpdateStakePoolDepositStakeAuthorityArgs,
     },
     std::{cmp::Ordering, num::NonZeroU32, process::exit, rc::Rc},
 };
@@ -1956,6 +1959,159 @@ fn command_set_funding_authority(
     Ok(())
 }
 
+fn governance_instruction_data_base64(ix: Instruction) -> Result<String, Error> {
+    let gov_ix_data = spl_governance::state::proposal_transaction::InstructionData::from(ix);
+    let mut buffer = Cursor::new(Vec::new());
+    if let Err(err) = gov_ix_data.serialize(&mut buffer) {
+        return Err(format!("Failed to serialize InstructionData: {}", err).into());
+    }
+
+    Ok(BASE64_STANDARD.encode(buffer.into_inner()))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn create_update_interceptor_authority_instruction(
+    interceptor_program_id: &Pubkey,
+    stake_deposit_authority_address: &Pubkey,
+    current_authority: &Pubkey,
+    new_authority: Option<Pubkey>,
+    fee_wallet: Option<Pubkey>,
+    cool_down_seconds: Option<u64>,
+    initial_fee_bps: Option<u32>,
+) -> Result<Instruction, Error> {
+    let args = UpdateStakePoolDepositStakeAuthorityArgs {
+        fee_wallet,
+        cool_down_seconds,
+        initial_fee_bps,
+    };
+
+    let data = borsh::to_vec(
+        &StakeDepositInterceptorInstruction::UpdateStakePoolDepositStakeAuthority(args),
+    )
+    .map_err(|err| {
+        format!(
+            "Failed to serialize interceptor update instruction: {}",
+            err
+        )
+    })?;
+
+    let mut accounts = vec![
+        AccountMeta::new(*stake_deposit_authority_address, false),
+        AccountMeta::new_readonly(*current_authority, true),
+    ];
+    if let Some(new_authority) = new_authority {
+        accounts.push(AccountMeta::new_readonly(new_authority, false));
+    }
+
+    Ok(Instruction {
+        program_id: *interceptor_program_id,
+        accounts,
+        data,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn command_print_interceptor_update_authority_gov_tx(
+    interceptor_program_id: &Pubkey,
+    stake_deposit_authority_address: &Pubkey,
+    current_authority: &Pubkey,
+    new_authority: Option<Pubkey>,
+    fee_wallet: Option<Pubkey>,
+    cool_down_seconds: Option<u64>,
+    initial_fee_bps: Option<u32>,
+) -> CommandResult {
+    let ix = create_update_interceptor_authority_instruction(
+        interceptor_program_id,
+        stake_deposit_authority_address,
+        current_authority,
+        new_authority,
+        fee_wallet,
+        cool_down_seconds,
+        initial_fee_bps,
+    )?;
+
+    let base64_ix = governance_instruction_data_base64(ix)?;
+    println!("Base64 InstructionData: {:?}", base64_ix);
+
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn command_set_interceptor_controller_authority(
+    config: &Config,
+    interceptor_program_id: &Pubkey,
+    stake_deposit_authority_address: &Pubkey,
+    current_authority: &Pubkey,
+    current_authority_signer: Option<Box<dyn Signer>>,
+    new_authority: Option<Pubkey>,
+    fee_wallet: Option<Pubkey>,
+    cool_down_seconds: Option<u64>,
+    initial_fee_bps: Option<u32>,
+    print_gov_tx: bool,
+) -> CommandResult {
+    if new_authority.is_none()
+        && fee_wallet.is_none()
+        && cool_down_seconds.is_none()
+        && initial_fee_bps.is_none()
+    {
+        return Err(
+            "No updates requested. Specify at least one of NEW_AUTHORITY, --fee-wallet, --cool-down-seconds, or --initial-fee-bps"
+                .into(),
+        );
+    }
+
+    if print_gov_tx {
+        return command_print_interceptor_update_authority_gov_tx(
+            interceptor_program_id,
+            stake_deposit_authority_address,
+            current_authority,
+            new_authority,
+            fee_wallet,
+            cool_down_seconds,
+            initial_fee_bps,
+        );
+    }
+
+    if initial_fee_bps
+        .map(|x| x > stake_deposit_interceptor::state::DepositReceipt::FEE_BPS_DENOMINATOR)
+        .unwrap_or(false)
+    {
+        return Err(format!(
+            "Invalid initial_fee_bps {}. Maximum allowed is {}",
+            initial_fee_bps.unwrap_or_default(),
+            stake_deposit_interceptor::state::DepositReceipt::FEE_BPS_DENOMINATOR
+        )
+        .into());
+    }
+
+    let current_authority_signer = current_authority_signer
+        .ok_or("Current authority signer is required unless --print-gov-tx is specified")?;
+    let signer_pubkey = current_authority_signer.pubkey();
+    if signer_pubkey != *current_authority {
+        return Err(format!(
+            "Invalid current authority signer, expected {}, received {}",
+            current_authority, signer_pubkey
+        )
+        .into());
+    }
+
+    let ix = create_update_interceptor_authority_instruction(
+        interceptor_program_id,
+        stake_deposit_authority_address,
+        current_authority,
+        new_authority,
+        fee_wallet,
+        cool_down_seconds,
+        initial_fee_bps,
+    )?;
+    let mut signers = vec![config.fee_payer.as_ref(), current_authority_signer.as_ref()];
+    unique_signers!(signers);
+    let transaction = checked_transaction_with_signers(config, &[ix], &signers)?;
+    send_transaction(config, transaction)?;
+
+    Ok(())
+}
+
 fn command_get_set_funding_authority_ix_serialized(
     manager_address: &Pubkey,
     stake_pool_address: &Pubkey,
@@ -1970,12 +2126,7 @@ fn command_get_set_funding_authority_ix_serialized(
         funding_type,
     );
 
-    let gov_ix_data = spl_governance::state::proposal_transaction::InstructionData::from(ix);
-    let mut buffer = Cursor::new(Vec::new());
-    if let Err(err) = gov_ix_data.serialize(&mut buffer) {
-        return Err(format!("Failed to serialize InstructionData: {}", err).into());
-    }
-    let base64_ix = BASE64_STANDARD.encode(buffer.into_inner());
+    let base64_ix = governance_instruction_data_base64(ix)?;
     println!("Base64 InstructionData: {:?}", base64_ix);
 
     Ok(())
@@ -3119,6 +3270,89 @@ fn main() {
                         .help("stake_deposit_authority of the stake pool that will be deposited to"),
                 )
             )
+            .subcommand(SubCommand::with_name("update-stake-pool-deposit-stake-authority")
+                .about("Update StakePoolDepositStakeAuthority fields")
+                .arg(
+                    Arg::with_name("stake_deposit_authority")
+                        .index(1)
+                        .validator(is_pubkey)
+                        .value_name("STAKE_DEPOSIT_AUTHORITY")
+                        .takes_value(true)
+                        .required(true)
+                        .help("StakePoolDepositStakeAuthority PDA to update"),
+                )
+                .arg(
+                    Arg::with_name("current_authority")
+                        .index(2)
+                        .validator(is_pubkey)
+                        .value_name("CURRENT_AUTHORITY")
+                        .takes_value(true)
+                        .required(true)
+                        .help("Current authority pubkey"),
+                )
+                .arg(
+                    Arg::with_name("new_authority")
+                        .index(3)
+                        .validator(is_pubkey)
+                        .value_name("NEW_AUTHORITY")
+                        .takes_value(true)
+                        .help("Optional new authority pubkey"),
+                )
+                .arg(
+                    Arg::with_name("fee_wallet")
+                        .long("fee-wallet")
+                        .validator(is_pubkey)
+                        .value_name("FEE_WALLET")
+                        .takes_value(true)
+                        .help("Optional new fee wallet owner pubkey"),
+                )
+                .arg(
+                    Arg::with_name("cool_down_seconds")
+                        .long("cool-down-seconds")
+                        .validator(is_parsable::<u64>)
+                        .value_name("COOL_DOWN_SECONDS")
+                        .takes_value(true)
+                        .help("Optional new cooldown duration in seconds"),
+                )
+                .arg(
+                    Arg::with_name("initial_fee_bps")
+                        .long("initial-fee-bps")
+                        .validator(is_parsable::<u32>)
+                        .value_name("INITIAL_FEE_BPS")
+                        .takes_value(true)
+                        .help("Optional new initial fee in basis points"),
+                )
+                .arg(
+                    Arg::with_name("current_authority_signer")
+                        .long("current-authority-signer")
+                        .validator(is_valid_signer)
+                        .value_name("KEYPAIR")
+                        .takes_value(true)
+                        .help("Current authority signer. [default: cli config keypair]"),
+                )
+                .arg(
+                    Arg::with_name("print_gov_tx")
+                        .long("print-gov-tx")
+                        .takes_value(false)
+                        .help("Print base64 SPL Governance InstructionData instead of sending a transaction"),
+                )
+                .arg(
+                    Arg::with_name("program_id")
+                        .long("program-id")
+                        .validator(is_pubkey)
+                        .value_name("PROGRAM_ID")
+                        .takes_value(true)
+                        .help("Stake deposit interceptor program ID [default: known program ID]"),
+                )
+                .group(ArgGroup::with_name("update_fields")
+                    .arg("new_authority")
+                    .arg("fee_wallet")
+                    .arg("cool_down_seconds")
+                    .arg("initial_fee_bps")
+                    .multiple(true)
+                    .required(true)
+                )
+            )
         )
         .get_matches();
 
@@ -3608,6 +3842,43 @@ fn main() {
                     pubkey_of(arg_matches, "stake_deposit_authority").unwrap();
                 interceptor::command_get_stake_deposit_authority(&config, &stake_deposit_authority)
             }
+            ("update-stake-pool-deposit-stake-authority", Some(arg_matches)) => {
+                let stake_deposit_authority =
+                    pubkey_of(arg_matches, "stake_deposit_authority").unwrap();
+                let current_authority = pubkey_of(arg_matches, "current_authority").unwrap();
+                let new_authority = pubkey_of(arg_matches, "new_authority");
+                let fee_wallet = pubkey_of(arg_matches, "fee_wallet");
+                let cool_down_seconds = value_t!(arg_matches, "cool_down_seconds", u64).ok();
+                let initial_fee_bps = value_t!(arg_matches, "initial_fee_bps", u32).ok();
+                let print_gov_tx = arg_matches.is_present("print_gov_tx");
+                let current_authority_signer = if print_gov_tx {
+                    None
+                } else {
+                    Some(get_signer(
+                        arg_matches,
+                        "current_authority_signer",
+                        &cli_config.keypair_path,
+                        &mut wallet_manager,
+                        SignerFromPathConfig {
+                            allow_null_signer: false,
+                        },
+                    ))
+                };
+                let interceptor_program_id = pubkey_of(arg_matches, "program_id")
+                    .unwrap_or_else(stake_deposit_interceptor::id);
+                command_set_interceptor_controller_authority(
+                    &config,
+                    &interceptor_program_id,
+                    &stake_deposit_authority,
+                    &current_authority,
+                    current_authority_signer,
+                    new_authority,
+                    fee_wallet,
+                    cool_down_seconds,
+                    initial_fee_bps,
+                    print_gov_tx,
+                )
+            }
             _ => unreachable!(),
         },
         _ => unreachable!(),
@@ -3616,4 +3887,116 @@ fn main() {
         eprintln!("{}", err);
         exit(1);
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use borsh::{BorshDeserialize, BorshSerialize};
+
+    #[test]
+    fn test_create_transfer_interceptor_authority_instruction() {
+        let interceptor_program_id = Pubkey::new_unique();
+        let stake_deposit_authority_address = Pubkey::new_unique();
+        let current_authority = Pubkey::new_unique();
+        let new_authority = Pubkey::new_unique();
+
+        let ix = create_update_interceptor_authority_instruction(
+            &interceptor_program_id,
+            &stake_deposit_authority_address,
+            &current_authority,
+            Some(new_authority),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(ix.program_id, interceptor_program_id);
+        assert_eq!(
+            ix.accounts,
+            vec![
+                AccountMeta::new(stake_deposit_authority_address, false),
+                AccountMeta::new_readonly(current_authority, true),
+                AccountMeta::new_readonly(new_authority, false),
+            ]
+        );
+
+        let decoded = StakeDepositInterceptorInstruction::try_from_slice(ix.data.as_slice())
+            .expect("failed to deserialize instruction");
+
+        match decoded {
+            StakeDepositInterceptorInstruction::UpdateStakePoolDepositStakeAuthority(args) => {
+                assert_eq!(args.fee_wallet, None);
+                assert_eq!(args.cool_down_seconds, None);
+                assert_eq!(args.initial_fee_bps, None);
+            }
+            _ => panic!("unexpected instruction variant"),
+        }
+    }
+
+    #[test]
+    fn test_create_update_interceptor_authority_instruction_without_new_authority_account() {
+        let interceptor_program_id = Pubkey::new_unique();
+        let stake_deposit_authority_address = Pubkey::new_unique();
+        let current_authority = Pubkey::new_unique();
+        let fee_wallet = Pubkey::new_unique();
+        let cool_down_seconds = 42u64;
+        let initial_fee_bps = 123u32;
+
+        let ix = create_update_interceptor_authority_instruction(
+            &interceptor_program_id,
+            &stake_deposit_authority_address,
+            &current_authority,
+            None,
+            Some(fee_wallet),
+            Some(cool_down_seconds),
+            Some(initial_fee_bps),
+        )
+        .unwrap();
+
+        assert_eq!(ix.program_id, interceptor_program_id);
+        assert_eq!(
+            ix.accounts,
+            vec![
+                AccountMeta::new(stake_deposit_authority_address, false),
+                AccountMeta::new_readonly(current_authority, true),
+            ]
+        );
+
+        let decoded = StakeDepositInterceptorInstruction::try_from_slice(ix.data.as_slice())
+            .expect("failed to deserialize instruction");
+
+        match decoded {
+            StakeDepositInterceptorInstruction::UpdateStakePoolDepositStakeAuthority(args) => {
+                assert_eq!(args.fee_wallet, Some(fee_wallet));
+                assert_eq!(args.cool_down_seconds, Some(cool_down_seconds));
+                assert_eq!(args.initial_fee_bps, Some(initial_fee_bps));
+            }
+            _ => panic!("unexpected instruction variant"),
+        }
+    }
+
+    #[test]
+    fn test_governance_instruction_data_base64_matches_manual_serialization() {
+        let ix = create_update_interceptor_authority_instruction(
+            &Pubkey::new_unique(),
+            &Pubkey::new_unique(),
+            &Pubkey::new_unique(),
+            Some(Pubkey::new_unique()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let from_helper = governance_instruction_data_base64(ix.clone()).unwrap();
+
+        let gov_ix_data = spl_governance::state::proposal_transaction::InstructionData::from(ix);
+        let mut buffer = Cursor::new(Vec::new());
+        gov_ix_data.serialize(&mut buffer).unwrap();
+        let expected = BASE64_STANDARD.encode(buffer.into_inner());
+
+        assert_eq!(from_helper, expected);
+    }
 }
