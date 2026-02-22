@@ -8,10 +8,10 @@ use {
         rpc_filter::{Memcmp, RpcFilterType},
     },
     solana_program::{
-        borsh1::try_from_slice_unchecked, hash::Hash, instruction::Instruction, message::Message,
-        program_pack::Pack, pubkey::Pubkey, stake,
+        borsh1::try_from_slice_unchecked, hash::Hash, instruction::Instruction, program_pack::Pack,
+        pubkey::Pubkey,
     },
-    solana_sdk::{compute_budget::ComputeBudgetInstruction, transaction::Transaction},
+    solana_sdk::{message::Message, transaction::Transaction},
     spl_stake_pool::{
         find_withdraw_authority_program_address,
         state::{StakePool, ValidatorList},
@@ -45,10 +45,11 @@ pub fn get_token_account(
     rpc_client: &RpcClient,
     token_account_address: &Pubkey,
     expected_token_mint: &Pubkey,
-) -> Result<spl_token::state::Account, Error> {
+) -> Result<spl_token_interface::state::Account, Error> {
     let account_data = rpc_client.get_account_data(token_account_address)?;
-    let token_account = spl_token::state::Account::unpack_from_slice(account_data.as_slice())
-        .map_err(|err| format!("Invalid token account {}: {}", token_account_address, err))?;
+    let token_account =
+        spl_token_interface::state::Account::unpack_from_slice(account_data.as_slice())
+            .map_err(|err| format!("Invalid token account {}: {}", token_account_address, err))?;
 
     if token_account.mint != *expected_token_mint {
         Err(format!(
@@ -64,10 +65,11 @@ pub fn get_token_account(
 pub fn get_token_mint(
     rpc_client: &RpcClient,
     token_mint_address: &Pubkey,
-) -> Result<spl_token::state::Mint, Error> {
+) -> Result<spl_token_interface::state::Mint, Error> {
     let account_data = rpc_client.get_account_data(token_mint_address)?;
-    let token_mint = spl_token::state::Mint::unpack_from_slice(account_data.as_slice())
-        .map_err(|err| format!("Invalid token mint {}: {}", token_mint_address, err))?;
+    let token_mint =
+        spl_token_interface::state::Mint::unpack_from_slice(account_data.as_slice())
+            .map_err(|err| format!("Invalid token mint {}: {}", token_mint_address, err))?;
 
     Ok(token_mint)
 }
@@ -75,7 +77,7 @@ pub fn get_token_mint(
 pub(crate) fn get_stake_state(
     rpc_client: &RpcClient,
     stake_address: &Pubkey,
-) -> Result<stake::state::StakeStateV2, Error> {
+) -> Result<solana_stake_interface::state::StakeStateV2, Error> {
     let account_data = rpc_client.get_account_data(stake_address)?;
     let stake_state = deserialize(account_data.as_slice())
         .map_err(|err| format!("Invalid stake account {}: {}", stake_address, err))?;
@@ -130,7 +132,7 @@ pub(crate) fn get_all_stake(
     authorized_staker: &Pubkey,
 ) -> Result<HashSet<Pubkey>, ClientError> {
     let all_stake_accounts = rpc_client.get_program_accounts_with_config(
-        &stake::program::id(),
+        &solana_stake_interface::program::id(),
         RpcProgramAccountsConfig {
             filters: Some(vec![
                 // Filter by `Meta::authorized::staker`, which begins at byte offset 12

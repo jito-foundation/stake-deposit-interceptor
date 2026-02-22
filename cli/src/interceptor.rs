@@ -5,13 +5,11 @@ use std::{
 
 use jito_bytemuck::AccountDeserialize;
 use solana_account_decoder::UiAccountEncoding;
-use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
-use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer, stake,
-};
-use spl_associated_token_account::get_associated_token_address;
+use solana_client::{rpc_client::RpcClient, rpc_config::CommitmentConfig};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use spl_associated_token_account_interface::address::get_associated_token_address;
 use spl_stake_pool::{find_stake_program_address, find_withdraw_authority_program_address};
 use stake_deposit_interceptor::{
     instruction::{
@@ -71,7 +69,7 @@ pub fn command_create_stake_deposit_authority(
         stake_pool_address,
         &stake_pool.pool_mint,
         &spl_stake_pool::id(),
-        &spl_token::id(),
+        &spl_token_interface::id(),
         fee_wallet,
         cool_down_seconds,
         initial_fee_bps,
@@ -110,7 +108,9 @@ pub fn command_deposit_stake(
     let stake_state = get_stake_state(&config.rpc_client, stake)?;
 
     let vote_account = match stake_state {
-        stake::state::StakeStateV2::Stake(_, stake, _) => Ok(stake.delegation.voter_pubkey),
+        solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
+            Ok(stake.delegation.voter_pubkey)
+        }
         _ => Err("Wrong stake account state, must be delegated to validator"),
     }?;
     // Check if this vote account has staking account in the pool
@@ -165,7 +165,7 @@ pub fn command_deposit_stake(
         &stake_pool.manager_fee_account,
         &referrer_token_account,
         &stake_pool.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         &deposit_receipt_base.pubkey(),
         &stake_deposit_authority.base,
     );
@@ -381,7 +381,7 @@ pub fn command_claim_tokens(
     let final_after_cooldown = after_cooldown || auto_after_cooldown;
 
     if auto_after_cooldown && !after_cooldown {
-        println!("Note: Setting after_cooldown=true because fee payer ({}) is not the receipt owner ({})", 
+        println!("Note: Setting after_cooldown=true because fee payer ({}) is not the receipt owner ({})",
                  config.fee_payer.pubkey(), receipt.owner);
     }
 
@@ -425,11 +425,11 @@ pub fn command_claim_tokens(
             );
 
             let create_ata_ix =
-                spl_associated_token_account::instruction::create_associated_token_account(
+                spl_associated_token_account_interface::instruction::create_associated_token_account(
                     &config.fee_payer.pubkey(),
                     &receipt.owner,
                     &stake_pool_deposit_authority.pool_mint,
-                    &spl_token::id(),
+                    &spl_token_interface::id(),
                 );
             instructions.push(create_ata_ix);
         } else {
@@ -453,11 +453,11 @@ pub fn command_claim_tokens(
         );
 
         let create_fee_ata_ix =
-            spl_associated_token_account::instruction::create_associated_token_account(
+            spl_associated_token_account_interface::instruction::create_associated_token_account(
                 &config.fee_payer.pubkey(),
                 &stake_pool_deposit_authority.fee_wallet,
                 &stake_pool_deposit_authority.pool_mint,
-                &spl_token::id(),
+                &spl_token_interface::id(),
             );
         instructions.push(create_fee_ata_ix);
     }
@@ -472,7 +472,7 @@ pub fn command_claim_tokens(
         &fee_wallet_token_account,
         &receipt.stake_pool_deposit_stake_authority,
         &stake_pool_deposit_authority.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         final_after_cooldown,
     );
     instructions.push(claim_ix);

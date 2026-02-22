@@ -1,11 +1,7 @@
-use solana_program_test::{processor, ProgramTest, ProgramTestContext};
-use solana_sdk::{
-    account::AccountSharedData,
-    instruction::InstructionError,
-    pubkey::Pubkey,
-    transaction::{Transaction, TransactionError},
-    transport::TransportError,
-};
+use solana_account::AccountSharedData;
+use solana_program::{instruction::InstructionError, pubkey::Pubkey};
+use solana_program_test::{processor, BanksClientError, ProgramTest, ProgramTestContext};
+use solana_transaction::{Transaction, TransactionError};
 
 use super::{create_stake_pool, StakePoolAccounts};
 
@@ -18,8 +14,8 @@ pub fn program_test_with_stake_pool_program() -> ProgramTest {
     );
     program_test.add_program(
         "stake_deposit_interceptor",
-        stake_deposit_interceptor::id(),
-        processor!(stake_deposit_interceptor::processor::Processor::process),
+        stake_deposit_interceptor_program::id(),
+        processor!(stake_deposit_interceptor_program::processor::Processor::process),
     );
     program_test
 }
@@ -61,15 +57,14 @@ pub async fn assert_transaction_err(
     tx: Transaction,
     tx_error: InstructionError,
 ) {
-    let transaction_error: TransportError = ctx
+    let transaction_error: BanksClientError = ctx
         .banks_client
         .process_transaction(tx)
         .await
-        .expect_err("Transaction should fail")
-        .into();
+        .expect_err("Transaction should fail");
 
     match transaction_error {
-        TransportError::TransactionError(TransactionError::InstructionError(_, error)) => {
+        BanksClientError::TransactionError(TransactionError::InstructionError(_, error)) => {
             assert_eq!(error, tx_error);
         }
         _ => panic!("Wrong error"),

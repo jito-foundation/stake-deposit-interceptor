@@ -1,8 +1,8 @@
 use ::{
     dotenv::dotenv,
+    solana_commitment_config::CommitmentConfig,
     solana_metrics::set_host_id,
     solana_sdk::{
-        commitment_config::CommitmentConfig,
         pubkey::Pubkey,
         signature::{read_keypair_file, Signer}, // Added Signer trait
     },

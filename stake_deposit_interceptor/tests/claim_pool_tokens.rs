@@ -10,25 +10,20 @@ use helpers::{
     update_stake_deposit_authority, StakePoolAccounts, ValidatorStakeAccount,
 };
 use jito_bytemuck::{AccountDeserialize, Discriminator};
+use solana_account::AccountSharedData;
+use solana_clock::Clock;
+use solana_keypair::{Keypair, Signer};
+use solana_program::{
+    borsh1::try_from_slice_unchecked, native_token::LAMPORTS_PER_SOL, program_pack::Pack,
+};
 use solana_program_test::ProgramTestContext;
-use solana_sdk::{
-    account::AccountSharedData,
-    borsh1::try_from_slice_unchecked,
-    clock::Clock,
-    instruction::{AccountMeta, Instruction, InstructionError},
-    native_token::LAMPORTS_PER_SOL,
-    program_pack::Pack,
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    stake::{self},
-    transaction::Transaction,
+use solana_pubkey::Pubkey;
+use solana_transaction::{AccountMeta, Instruction, InstructionError, Transaction};
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address, instruction::create_associated_token_account,
 };
-use spl_associated_token_account::{
-    get_associated_token_address, instruction::create_associated_token_account,
-};
-use spl_token_2022::state::Account;
-use stake_deposit_interceptor::{
+use spl_token_2022_interface::state::Account;
+use stake_deposit_interceptor_program::{
     error::StakeDepositInterceptorError,
     instruction::{derive_stake_deposit_receipt, derive_stake_pool_deposit_stake_authority},
     state::{DepositReceipt, StakePoolDepositStakeAuthority},
@@ -61,7 +56,7 @@ async fn setup() -> (
             .unwrap();
     let deposit_authority_base = Keypair::new();
     let (deposit_stake_authority_pubkey, _bump) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
@@ -95,14 +90,15 @@ async fn setup() -> (
     airdrop_lamports(&mut ctx, &depositor.pubkey(), 10 * LAMPORTS_PER_SOL).await;
 
     // Create "Depositor" owned stake account
-    let authorized = stake::state::Authorized {
+    let authorized = solana_stake_interface::state::Authorized {
         staker: depositor.pubkey(),
         withdrawer: depositor.pubkey(),
     };
-    let lockup = stake::state::Lockup::default();
+    let lockup = solana_stake_interface::state::Lockup::default();
     let stake_amount = 2 * LAMPORTS_PER_SOL;
-    let total_staked_amount =
-        rent.minimum_balance(std::mem::size_of::<stake::state::StakeStateV2>()) + stake_amount;
+    let total_staked_amount = rent.minimum_balance(std::mem::size_of::<
+        solana_stake_interface::state::StakeStateV2,
+    >()) + stake_amount;
     let depositor_stake_account = create_stake_account(
         &mut ctx.banks_client,
         &depositor,
@@ -157,8 +153,8 @@ async fn setup() -> (
     // Generate a random Pubkey as seed for DepositReceipt PDA.
     let deposit_receipt_base = Keypair::new();
     let deposit_stake_instructions =
-        stake_deposit_interceptor::instruction::create_deposit_stake_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_deposit_stake_instruction(
+            &stake_deposit_interceptor_program::id(),
             &depositor.pubkey(),
             &spl_stake_pool::id(),
             &stake_pool_accounts.stake_pool,
@@ -172,7 +168,7 @@ async fn setup() -> (
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &deposit_receipt_base.pubkey(),
             &deposit_authority_base.pubkey(),
         );
@@ -219,12 +215,12 @@ async fn test_success_claim_pool_tokens() {
     ) = setup().await;
 
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
     let (deposit_receipt_pda, _bump_seed) = derive_stake_deposit_receipt(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_receipt_base.pubkey(),
     );
@@ -242,11 +238,11 @@ async fn test_success_claim_pool_tokens() {
         &depositor.pubkey(),
         &fee_wallet.pubkey(),
         &stake_pool_accounts.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
     );
 
-    let ix = stake_deposit_interceptor::instruction::create_claim_pool_tokens_instruction(
-        &stake_deposit_interceptor::id(),
+    let ix = stake_deposit_interceptor_program::instruction::create_claim_pool_tokens_instruction(
+        &stake_deposit_interceptor_program::id(),
         &deposit_receipt_pda,
         &depositor.pubkey(),
         &deposit_stake_authority.vault,
@@ -254,7 +250,7 @@ async fn test_success_claim_pool_tokens() {
         &fee_token_account,
         &deposit_stake_authority_pubkey,
         &stake_pool.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         false,
     );
 
@@ -320,12 +316,12 @@ async fn setup_with_ix() -> (
     ) = setup().await;
 
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
     let (deposit_receipt_pda, _bump_seed) = derive_stake_deposit_receipt(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_receipt_base.pubkey(),
     );
@@ -337,11 +333,11 @@ async fn setup_with_ix() -> (
         &depositor.pubkey(),
         &fee_wallet.pubkey(),
         &stake_pool_accounts.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
     );
 
-    let ix = stake_deposit_interceptor::instruction::create_claim_pool_tokens_instruction(
-        &stake_deposit_interceptor::id(),
+    let ix = stake_deposit_interceptor_program::instruction::create_claim_pool_tokens_instruction(
+        &stake_deposit_interceptor_program::id(),
         &deposit_receipt_pda,
         &depositor.pubkey(),
         &deposit_stake_authority.vault,
@@ -349,7 +345,7 @@ async fn setup_with_ix() -> (
         &fee_token_account,
         &deposit_stake_authority_pubkey,
         &stake_pool.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         true,
     );
     (

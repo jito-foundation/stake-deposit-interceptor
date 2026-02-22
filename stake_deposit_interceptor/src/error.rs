@@ -1,6 +1,7 @@
-use spl_program_error_derive::*;
+use solana_program::program_error::ProgramError;
+use thiserror::Error;
 
-#[spl_program_error]
+#[derive(Debug, Error)]
 pub enum StakeDepositInterceptorError {
     /// 0 : A signature was missing
     #[error("Signature missing")]
@@ -26,13 +27,13 @@ pub enum StakeDepositInterceptorError {
     /// 7 : Invalid Vault account
     #[error("Vault ATA is invalid")]
     InvalidVault,
-    /// 8 : Invalid Token program account   
+    /// 8 : Invalid Token program account
     #[error("Token program is invalid")]
     InvalidTokenProgram,
-    /// 9 : Invalid DepositReceipt account   
+    /// 9 : Invalid DepositReceipt account
     #[error("DepositReceipt key is invalid")]
     InvalidDepositReceipt,
-    /// 10 : Invalid DepositReceipt owner account   
+    /// 10 : Invalid DepositReceipt owner account
     #[error("DepositReceipt owner is invalid")]
     InvalidDepositReceiptOwner,
     /// 11 : Invalid fee token account
@@ -53,4 +54,10 @@ pub enum StakeDepositInterceptorError {
     /// 16 : Invalid stake-pool program
     #[error("StakePool program is invalid")]
     InvalidStakePoolProgram,
+}
+
+impl From<StakeDepositInterceptorError> for ProgramError {
+    fn from(value: StakeDepositInterceptorError) -> Self {
+        Self::Custom(value as u32)
+    }
 }

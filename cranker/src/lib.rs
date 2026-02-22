@@ -1,19 +1,13 @@
 use ::{
     jito_bytemuck::AccountDeserialize,
-    solana_account_decoder::UiAccountEncoding,
     solana_client::{
         nonblocking::rpc_client::RpcClient,
         rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig}, // Added explicit imports
         rpc_filter::{Memcmp, RpcFilterType},
     },
-    solana_sdk::{
-        commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer,
-        transaction::Transaction,
-    },
-    spl_associated_token_account::{
-        get_associated_token_address, instruction::create_associated_token_account,
-    },
-    stake_deposit_interceptor::{
+    solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction},
+    spl_associated_token_account_interface::instruction::create_associated_token_account,
+    stake_deposit_interceptor_program::{
         instruction::{create_claim_pool_tokens_instruction, derive_stake_deposit_receipt},
         state::{
             DepositReceipt, StakeDepositInterceptorDiscriminators, StakePoolDepositStakeAuthority,
@@ -29,6 +23,9 @@ use ::{
 
 pub mod metrics;
 use metrics::{emit_crank, emit_deposit_receipt, emit_error, emit_heartbeat};
+use solana_client::rpc_config::UiAccountEncoding;
+use solana_commitment_config::CommitmentConfig;
+use spl_associated_token_account_interface::address::get_associated_token_address;
 
 #[derive(Clone)]
 pub struct CrankerConfig {
@@ -274,7 +271,7 @@ impl InterceptorCranker {
                     &self.payer.pubkey(),
                     &receipt.owner,
                     &stake_pool_deposit_authority.pool_mint,
-                    &spl_token::id(),
+                    &spl_token_interface::id(),
                 );
 
                 let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
@@ -314,7 +311,7 @@ impl InterceptorCranker {
                     &self.payer.pubkey(),
                     &stake_pool_deposit_authority.fee_wallet,
                     &stake_pool_deposit_authority.pool_mint,
-                    &spl_token::id(),
+                    &spl_token_interface::id(),
                 );
 
                 let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
@@ -345,7 +342,7 @@ impl InterceptorCranker {
             &fee_wallet_token_account,
             &receipt.stake_pool_deposit_stake_authority,
             &stake_pool_deposit_authority.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             true,
         );
 

@@ -14,11 +14,9 @@ use solana_program::{
     program_pack::Pack,
     pubkey::Pubkey,
     rent::Rent,
-    system_instruction, system_program,
     sysvar::Sysvar,
 };
-use spl_associated_token_account::get_associated_token_address;
-use spl_token_2022::state::{Account, Mint};
+use spl_associated_token_account_interface::address::get_associated_token_address;
 
 use crate::{
     deposit_receipt_signer_seeds, deposit_stake_authority_signer_seeds,
@@ -90,7 +88,7 @@ impl Processor {
         }
 
         // Validate: token program must be one of the SPL Token programs
-        spl_token_2022::check_spl_token_program_account(token_program_info.key)?;
+        spl_token_2022_interface::check_spl_token_program_account(token_program_info.key)?;
 
         // Validate: stake_pool's mint has same token program as given program
         if stake_pool_mint_info.owner != token_program_info.key {
@@ -134,7 +132,7 @@ impl Processor {
 
         // Create and initialize the Vault ATA
         invoke_signed(
-            &spl_associated_token_account::instruction::create_associated_token_account_idempotent(
+            &spl_associated_token_account_interface::instruction::create_associated_token_account_idempotent(
                 payer_info.key,               // Funding account
                 &deposit_stake_authority_pda, // Owner of the ATA
                 &stake_pool.pool_mint,        // Mint address for the token
@@ -310,7 +308,9 @@ impl Processor {
             return Err(StakeDepositInterceptorError::InvalidStakePool.into());
         }
 
-        let vault_token_account_before = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
+        let vault_token_account_before = spl_token_2022_interface::state::Account::unpack(
+            &pool_tokens_vault_info.data.borrow(),
+        )?;
 
         // CPI to SPL stake-pool program to invoke DepositStake with the `StakePoolDepositStakeAuthority` as the
         // `stake_deposit_authority`.
@@ -335,7 +335,9 @@ impl Processor {
             minimum_pool_tokens_out,
         )?;
 
-        let vault_token_account_after = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
+        let vault_token_account_after = spl_token_2022_interface::state::Account::unpack(
+            &pool_tokens_vault_info.data.borrow(),
+        )?;
         let pool_tokens_minted = vault_token_account_after
             .amount
             .checked_sub(vault_token_account_before.amount)
@@ -524,22 +526,26 @@ impl Processor {
                 return Err(StakeDepositInterceptorError::InvalidPoolMint.into());
             }
 
-            let fee_token_account = Account::unpack(&fee_token_account_info.data.borrow())?;
+            let fee_token_account = spl_token_2022_interface::state::Account::unpack(
+                &fee_token_account_info.data.borrow(),
+            )?;
 
             // Validate: Fee token account must be owned by `fee_wallet`
             if fee_token_account.owner != deposit_stake_authority.fee_wallet {
                 return Err(StakeDepositInterceptorError::InvalidFeeTokenAccount.into());
             }
 
-            let destination_token_account =
-                Account::unpack(&destination_token_account_info.data.borrow())?;
+            let destination_token_account = spl_token_2022_interface::state::Account::unpack(
+                &destination_token_account_info.data.borrow(),
+            )?;
 
             // Validate: Destination token account must be owned by DepositRecipt `owner`
             if destination_token_account.owner != deposit_receipt.owner {
                 return Err(StakeDepositInterceptorError::InvalidDestinationTokenAccount.into());
             }
 
-            let pool_mint = Mint::unpack(&pool_mint_info.data.borrow())?;
+            let pool_mint =
+                spl_token_2022_interface::state::Mint::unpack(&pool_mint_info.data.borrow())?;
 
             let fee_amount = deposit_receipt.calculate_fee_amount(clock.unix_timestamp);
 
@@ -628,10 +634,10 @@ fn check_account_owner(
 
 /// Check system program address
 fn check_system_program(program_id: &Pubkey) -> Result<(), ProgramError> {
-    if *program_id != system_program::id() {
+    if *program_id != solana_system_interface::program::id() {
         msg!(
             "Expected system program {}, received {}",
-            system_program::id(),
+            solana_system_interface::program::id(),
             program_id
         );
         Err(ProgramError::IncorrectProgramId)
@@ -642,7 +648,10 @@ fn check_system_program(program_id: &Pubkey) -> Result<(), ProgramError> {
 
 /// Checks the account is owned by the System program and does not have any existing data.
 fn check_system_account(account_info: &AccountInfo, is_writable: bool) -> Result<(), ProgramError> {
-    if account_info.owner.ne(&system_program::id()) {
+    if account_info
+        .owner
+        .ne(&solana_system_interface::program::id())
+    {
         msg!("Account is not owned by the system program");
         return Err(ProgramError::InvalidAccountOwner);
     }
@@ -682,7 +691,11 @@ fn create_pda_account<'a>(
             .saturating_sub(new_pda_account.lamports());
         if required_lamports > 0 {
             invoke(
-                &system_instruction::transfer(payer.key, new_pda_account.key, required_lamports),
+                &solana_system_interface::instruction::transfer(
+                    payer.key,
+                    new_pda_account.key,
+                    required_lamports,
+                ),
                 &[
                     payer.clone(),
                     new_pda_account.clone(),
@@ -691,18 +704,18 @@ fn create_pda_account<'a>(
             )?;
         }
         invoke_signed(
-            &system_instruction::allocate(new_pda_account.key, space as u64),
+            &solana_system_interface::instruction::allocate(new_pda_account.key, space as u64),
             &[new_pda_account.clone(), system_program.clone()],
             &[new_pda_signer_seeds],
         )?;
         invoke_signed(
-            &system_instruction::assign(new_pda_account.key, owner),
+            &solana_system_interface::instruction::assign(new_pda_account.key, owner),
             &[new_pda_account.clone(), system_program.clone()],
             &[new_pda_signer_seeds],
         )
     } else {
         invoke_signed(
-            &system_instruction::create_account(
+            &solana_system_interface::instruction::create_account(
                 payer.key,
                 new_pda_account.key,
                 rent.minimum_balance(space).max(1),
@@ -844,7 +857,7 @@ pub fn transfer_tokens_cpi<'a>(
     decimals: u8,
     deposit_stake_authority: &StakePoolDepositStakeAuthority,
 ) -> Result<(), ProgramError> {
-    let ix = spl_token_2022::instruction::transfer_checked(
+    let ix = spl_token_2022_interface::instruction::transfer_checked(
         token_program.key,
         source.key,
         mint.key,
@@ -874,6 +887,6 @@ pub fn close_account<'a>(
         .unwrap();
     **source.lamports.borrow_mut() = 0;
 
-    source.assign(&system_program::ID);
-    source.realloc(0, false)
+    source.assign(&solana_system_interface::program::ID);
+    source.resize(0)
 }
