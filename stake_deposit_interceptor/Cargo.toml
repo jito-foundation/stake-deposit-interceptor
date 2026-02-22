@@ -27,25 +27,25 @@ jito-bytemuck.workspace = true
 num-derive = "0.4.2"
 num-traits = "0.2.19"
 shank = "0.3.0"
+solana-clock.workspace = true
 solana-program.workspace = true
 solana-program-error.workspace = true
 solana-security-txt = "1.1.1"
-solana-clock.workspace = true
 solana-stake-interface.workspace = true
 solana-system-interface.workspace = true
 spl-associated-token-account-interface.workspace = true
 spl-pod = { version = "0.4.0", features = ["borsh"] }
 spl-stake-pool.workspace = true
-spl-token-interface.workspace = true
 spl-token-2022-interface.workspace = true
+spl-token-interface.workspace = true
 thiserror = "1.0.65"
 
 [dev-dependencies]
 solana-account.workspace = true
+solana-hash.workspace = true
+solana-keypair.workspace = true
+solana-program-test.workspace = true
 solana-pubkey.workspace = true
 solana-transaction.workspace = true
-solana-keypair.workspace = true
-solana-hash.workspace = true
-solana-program-test.workspace = true
 solana-vote-interface.workspace = true
 tokio.workspace = true

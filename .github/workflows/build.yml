@@ -41,13 +41,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler libudev-dev libclang-dev
-      - name: Install solana-verify from crates.io
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: solana-verify
+
+      - name: Install solana-verify from git
+        run: cargo install solana-verify --git https://github.com/Ellipsis-Labs/solana-verifiable-build.git
+
       - name: add to path
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
-      - run: solana-verify build --library-name stake_deposit_interceptor --base-image solanafoundation/solana-verifiable-build:2.2.14
+
+      - name: Run verified build
+        run: solana-verify build --library-name stake_deposit_interceptor_program
+        env:
+          SVB_DOCKER_MEMORY_LIMIT: 6g
+          SVB_DOCKER_CPU_LIMIT: 2
+
       - name: Upload program artifact
         uses: actions/upload-artifact@v4
         with:

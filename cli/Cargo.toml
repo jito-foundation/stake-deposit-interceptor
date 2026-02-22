@@ -26,8 +26,8 @@ solana-client.workspace = true
 solana-logger = ">=1.18.11,<=2"
 solana-program.workspace = true
 solana-remote-wallet = ">=1.18.11,<=2"
-solana-stake-interface.workspace = true
 solana-sdk.workspace = true
+solana-stake-interface.workspace = true
 spl-associated-token-account-interface.workspace = true
 spl-governance = { git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
 spl-stake-pool.workspace = true
