@@ -8,15 +8,12 @@ use super::{create_stake_pool, StakePoolAccounts};
 pub fn program_test_with_stake_pool_program() -> ProgramTest {
     let mut program_test = ProgramTest::default();
     program_test.add_program(
-        "spl_stake_pool",
-        spl_stake_pool::id(),
-        processor!(spl_stake_pool::processor::Processor::process),
-    );
-    program_test.add_program(
         "stake_deposit_interceptor",
         stake_deposit_interceptor_program::id(),
         processor!(stake_deposit_interceptor_program::processor::Processor::process),
     );
+    program_test.prefer_bpf(true);
+    program_test.add_program("spl_stake_pool", spl_stake_pool::id(), None);
     program_test
 }
 
