@@ -75,16 +75,13 @@ impl InterceptorCranker {
             info!("Tick: Starting new processing cycle");
             match emit_heartbeat(self.rpc_client.clone(), tick, &self.cluster_name).await {
                 Ok(_) => tick += 1,
-                Err(e) => emit_error(
-                    format!("Failed to emit heartbeat: {}", e),
-                    &self.cluster_name,
-                ),
+                Err(e) => emit_error(format!("Failed to emit heartbeat: {e}"), &self.cluster_name),
             }
 
             match self.process_expired_receipts().await {
                 Ok(_) => info!("Successfully processed expired receipts"),
                 Err(e) => emit_error(
-                    format!("Error processing receipts: {}", e),
+                    format!("Error processing receipts: {e}"),
                     &self.cluster_name,
                 ),
             }
@@ -194,7 +191,7 @@ impl InterceptorCranker {
 
         let accounts = self
             .rpc_client
-            .get_program_accounts_with_config(
+            .get_program_ui_accounts_with_config(
                 &self.program_id,
                 RpcProgramAccountsConfig {
                     filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
@@ -217,7 +214,8 @@ impl InterceptorCranker {
         Ok(accounts
             .into_iter()
             .filter_map(|(pubkey, account)| {
-                match DepositReceipt::try_from_slice_unchecked(account.data.as_slice()) {
+                let account_data = account.data.decode()?;
+                match DepositReceipt::try_from_slice_unchecked(account_data.as_slice()) {
                     Ok(receipt) => {
                         info!(
                             "Found receipt:\n\
@@ -240,7 +238,7 @@ impl InterceptorCranker {
                     }
                     Err(e) => {
                         emit_error(
-                            format!("Failed to deserialize receipt for {}: {}", pubkey, e),
+                            format!("Failed to deserialize receipt for {pubkey}: {e}"),
                             &self.cluster_name,
                         );
                         None

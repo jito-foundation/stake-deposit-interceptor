@@ -63,7 +63,7 @@ pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt, cluster_name: &str
         .stake_pool_deposit_stake_authority
         .to_string();
 
-    let account_string = format!("{:?}", deposit_receipt);
+    let account_string = format!("{deposit_receipt:?}");
     datapoint_info!(
         "sdi-deposit-receipt",
         ("base", base, String),
