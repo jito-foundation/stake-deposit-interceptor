@@ -5,15 +5,13 @@ use std::{
 
 use jito_bytemuck::AccountDeserialize;
 use solana_account_decoder::UiAccountEncoding;
-use solana_client::rpc_client::RpcClient;
 use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
-use solana_sdk::{
-    commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer, stake,
-};
-use spl_associated_token_account::get_associated_token_address;
+use solana_client::{rpc_client::RpcClient, rpc_config::CommitmentConfig};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use spl_associated_token_account_interface::address::get_associated_token_address;
 use spl_stake_pool::{find_stake_program_address, find_withdraw_authority_program_address};
-use stake_deposit_interceptor::{
+use stake_deposit_interceptor_program::{
     instruction::{
         create_claim_pool_tokens_instruction, create_deposit_stake_instruction,
         create_init_deposit_stake_authority_instruction, derive_stake_pool_deposit_stake_authority,
@@ -66,12 +64,12 @@ pub fn command_create_stake_deposit_authority(
     let base = Keypair::new();
     let stake_pool = get_stake_pool(&config.rpc_client, stake_pool_address)?;
     let ix = create_init_deposit_stake_authority_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &config.fee_payer.pubkey(),
         stake_pool_address,
         &stake_pool.pool_mint,
         &spl_stake_pool::id(),
-        &spl_token::id(),
+        &spl_token_interface::id(),
         fee_wallet,
         cool_down_seconds,
         initial_fee_bps,
@@ -80,7 +78,7 @@ pub fn command_create_stake_deposit_authority(
     );
 
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         stake_pool_address,
         &base.pubkey(),
     );
@@ -110,7 +108,9 @@ pub fn command_deposit_stake(
     let stake_state = get_stake_state(&config.rpc_client, stake)?;
 
     let vote_account = match stake_state {
-        stake::state::StakeStateV2::Stake(_, stake, _) => Ok(stake.delegation.voter_pubkey),
+        solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
+            Ok(stake.delegation.voter_pubkey)
+        }
         _ => Err("Wrong stake account state, must be delegated to validator"),
     }?;
     // Check if this vote account has staking account in the pool
@@ -151,7 +151,7 @@ pub fn command_deposit_stake(
     println!("Created DepositReceipt {}", deposit_receipt_base.pubkey());
 
     let ixs = create_deposit_stake_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &config.fee_payer.pubkey(),
         &spl_stake_pool::id(),
         &stake_deposit_authority.stake_pool,
@@ -165,7 +165,7 @@ pub fn command_deposit_stake(
         &stake_pool.manager_fee_account,
         &referrer_token_account,
         &stake_pool.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         &deposit_receipt_base.pubkey(),
         &stake_deposit_authority.base,
     );
@@ -217,7 +217,7 @@ pub fn get_all_deposit_receipts(
     }
 
     let accounts = rpc_client
-        .get_program_accounts_with_config(
+        .get_program_ui_accounts_with_config(
             program_id,
             RpcProgramAccountsConfig {
                 filters: Some(filters),
@@ -233,7 +233,8 @@ pub fn get_all_deposit_receipts(
 
     let mut receipts = Vec::new();
     for (pubkey, account) in accounts {
-        match DepositReceipt::try_from_slice_unchecked(account.data.as_slice()) {
+        let account_data = account.data.decode().unwrap();
+        match DepositReceipt::try_from_slice_unchecked(account_data.as_slice()) {
             Ok(receipt) => receipts.push((pubkey, *receipt)),
             Err(e) => eprintln!("Failed to deserialize receipt for {}: {}", pubkey, e),
         }
@@ -294,7 +295,7 @@ pub fn command_list_receipts(
     show_expired_only: bool,
     show_active_only: bool,
 ) -> CommandResult {
-    let default_program_id = stake_deposit_interceptor::id();
+    let default_program_id = stake_deposit_interceptor_program::id();
     let program_id = program_id.unwrap_or(&default_program_id);
 
     let receipts = get_all_deposit_receipts(&config.rpc_client, program_id, stake_pool)?;
@@ -381,7 +382,7 @@ pub fn command_claim_tokens(
     let final_after_cooldown = after_cooldown || auto_after_cooldown;
 
     if auto_after_cooldown && !after_cooldown {
-        println!("Note: Setting after_cooldown=true because fee payer ({}) is not the receipt owner ({})", 
+        println!("Note: Setting after_cooldown=true because fee payer ({}) is not the receipt owner ({})",
                  config.fee_payer.pubkey(), receipt.owner);
     }
 
@@ -425,11 +426,11 @@ pub fn command_claim_tokens(
             );
 
             let create_ata_ix =
-                spl_associated_token_account::instruction::create_associated_token_account(
+                spl_associated_token_account_interface::instruction::create_associated_token_account(
                     &config.fee_payer.pubkey(),
                     &receipt.owner,
                     &stake_pool_deposit_authority.pool_mint,
-                    &spl_token::id(),
+                    &spl_token_interface::id(),
                 );
             instructions.push(create_ata_ix);
         } else {
@@ -453,18 +454,18 @@ pub fn command_claim_tokens(
         );
 
         let create_fee_ata_ix =
-            spl_associated_token_account::instruction::create_associated_token_account(
+            spl_associated_token_account_interface::instruction::create_associated_token_account(
                 &config.fee_payer.pubkey(),
                 &stake_pool_deposit_authority.fee_wallet,
                 &stake_pool_deposit_authority.pool_mint,
-                &spl_token::id(),
+                &spl_token_interface::id(),
             );
         instructions.push(create_fee_ata_ix);
     }
 
     // Create the claim instruction
     let claim_ix = create_claim_pool_tokens_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         receipt_address,
         &receipt.owner,
         &stake_pool_deposit_authority.vault,
@@ -472,7 +473,7 @@ pub fn command_claim_tokens(
         &fee_wallet_token_account,
         &receipt.stake_pool_deposit_stake_authority,
         &stake_pool_deposit_authority.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         final_after_cooldown,
     );
     instructions.push(claim_ix);

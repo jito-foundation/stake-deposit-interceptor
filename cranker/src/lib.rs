@@ -1,19 +1,13 @@
 use ::{
     jito_bytemuck::AccountDeserialize,
-    solana_account_decoder::UiAccountEncoding,
     solana_client::{
         nonblocking::rpc_client::RpcClient,
         rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig}, // Added explicit imports
         rpc_filter::{Memcmp, RpcFilterType},
     },
-    solana_sdk::{
-        commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer,
-        transaction::Transaction,
-    },
-    spl_associated_token_account::{
-        get_associated_token_address, instruction::create_associated_token_account,
-    },
-    stake_deposit_interceptor::{
+    solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction},
+    spl_associated_token_account_interface::instruction::create_associated_token_account,
+    stake_deposit_interceptor_program::{
         instruction::{create_claim_pool_tokens_instruction, derive_stake_deposit_receipt},
         state::{
             DepositReceipt, StakeDepositInterceptorDiscriminators, StakePoolDepositStakeAuthority,
@@ -29,6 +23,9 @@ use ::{
 
 pub mod metrics;
 use metrics::{emit_crank, emit_deposit_receipt, emit_error, emit_heartbeat};
+use solana_client::rpc_config::UiAccountEncoding;
+use solana_commitment_config::CommitmentConfig;
+use spl_associated_token_account_interface::address::get_associated_token_address;
 
 #[derive(Clone)]
 pub struct CrankerConfig {
@@ -78,16 +75,13 @@ impl InterceptorCranker {
             info!("Tick: Starting new processing cycle");
             match emit_heartbeat(self.rpc_client.clone(), tick, &self.cluster_name).await {
                 Ok(_) => tick += 1,
-                Err(e) => emit_error(
-                    format!("Failed to emit heartbeat: {}", e),
-                    &self.cluster_name,
-                ),
+                Err(e) => emit_error(format!("Failed to emit heartbeat: {e}"), &self.cluster_name),
             }
 
             match self.process_expired_receipts().await {
                 Ok(_) => info!("Successfully processed expired receipts"),
                 Err(e) => emit_error(
-                    format!("Error processing receipts: {}", e),
+                    format!("Error processing receipts: {e}"),
                     &self.cluster_name,
                 ),
             }
@@ -197,7 +191,7 @@ impl InterceptorCranker {
 
         let accounts = self
             .rpc_client
-            .get_program_accounts_with_config(
+            .get_program_ui_accounts_with_config(
                 &self.program_id,
                 RpcProgramAccountsConfig {
                     filters: Some(vec![RpcFilterType::Memcmp(Memcmp::new_base58_encoded(
@@ -220,7 +214,8 @@ impl InterceptorCranker {
         Ok(accounts
             .into_iter()
             .filter_map(|(pubkey, account)| {
-                match DepositReceipt::try_from_slice_unchecked(account.data.as_slice()) {
+                let account_data = account.data.decode()?;
+                match DepositReceipt::try_from_slice_unchecked(account_data.as_slice()) {
                     Ok(receipt) => {
                         info!(
                             "Found receipt:\n\
@@ -243,7 +238,7 @@ impl InterceptorCranker {
                     }
                     Err(e) => {
                         emit_error(
-                            format!("Failed to deserialize receipt for {}: {}", pubkey, e),
+                            format!("Failed to deserialize receipt for {pubkey}: {e}"),
                             &self.cluster_name,
                         );
                         None
@@ -274,7 +269,7 @@ impl InterceptorCranker {
                     &self.payer.pubkey(),
                     &receipt.owner,
                     &stake_pool_deposit_authority.pool_mint,
-                    &spl_token::id(),
+                    &spl_token_interface::id(),
                 );
 
                 let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
@@ -314,7 +309,7 @@ impl InterceptorCranker {
                     &self.payer.pubkey(),
                     &stake_pool_deposit_authority.fee_wallet,
                     &stake_pool_deposit_authority.pool_mint,
-                    &spl_token::id(),
+                    &spl_token_interface::id(),
                 );
 
                 let recent_blockhash = self.rpc_client.get_latest_blockhash().await?;
@@ -345,7 +340,7 @@ impl InterceptorCranker {
             &fee_wallet_token_account,
             &receipt.stake_pool_deposit_stake_authority,
             &stake_pool_deposit_authority.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             true,
         );
 

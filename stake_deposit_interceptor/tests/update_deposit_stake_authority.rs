@@ -5,16 +5,12 @@ use helpers::{
     program_test_context_with_stake_pool_state, StakePoolAccounts,
 };
 use jito_bytemuck::AccountDeserialize;
+use solana_keypair::{Keypair, Signer};
+use solana_program::borsh1::try_from_slice_unchecked;
 use solana_program_test::ProgramTestContext;
-use solana_sdk::{
-    borsh1::try_from_slice_unchecked,
-    instruction::{AccountMeta, Instruction, InstructionError},
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    transaction::Transaction,
-};
-use stake_deposit_interceptor::{
+use solana_pubkey::Pubkey;
+use solana_transaction::{AccountMeta, Instruction, InstructionError, Transaction};
+use stake_deposit_interceptor_program::{
     error::StakeDepositInterceptorError,
     instruction::{
         derive_stake_pool_deposit_stake_authority, StakeDepositInterceptorInstruction,
@@ -54,8 +50,8 @@ async fn test_update_deposit_stake_authority() {
     let initial_fee_bps = 20;
 
     let update_ix =
-        stake_deposit_interceptor::instruction::create_update_deposit_stake_authority_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_update_deposit_stake_authority_instruction(
+            &stake_deposit_interceptor_program::id(),
             &stake_pool_accounts.stake_pool,
             &authority.pubkey(),
             &deposit_authority_base.pubkey(),
@@ -75,7 +71,7 @@ async fn test_update_deposit_stake_authority() {
     ctx.banks_client.process_transaction(tx).await.unwrap();
 
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::ID,
+        &stake_deposit_interceptor_program::ID,
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
@@ -135,8 +131,8 @@ async fn setup_with_ix() -> (
     let initial_fee_bps = 20;
 
     let update_ix =
-        stake_deposit_interceptor::instruction::create_update_deposit_stake_authority_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_update_deposit_stake_authority_instruction(
+            &stake_deposit_interceptor_program::id(),
             &stake_pool_accounts.stake_pool,
             &authority.pubkey(),
             &deposit_authority_base.pubkey(),
@@ -147,7 +143,7 @@ async fn setup_with_ix() -> (
         );
 
     let (deposit_stake_authority_pubkey, _bump) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );

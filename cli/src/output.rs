@@ -1,7 +1,7 @@
 use {
     serde::{Deserialize, Serialize},
     solana_cli_output::{QuietDisplay, VerboseDisplay},
-    solana_sdk::{native_token::Sol, pubkey::Pubkey, stake::state::Lockup},
+    solana_sdk::{native_token::Sol, pubkey::Pubkey},
     spl_stake_pool::state::{
         Fee, PodStakeStatus, StakePool, StakeStatus, ValidatorList, ValidatorStakeInfo,
     },
@@ -419,16 +419,6 @@ pub struct CliStakePoolLockup {
     pub custodian: String,
 }
 
-impl From<Lockup> for CliStakePoolLockup {
-    fn from(l: Lockup) -> Self {
-        Self {
-            unix_timestamp: l.unix_timestamp,
-            epoch: l.epoch,
-            custodian: l.custodian.to_string(),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CliStakePoolFee {
@@ -475,7 +465,11 @@ impl From<(Pubkey, StakePool, ValidatorList, Pubkey)> for CliStakePool {
             total_lamports: stake_pool.total_lamports,
             pool_token_supply: stake_pool.pool_token_supply,
             last_update_epoch: stake_pool.last_update_epoch,
-            lockup: CliStakePoolLockup::from(stake_pool.lockup),
+            lockup: CliStakePoolLockup {
+                unix_timestamp: stake_pool.lockup.unix_timestamp,
+                epoch: stake_pool.lockup.epoch,
+                custodian: stake_pool.lockup.custodian.to_string(),
+            },
             epoch_fee: CliStakePoolFee::from(stake_pool.epoch_fee),
             next_epoch_fee: Option::<Fee>::from(stake_pool.next_epoch_fee)
                 .map(CliStakePoolFee::from),

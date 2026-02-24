@@ -1,8 +1,8 @@
 use ::{
     dotenv::dotenv,
+    solana_commitment_config::CommitmentConfig,
     solana_metrics::set_host_id,
     solana_sdk::{
-        commitment_config::CommitmentConfig,
         pubkey::Pubkey,
         signature::{read_keypair_file, Signer}, // Added Signer trait
     },
@@ -22,7 +22,7 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
 
     let payer = Arc::new(
         read_keypair_file(&keypair_path)
-            .map_err(|_| format!("Failed to read keypair from {}", keypair_path))?,
+            .map_err(|_| format!("Failed to read keypair from {keypair_path}"))?,
     );
 
     let program_id = Pubkey::from_str(

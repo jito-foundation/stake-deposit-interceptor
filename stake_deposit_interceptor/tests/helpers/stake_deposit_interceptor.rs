@@ -1,6 +1,7 @@
-use solana_program::pubkey::Pubkey;
+use solana_keypair::{Keypair, Signer};
 use solana_program_test::ProgramTestContext;
-use solana_sdk::{signature::Keypair, signer::Signer, transaction::Transaction};
+use solana_pubkey::Pubkey;
+use solana_transaction::Transaction;
 
 /// Create and initialize a `StakePoolDepositStakeAuthority`.
 #[allow(dead_code)]
@@ -19,13 +20,13 @@ pub async fn create_stake_deposit_authority(
     let cool_down_seconds = 100;
     let initial_fee_bps = 20;
     let init_ix =
-        stake_deposit_interceptor::instruction::create_init_deposit_stake_authority_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_init_deposit_stake_authority_instruction(
+            &stake_deposit_interceptor_program::id(),
             &ctx.payer.pubkey(),
             stake_pool_pubkey,
             stake_pool_mint,
             &spl_stake_pool::id(),
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &fee_wallet,
             cool_down_seconds,
             initial_fee_bps,

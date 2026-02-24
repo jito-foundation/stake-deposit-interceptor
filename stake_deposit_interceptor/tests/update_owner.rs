@@ -9,19 +9,13 @@ use helpers::{
     program_test_context_with_stake_pool_state, stake_pool_update_all,
     update_stake_deposit_authority, StakePoolAccounts, ValidatorStakeAccount,
 };
+use solana_account::AccountSharedData;
+use solana_keypair::{Keypair, Signer};
+use solana_program::{borsh1::try_from_slice_unchecked, native_token::LAMPORTS_PER_SOL};
 use solana_program_test::ProgramTestContext;
-use solana_sdk::{
-    account::AccountSharedData,
-    borsh1::try_from_slice_unchecked,
-    instruction::{AccountMeta, Instruction, InstructionError},
-    native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    stake::{self},
-    transaction::Transaction,
-};
-use stake_deposit_interceptor::{
+use solana_pubkey::Pubkey;
+use solana_transaction::{AccountMeta, Instruction, InstructionError, Transaction};
+use stake_deposit_interceptor_program::{
     error::StakeDepositInterceptorError,
     instruction::{derive_stake_deposit_receipt, derive_stake_pool_deposit_stake_authority},
     state::{DepositReceipt, StakePoolDepositStakeAuthority},
@@ -51,7 +45,7 @@ async fn setup() -> (
             .unwrap();
     let deposit_authority_base = Keypair::new();
     let (deposit_stake_authority_pubkey, _bump) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
@@ -83,14 +77,15 @@ async fn setup() -> (
     airdrop_lamports(&mut ctx, &depositor.pubkey(), 10 * LAMPORTS_PER_SOL).await;
 
     // Create "Depositor" owned stake account
-    let authorized = stake::state::Authorized {
+    let authorized = solana_stake_interface::state::Authorized {
         staker: depositor.pubkey(),
         withdrawer: depositor.pubkey(),
     };
-    let lockup = stake::state::Lockup::default();
+    let lockup = solana_stake_interface::state::Lockup::default();
     let stake_amount = 2 * LAMPORTS_PER_SOL;
-    let total_staked_amount =
-        rent.minimum_balance(std::mem::size_of::<stake::state::StakeStateV2>()) + stake_amount;
+    let total_staked_amount = rent.minimum_balance(std::mem::size_of::<
+        solana_stake_interface::state::StakeStateV2,
+    >()) + stake_amount;
     let depositor_stake_account = create_stake_account(
         &mut ctx.banks_client,
         &depositor,
@@ -145,8 +140,8 @@ async fn setup() -> (
     // Generate a random Pubkey as seed for DepositReceipt PDA.
     let base = Keypair::new();
     let deposit_stake_instructions =
-        stake_deposit_interceptor::instruction::create_deposit_stake_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_deposit_stake_instruction(
+            &stake_deposit_interceptor_program::id(),
             &depositor.pubkey(),
             &spl_stake_pool::id(),
             &stake_pool_accounts.stake_pool,
@@ -160,7 +155,7 @@ async fn setup() -> (
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &base.pubkey(),
             &deposit_authority_base.pubkey(),
         );
@@ -201,7 +196,7 @@ async fn success() {
     ) = setup().await;
 
     let (deposit_receipt_pda, _bump_seed) = derive_stake_deposit_receipt(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &base.pubkey(),
     );
@@ -209,8 +204,8 @@ async fn success() {
     let new_owner = Pubkey::new_unique();
 
     // Update owner of DepositReceipt
-    let ix = stake_deposit_interceptor::instruction::create_change_deposit_receipt_owner(
-        &stake_deposit_interceptor::id(),
+    let ix = stake_deposit_interceptor_program::instruction::create_change_deposit_receipt_owner(
+        &stake_deposit_interceptor_program::id(),
         &deposit_receipt_pda,
         &depositor.pubkey(),
         &new_owner,
@@ -247,7 +242,7 @@ async fn setup_with_ix() -> (ProgramTestContext, Keypair, Pubkey, Instruction) {
     ) = setup().await;
 
     let (deposit_receipt_pda, _bump_seed) = derive_stake_deposit_receipt(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &base.pubkey(),
     );
@@ -255,8 +250,8 @@ async fn setup_with_ix() -> (ProgramTestContext, Keypair, Pubkey, Instruction) {
     let new_owner = Pubkey::new_unique();
 
     // Update owner of DepositReceipt
-    let ix = stake_deposit_interceptor::instruction::create_change_deposit_receipt_owner(
-        &stake_deposit_interceptor::id(),
+    let ix = stake_deposit_interceptor_program::instruction::create_change_deposit_receipt_owner(
+        &stake_deposit_interceptor_program::id(),
         &deposit_receipt_pda,
         &depositor.pubkey(),
         &new_owner,

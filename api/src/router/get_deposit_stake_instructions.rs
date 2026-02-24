@@ -9,12 +9,12 @@ use bincode::deserialize;
 use futures::future;
 use jito_bytemuck::AccountDeserialize;
 use serde::{Deserialize, Serialize};
-use solana_sdk::{borsh1::try_from_slice_unchecked, pubkey::Pubkey, stake};
+use solana_sdk::{borsh1::try_from_slice_unchecked, pubkey::Pubkey};
 use spl_stake_pool::{
     find_stake_program_address, find_withdraw_authority_program_address,
     state::{StakePool, ValidatorList},
 };
-use stake_deposit_interceptor::{
+use stake_deposit_interceptor_program::{
     instruction::create_deposit_stake_instruction, state::StakePoolDepositStakeAuthority,
 };
 
@@ -79,11 +79,14 @@ pub(crate) async fn get_deposit_stake_instructions(
     let stake_account_data = stake_account_data.map_err(ApiError::RpcError)?;
     let stake_pool = try_from_slice_unchecked::<StakePool>(stake_pool_account_data.as_slice())
         .map_err(|_| ApiError::ParseStakePoolError(stake_deposit_authority.stake_pool))?;
-    let stake_state: stake::state::StakeStateV2 = deserialize(stake_account_data.as_slice())
-        .map_err(|_| ApiError::ParseStakeStateError(query.stake))?;
+    let stake_state: solana_stake_interface::state::StakeStateV2 =
+        deserialize(stake_account_data.as_slice())
+            .map_err(|_| ApiError::ParseStakeStateError(query.stake))?;
 
     let vote_account = match stake_state {
-        stake::state::StakeStateV2::Stake(_, stake, _) => Ok(stake.delegation.voter_pubkey),
+        solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
+            Ok(stake.delegation.voter_pubkey)
+        }
         _ => Err(ApiError::InvalidStakeVoteAccount),
     }?;
 
@@ -118,7 +121,7 @@ pub(crate) async fn get_deposit_stake_instructions(
     .0;
 
     let ixs = create_deposit_stake_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &query.payer,
         &spl_stake_pool::id(),
         &stake_deposit_authority.stake_pool,
@@ -132,7 +135,7 @@ pub(crate) async fn get_deposit_stake_instructions(
         &stake_pool.manager_fee_account,
         &referrer_token_account,
         &stake_pool.pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         &query.deposit_receipt_base,
         &stake_deposit_authority.base,
     );
