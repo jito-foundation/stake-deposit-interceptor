@@ -67,9 +67,8 @@ pub fn get_token_mint(
     token_mint_address: &Pubkey,
 ) -> Result<spl_token_interface::state::Mint, Error> {
     let account_data = rpc_client.get_account_data(token_mint_address)?;
-    let token_mint =
-        spl_token_interface::state::Mint::unpack_from_slice(account_data.as_slice())
-            .map_err(|err| format!("Invalid token mint {token_mint_address}: {err}"))?;
+    let token_mint = spl_token_interface::state::Mint::unpack_from_slice(account_data.as_slice())
+        .map_err(|err| format!("Invalid token mint {token_mint_address}: {err}"))?;
 
     Ok(token_mint)
 }

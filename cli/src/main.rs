@@ -156,10 +156,9 @@ fn check_stake_pool_fees(
     let is_withdrawal_fee_zero = withdrawal_fee.numerator == 0 || withdrawal_fee.denominator == 0;
     let is_deposit_fee_zero = deposit_fee.numerator == 0 || deposit_fee.denominator == 0;
     if is_withdrawal_fee_zero && is_deposit_fee_zero {
-        return Err(format!(
-            "Withdrawal and deposit fee should not both be 0. {FEES_REFERENCE}",
-        )
-        .into());
+        return Err(
+            format!("Withdrawal and deposit fee should not both be 0. {FEES_REFERENCE}",).into(),
+        );
     }
     Ok(())
 }
@@ -278,9 +277,7 @@ fn new_stake_account(
     // Account for tokens not specified, creating one
     let stake_receiver_keypair = Keypair::new();
     let stake_receiver_pubkey = stake_receiver_keypair.pubkey();
-    println!(
-        "Creating account to receive stake {stake_receiver_pubkey}"
-    );
+    println!("Creating account to receive stake {stake_receiver_pubkey}");
 
     instructions.push(
         // Creating new account
@@ -548,9 +545,7 @@ fn command_vsa_add(
     let stake_pool = get_stake_pool(&config.rpc_client, stake_pool_address)?;
     let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
     if validator_list.contains(vote_account) {
-        println!(
-            "Stake pool already contains validator {vote_account}, ignoring"
-        );
+        println!("Stake pool already contains validator {vote_account}, ignoring");
         return Ok(());
     }
 
@@ -582,9 +577,7 @@ fn command_vsa_add(
             i += 1;
         }
     };
-    println!(
-        "Adding stake account {stake_account_address}, delegated to {vote_account}"
-    );
+    println!("Adding stake account {stake_account_address}, delegated to {vote_account}");
 
     let mut signers = vec![config.fee_payer.as_ref(), config.staker.as_ref()];
     unique_signers!(signers);
@@ -628,9 +621,7 @@ fn command_vsa_remove(
         stake_pool_address,
         validator_seed,
     );
-    println!(
-        "Removing stake account {stake_account_address}, delegated to {vote_account}"
-    );
+    println!("Removing stake account {stake_account_address}, delegated to {vote_account}");
 
     let mut signers = vec![config.fee_payer.as_ref(), config.staker.as_ref()];
     let instructions = vec![
@@ -827,9 +818,7 @@ fn command_deposit_stake(
     );
 
     let validator_stake_state = get_stake_state(&config.rpc_client, &validator_stake_account)?;
-    println!(
-        "Depositing stake {stake} into stake pool account {validator_stake_account}"
-    );
+    println!("Depositing stake {stake} into stake pool account {validator_stake_account}");
     if config.verbose {
         println!("{validator_stake_state:?}");
     }
@@ -999,9 +988,7 @@ fn command_deposit_all_stake(
 
         let validator_stake_state = get_stake_state(&config.rpc_client, &validator_stake_account)?;
         println!("Depositing user stake {stake_address}: {stake_state:?}");
-        println!(
-            "..into pool stake {validator_stake_account}: {validator_stake_state:?}"
-        );
+        println!("..into pool stake {validator_stake_account}: {validator_stake_state:?}");
 
         let instructions = if let Some(stake_deposit_authority) = config.funding_authority.as_ref()
         {
@@ -1514,9 +1501,7 @@ fn command_withdraw_stake(
             let stake_account = config.rpc_client.get_account(&stake_receiver_pubkey).ok()?;
             let stake_state: solana_stake_interface::state::StakeStateV2 =
                 deserialize(stake_account.data.as_slice())
-                    .map_err(|err| {
-                        format!("Invalid stake account {stake_receiver_pubkey}: {err}")
-                    })
+                    .map_err(|err| format!("Invalid stake account {stake_receiver_pubkey}: {err}"))
                     .ok()?;
             if stake_state.delegation().is_some()
                 && stake_account.owner == solana_stake_interface::program::id()

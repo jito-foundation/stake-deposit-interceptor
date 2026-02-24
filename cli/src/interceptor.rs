@@ -42,9 +42,7 @@ fn get_stake_deposit_authority(
         account_data.as_slice(),
     )
     .map_err(|err| {
-        format!(
-            "Invalid stake_deposit_authority {stake_deposit_authority_address}: {err}"
-        )
+        format!("Invalid stake_deposit_authority {stake_deposit_authority_address}: {err}")
     })?;
     Ok(*stake_deposit_authority)
 }
@@ -419,9 +417,7 @@ pub fn command_claim_tokens(
         .is_err()
     {
         if create_ata {
-            println!(
-                "Will create destination token account: {destination_token_account}"
-            );
+            println!("Will create destination token account: {destination_token_account}");
 
             let create_ata_ix =
                 spl_associated_token_account_interface::instruction::create_associated_token_account(
@@ -445,9 +441,7 @@ pub fn command_claim_tokens(
         .get_account(&fee_wallet_token_account)
         .is_err()
     {
-        println!(
-            "Will create fee wallet token account: {fee_wallet_token_account}"
-        );
+        println!("Will create fee wallet token account: {fee_wallet_token_account}");
 
         let create_fee_ata_ix =
             spl_associated_token_account_interface::instruction::create_associated_token_account(
@@ -479,9 +473,7 @@ pub fn command_claim_tokens(
 
     match send_transaction(config, transaction) {
         Ok(_) => {
-            println!(
-                "Successfully claimed pool tokens for receipt {receipt_address}"
-            );
+            println!("Successfully claimed pool tokens for receipt {receipt_address}");
             println!("Tokens sent to: {destination_token_account}");
             println!("After cooldown: {final_after_cooldown}");
             Ok(())
