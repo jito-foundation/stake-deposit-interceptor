@@ -10,6 +10,7 @@ use solana_client::rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig};
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::{
     commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Keypair, signer::Signer, stake,
+    system_instruction::transfer,
 };
 use spl_associated_token_account::get_associated_token_address;
 use spl_stake_pool::{find_stake_program_address, find_withdraw_authority_program_address};
@@ -19,7 +20,8 @@ use stake_deposit_interceptor::{
         create_init_deposit_stake_authority_instruction, derive_stake_pool_deposit_stake_authority,
     },
     state::{
-        DepositReceipt, StakeDepositInterceptorDiscriminators, StakePoolDepositStakeAuthority,
+        hopper::Hopper, DepositReceipt, StakeDepositInterceptorDiscriminators,
+        StakePoolDepositStakeAuthority,
     },
 };
 
@@ -534,6 +536,53 @@ pub fn command_get_stake_deposit_authority(
         "Bump Seed:               {}",
         stake_deposit_authority.bump_seed
     );
+
+    Ok(())
+}
+
+pub fn command_fund_hopper(
+    config: &Config,
+    interceptor_program_id: &Pubkey,
+    whitelist_management_program_id: &Pubkey,
+    base: &Pubkey,
+    lamports: u64,
+) -> CommandResult {
+    let whitelist_pda = Pubkey::find_program_address(
+        &[b"whitelist", base.to_bytes().as_slice()],
+        whitelist_management_program_id,
+    )
+    .0;
+    let hopper_pda = Hopper::find_program_address(interceptor_program_id, &whitelist_pda).0;
+
+    let ix = transfer(&config.fee_payer.pubkey(), &hopper_pda, lamports);
+
+    let transaction =
+        checked_transaction_with_signers(config, &[ix], &[config.fee_payer.as_ref()])?;
+
+    match send_transaction(config, transaction) {
+        Ok(_) => {
+            println!("Successfully transferring",);
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to claim pool tokens: {}", e).into()),
+    }
+}
+
+pub fn command_hopper_balance(
+    config: &Config,
+    interceptor_program_id: &Pubkey,
+    whitelist_management_program_id: &Pubkey,
+    base: &Pubkey,
+) -> CommandResult {
+    let whitelist_pda = Pubkey::find_program_address(
+        &[b"whitelist", base.to_bytes().as_slice()],
+        whitelist_management_program_id,
+    )
+    .0;
+    let hopper_pda = Hopper::find_program_address(interceptor_program_id, &whitelist_pda).0;
+    let hopper_acc = config.rpc_client.get_account(&hopper_pda)?;
+
+    println!("Hopper Balance: {}", hopper_acc.lamports);
 
     Ok(())
 }

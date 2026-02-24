@@ -3608,6 +3608,41 @@ fn main() {
                     pubkey_of(arg_matches, "stake_deposit_authority").unwrap();
                 interceptor::command_get_stake_deposit_authority(&config, &stake_deposit_authority)
             }
+            ("fund-hopper", Some(arg_matches)) => {
+                let interceptor_program_id =
+                    pubkey_of(arg_matches, "interceptor_program_id").unwrap();
+
+                let whitelist_management_program_id =
+                    pubkey_of(arg_matches, "whitelist_management_program_id").unwrap();
+
+                let base = pubkey_of(arg_matches, "base").unwrap();
+
+                let lamports = value_t_or_exit!(arg_matches, "lamports", u64);
+
+                interceptor::command_fund_hopper(
+                    &config,
+                    &interceptor_program_id,
+                    &whitelist_management_program_id,
+                    &base,
+                    lamports,
+                )
+            }
+            ("hopper-balance", Some(arg_matches)) => {
+                let interceptor_program_id =
+                    pubkey_of(arg_matches, "interceptor_program_id").unwrap();
+
+                let whitelist_management_program_id =
+                    pubkey_of(arg_matches, "whitelist_management_program_id").unwrap();
+
+                let base = pubkey_of(arg_matches, "base").unwrap();
+
+                interceptor::command_hopper_balance(
+                    &config,
+                    &interceptor_program_id,
+                    &whitelist_management_program_id,
+                    &base,
+                )
+            }
             _ => unreachable!(),
         },
         _ => unreachable!(),
