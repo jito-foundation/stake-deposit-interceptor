@@ -3,7 +3,7 @@
 #![cfg(all(target_os = "solana", not(feature = "no-entrypoint")))]
 
 use {
-    crate::{error::StakeDepositInterceptorError, processor::Processor},
+    crate::processor::Processor,
     solana_program::{account_info::AccountInfo, entrypoint::ProgramResult, pubkey::Pubkey},
 };
 

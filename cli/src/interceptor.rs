@@ -43,8 +43,7 @@ fn get_stake_deposit_authority(
     )
     .map_err(|err| {
         format!(
-            "Invalid stake_deposit_authority {}: {}",
-            stake_deposit_authority_address, err
+            "Invalid stake_deposit_authority {stake_deposit_authority_address}: {err}"
         )
     })?;
     Ok(*stake_deposit_authority)
@@ -88,7 +87,7 @@ pub fn command_create_stake_deposit_authority(
         checked_transaction_with_signers(config, &[ix], &[&config.fee_payer, &base_signer])?;
     send_transaction(config, transaction)?;
     println!("Created stake_deposit_authority:");
-    print!("{:?}", deposit_stake_authority_pubkey);
+    print!("{deposit_stake_authority_pubkey:?}");
     Ok(())
 }
 
@@ -229,14 +228,14 @@ pub fn get_all_deposit_receipts(
                 ..Default::default()
             },
         )
-        .map_err(|e| format!("RPC error: {}", e))?;
+        .map_err(|e| format!("RPC error: {e}"))?;
 
     let mut receipts = Vec::new();
     for (pubkey, account) in accounts {
         let account_data = account.data.decode().unwrap();
         match DepositReceipt::try_from_slice_unchecked(account_data.as_slice()) {
             Ok(receipt) => receipts.push((pubkey, *receipt)),
-            Err(e) => eprintln!("Failed to deserialize receipt for {}: {}", pubkey, e),
+            Err(e) => eprintln!("Failed to deserialize receipt for {pubkey}: {e}"),
         }
     }
 
@@ -356,7 +355,7 @@ pub fn command_list_receipts(
         }
     }
 
-    println!("\nSummary: {} receipts found", receipt_count);
+    println!("\nSummary: {receipt_count} receipts found");
     Ok(())
 }
 
@@ -372,10 +371,10 @@ pub fn command_claim_tokens(
     let receipt_account = config
         .rpc_client
         .get_account(receipt_address)
-        .map_err(|e| format!("Failed to get receipt account: {}", e))?;
+        .map_err(|e| format!("Failed to get receipt account: {e}"))?;
 
     let receipt = DepositReceipt::try_from_slice_unchecked(receipt_account.data.as_slice())
-        .map_err(|e| format!("Failed to deserialize receipt: {}", e))?;
+        .map_err(|e| format!("Failed to deserialize receipt: {e}"))?;
 
     // Determine after_cooldown automatically: true if fee payer is not the owner
     let auto_after_cooldown = config.fee_payer.pubkey() != receipt.owner;
@@ -390,11 +389,11 @@ pub fn command_claim_tokens(
     let authority_account = config
         .rpc_client
         .get_account(&receipt.stake_pool_deposit_stake_authority)
-        .map_err(|e| format!("Failed to get deposit authority account: {}", e))?;
+        .map_err(|e| format!("Failed to get deposit authority account: {e}"))?;
 
     let stake_pool_deposit_authority =
         StakePoolDepositStakeAuthority::try_from_slice_unchecked(authority_account.data.as_slice())
-            .map_err(|e| format!("Failed to deserialize deposit authority: {}", e))?;
+            .map_err(|e| format!("Failed to deserialize deposit authority: {e}"))?;
 
     // Determine the destination token account
     let destination_token_account = match destination {
@@ -421,8 +420,7 @@ pub fn command_claim_tokens(
     {
         if create_ata {
             println!(
-                "Will create destination token account: {}",
-                destination_token_account
+                "Will create destination token account: {destination_token_account}"
             );
 
             let create_ata_ix =
@@ -435,8 +433,7 @@ pub fn command_claim_tokens(
             instructions.push(create_ata_ix);
         } else {
             return Err(format!(
-                "Destination token account {} does not exist. Use --create-ata to create it.",
-                destination_token_account
+                "Destination token account {destination_token_account} does not exist. Use --create-ata to create it."
             )
             .into());
         }
@@ -449,8 +446,7 @@ pub fn command_claim_tokens(
         .is_err()
     {
         println!(
-            "Will create fee wallet token account: {}",
-            fee_wallet_token_account
+            "Will create fee wallet token account: {fee_wallet_token_account}"
         );
 
         let create_fee_ata_ix =
@@ -484,14 +480,13 @@ pub fn command_claim_tokens(
     match send_transaction(config, transaction) {
         Ok(_) => {
             println!(
-                "Successfully claimed pool tokens for receipt {}",
-                receipt_address
+                "Successfully claimed pool tokens for receipt {receipt_address}"
             );
-            println!("Tokens sent to: {}", destination_token_account);
-            println!("After cooldown: {}", final_after_cooldown);
+            println!("Tokens sent to: {destination_token_account}");
+            println!("After cooldown: {final_after_cooldown}");
             Ok(())
         }
-        Err(e) => Err(format!("Failed to claim pool tokens: {}", e).into()),
+        Err(e) => Err(format!("Failed to claim pool tokens: {e}").into()),
     }
 }
 

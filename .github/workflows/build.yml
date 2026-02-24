@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: stake_deposit_interceptor_program.so
-          path: target/deploy/*.so
+          path: target/deploy/stake_deposit_interceptor_program.so
 
   # tests run on verified build
   test:
@@ -88,5 +88,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - run: cargo nextest run
-        env:
-          SBF_OUT_DIR: ${{ github.workspace }}/target/sbf-solana-solana/release
+        # env:
+        #   SBF_OUT_DIR: ${{ github.workspace }}/target/sbf-solana-solana/release

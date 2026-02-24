@@ -28,7 +28,7 @@ pub fn get_stake_pool(
 ) -> Result<StakePool, Error> {
     let account_data = rpc_client.get_account_data(stake_pool_address)?;
     let stake_pool = try_from_slice_unchecked::<StakePool>(account_data.as_slice())
-        .map_err(|err| format!("Invalid stake pool {}: {}", stake_pool_address, err))?;
+        .map_err(|err| format!("Invalid stake pool {stake_pool_address}: {err}"))?;
     Ok(stake_pool)
 }
 
@@ -38,7 +38,7 @@ pub fn get_validator_list(
 ) -> Result<ValidatorList, Error> {
     let account_data = rpc_client.get_account_data(validator_list_address)?;
     let validator_list = try_from_slice_unchecked::<ValidatorList>(account_data.as_slice())
-        .map_err(|err| format!("Invalid validator list {}: {}", validator_list_address, err))?;
+        .map_err(|err| format!("Invalid validator list {validator_list_address}: {err}"))?;
     Ok(validator_list)
 }
 
@@ -50,12 +50,11 @@ pub fn get_token_account(
     let account_data = rpc_client.get_account_data(token_account_address)?;
     let token_account =
         spl_token_interface::state::Account::unpack_from_slice(account_data.as_slice())
-            .map_err(|err| format!("Invalid token account {}: {}", token_account_address, err))?;
+            .map_err(|err| format!("Invalid token account {token_account_address}: {err}"))?;
 
     if token_account.mint != *expected_token_mint {
         Err(format!(
-            "Invalid token mint for {}, expected mint is {}",
-            token_account_address, expected_token_mint
+            "Invalid token mint for {token_account_address}, expected mint is {expected_token_mint}"
         )
         .into())
     } else {
@@ -70,7 +69,7 @@ pub fn get_token_mint(
     let account_data = rpc_client.get_account_data(token_mint_address)?;
     let token_mint =
         spl_token_interface::state::Mint::unpack_from_slice(account_data.as_slice())
-            .map_err(|err| format!("Invalid token mint {}: {}", token_mint_address, err))?;
+            .map_err(|err| format!("Invalid token mint {token_mint_address}: {err}"))?;
 
     Ok(token_mint)
 }
@@ -81,7 +80,7 @@ pub(crate) fn get_stake_state(
 ) -> Result<solana_stake_interface::state::StakeStateV2, Error> {
     let account_data = rpc_client.get_account_data(stake_address)?;
     let stake_state = deserialize(account_data.as_slice())
-        .map_err(|err| format!("Invalid stake account {}: {}", stake_address, err))?;
+        .map_err(|err| format!("Invalid stake account {stake_address}: {err}"))?;
     Ok(stake_state)
 }
 
@@ -120,7 +119,7 @@ pub(crate) fn get_stake_pools(
                                 .ok()
                         }
                         Err(err) => {
-                            eprintln!("Invalid stake pool data for {}: {}", address, err);
+                            eprintln!("Invalid stake pool data for {address}: {err}");
                             None
                         }
                     }

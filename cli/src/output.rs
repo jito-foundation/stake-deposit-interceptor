@@ -110,18 +110,18 @@ impl VerboseDisplay for CliStakePool {
         match &self.preferred_deposit_validator_vote_address {
             None => {}
             Some(s) => {
-                writeln!(w, "Preferred Deposit Validator: {}", s)?;
+                writeln!(w, "Preferred Deposit Validator: {s}")?;
             }
         }
         match &self.preferred_withdraw_validator_vote_address {
             None => {}
             Some(s) => {
-                writeln!(w, "Preferred Withraw Validator: {}", s)?;
+                writeln!(w, "Preferred Withraw Validator: {s}")?;
             }
         }
         writeln!(w, "Epoch Fee: {} of epoch rewards", &self.epoch_fee)?;
         if let Some(next_epoch_fee) = &self.next_epoch_fee {
-            writeln!(w, "Next Epoch Fee: {} of epoch rewards", next_epoch_fee)?;
+            writeln!(w, "Next Epoch Fee: {next_epoch_fee} of epoch rewards")?;
         }
         writeln!(
             w,
@@ -131,8 +131,7 @@ impl VerboseDisplay for CliStakePool {
         if let Some(next_stake_withdrawal_fee) = &self.next_stake_withdrawal_fee {
             writeln!(
                 w,
-                "Next Stake Withdrawal Fee: {} of withdrawal amount",
-                next_stake_withdrawal_fee
+                "Next Stake Withdrawal Fee: {next_stake_withdrawal_fee} of withdrawal amount"
             )?;
         }
         writeln!(
@@ -143,8 +142,7 @@ impl VerboseDisplay for CliStakePool {
         if let Some(next_sol_withdrawal_fee) = &self.next_sol_withdrawal_fee {
             writeln!(
                 w,
-                "Next SOL Withdrawal Fee: {} of withdrawal amount",
-                next_sol_withdrawal_fee
+                "Next SOL Withdrawal Fee: {next_sol_withdrawal_fee} of withdrawal amount"
             )?;
         }
         writeln!(
@@ -191,13 +189,13 @@ impl Display for CliStakePool {
         match &self.preferred_deposit_validator_vote_address {
             None => {}
             Some(s) => {
-                writeln!(f, "Preferred Deposit Validator: {}", s)?;
+                writeln!(f, "Preferred Deposit Validator: {s}")?;
             }
         }
         match &self.preferred_withdraw_validator_vote_address {
             None => {}
             Some(s) => {
-                writeln!(f, "Preferred Withraw Validator: {}", s)?;
+                writeln!(f, "Preferred Withraw Validator: {s}")?;
             }
         }
         writeln!(f, "Epoch Fee: {} of epoch rewards", &self.epoch_fee)?;

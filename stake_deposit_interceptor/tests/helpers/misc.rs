@@ -1,18 +1,18 @@
 use solana_account::AccountSharedData;
 use solana_program::{instruction::InstructionError, pubkey::Pubkey};
-use solana_program_test::{processor, BanksClientError, ProgramTest, ProgramTestContext};
+use solana_program_test::{BanksClientError, ProgramTest, ProgramTestContext};
 use solana_transaction::{Transaction, TransactionError};
 
 use super::{create_stake_pool, StakePoolAccounts};
 
 pub fn program_test_with_stake_pool_program() -> ProgramTest {
     let mut program_test = ProgramTest::default();
-    program_test.add_program(
-        "stake_deposit_interceptor",
-        stake_deposit_interceptor_program::id(),
-        processor!(stake_deposit_interceptor_program::processor::Processor::process),
-    );
     program_test.prefer_bpf(true);
+    program_test.add_program(
+        "stake_deposit_interceptor_program",
+        stake_deposit_interceptor_program::id(),
+        None,
+    );
     program_test.add_program("spl_stake_pool", spl_stake_pool::id(), None);
     program_test
 }

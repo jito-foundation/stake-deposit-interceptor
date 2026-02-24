@@ -151,14 +151,13 @@ fn check_stake_pool_fees(
     deposit_fee: &Fee,
 ) -> Result<(), Error> {
     if epoch_fee.numerator == 0 || epoch_fee.denominator == 0 {
-        return Err(format!("Epoch fee should not be 0. {}", FEES_REFERENCE,).into());
+        return Err(format!("Epoch fee should not be 0. {FEES_REFERENCE}",).into());
     }
     let is_withdrawal_fee_zero = withdrawal_fee.numerator == 0 || withdrawal_fee.denominator == 0;
     let is_deposit_fee_zero = deposit_fee.numerator == 0 || deposit_fee.denominator == 0;
     if is_withdrawal_fee_zero && is_deposit_fee_zero {
         return Err(format!(
-            "Withdrawal and deposit fee should not both be 0. {}",
-            FEES_REFERENCE,
+            "Withdrawal and deposit fee should not both be 0. {FEES_REFERENCE}",
         )
         .into());
     }
@@ -180,7 +179,7 @@ fn get_signer(
         &signer_from_path_config,
     )
     .unwrap_or_else(|e| {
-        eprintln!("error: {}", e);
+        eprintln!("error: {e}");
         exit(1);
     })
 }
@@ -197,10 +196,10 @@ fn send_transaction_no_wait(
 ) -> solana_client::client_error::Result<()> {
     if config.dry_run {
         let result = config.rpc_client.simulate_transaction(&transaction)?;
-        println!("Simulate result: {:?}", result);
+        println!("Simulate result: {result:?}");
     } else {
         let signature = config.rpc_client.send_transaction(&transaction)?;
-        println!("Signature: {}", signature);
+        println!("Signature: {signature}");
     }
     Ok(())
 }
@@ -211,12 +210,12 @@ fn send_transaction(
 ) -> solana_client::client_error::Result<()> {
     if config.dry_run {
         let result = config.rpc_client.simulate_transaction(&transaction)?;
-        println!("Simulate result: {:?}", result);
+        println!("Simulate result: {result:?}");
     } else {
         let signature = config
             .rpc_client
             .send_and_confirm_transaction_with_spinner(&transaction)?;
-        println!("Signature: {}", signature);
+        println!("Signature: {signature}");
     }
     Ok(())
 }
@@ -280,8 +279,7 @@ fn new_stake_account(
     let stake_receiver_keypair = Keypair::new();
     let stake_receiver_pubkey = stake_receiver_keypair.pubkey();
     println!(
-        "Creating account to receive stake {}",
-        stake_receiver_pubkey
+        "Creating account to receive stake {stake_receiver_pubkey}"
     );
 
     instructions.push(
@@ -359,7 +357,7 @@ fn command_create_pool(
     );
 
     if config.verbose {
-        println!("Stake pool withdraw authority {}", withdraw_authority);
+        println!("Stake pool withdraw authority {withdraw_authority}");
     }
 
     let mut setup_instructions = vec![
@@ -404,7 +402,7 @@ fn command_create_pool(
         &mut setup_instructions,
         &mut total_rent_free_balances,
     );
-    println!("Creating pool fee collection account {}", pool_fee_account);
+    println!("Creating pool fee collection account {pool_fee_account}");
 
     let initialize_instructions = &[
         // Validator stake account list storage
@@ -551,8 +549,7 @@ fn command_vsa_add(
     let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
     if validator_list.contains(vote_account) {
         println!(
-            "Stake pool already contains validator {}, ignoring",
-            vote_account
+            "Stake pool already contains validator {vote_account}, ignoring"
         );
         return Ok(());
     }
@@ -586,8 +583,7 @@ fn command_vsa_add(
         }
     };
     println!(
-        "Adding stake account {}, delegated to {}",
-        stake_account_address, vote_account
+        "Adding stake account {stake_account_address}, delegated to {vote_account}"
     );
 
     let mut signers = vec![config.fee_payer.as_ref(), config.staker.as_ref()];
@@ -633,8 +629,7 @@ fn command_vsa_remove(
         validator_seed,
     );
     println!(
-        "Removing stake account {}, delegated to {}",
-        stake_account_address, vote_account
+        "Removing stake account {stake_account_address}, delegated to {vote_account}"
     );
 
     let mut signers = vec![config.fee_payer.as_ref(), config.staker.as_ref()];
@@ -768,7 +763,7 @@ fn add_associated_token_account(
     // Account for tokens not specified, creating one
     let account = get_associated_token_address(owner, mint);
     if get_token_account(&config.rpc_client, &account, mint).is_err() {
-        println!("Creating associated token account {} to receive stake pool tokens of mint {}, owned by {}", account, mint, owner);
+        println!("Creating associated token account {account} to receive stake pool tokens of mint {mint}, owned by {owner}");
 
         let min_account_balance = config
             .rpc_client
@@ -785,7 +780,7 @@ fn add_associated_token_account(
 
         *rent_free_balances += min_account_balance;
     } else {
-        println!("Using existing associated token account {} to receive stake pool tokens of mint {}, owned by {}", account, mint, owner);
+        println!("Using existing associated token account {account} to receive stake pool tokens of mint {mint}, owned by {owner}");
     }
 
     account
@@ -807,7 +802,7 @@ fn command_deposit_stake(
     let stake_state = get_stake_state(&config.rpc_client, stake)?;
 
     if config.verbose {
-        println!("Depositing stake account {:?}", stake_state);
+        println!("Depositing stake account {stake_state:?}");
     }
     let vote_account = match stake_state {
         solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
@@ -833,11 +828,10 @@ fn command_deposit_stake(
 
     let validator_stake_state = get_stake_state(&config.rpc_client, &validator_stake_account)?;
     println!(
-        "Depositing stake {} into stake pool account {}",
-        stake, validator_stake_account
+        "Depositing stake {stake} into stake pool account {validator_stake_account}"
     );
     if config.verbose {
-        println!("{:?}", validator_stake_state);
+        println!("{validator_stake_state:?}");
     }
 
     let mut instructions: Vec<Instruction> = vec![];
@@ -1004,10 +998,9 @@ fn command_deposit_all_stake(
         );
 
         let validator_stake_state = get_stake_state(&config.rpc_client, &validator_stake_account)?;
-        println!("Depositing user stake {}: {:?}", stake_address, stake_state);
+        println!("Depositing user stake {stake_address}: {stake_state:?}");
         println!(
-            "..into pool stake {}: {:?}",
-            validator_stake_account, validator_stake_state
+            "..into pool stake {validator_stake_account}: {validator_stake_state:?}"
         );
 
         let instructions = if let Some(stake_deposit_authority) = config.funding_authority.as_ref()
@@ -1522,7 +1515,7 @@ fn command_withdraw_stake(
             let stake_state: solana_stake_interface::state::StakeStateV2 =
                 deserialize(stake_account.data.as_slice())
                     .map_err(|err| {
-                        format!("Invalid stake account {}: {}", stake_receiver_pubkey, err)
+                        format!("Invalid stake account {stake_receiver_pubkey}: {err}")
                     })
                     .ok()?;
             if stake_state.delegation().is_some()
@@ -1552,15 +1545,15 @@ fn command_withdraw_stake(
             .voter_pubkey;
         if let Some(vote_account_address) = vote_account_address {
             if *vote_account_address != vote_account {
-                return Err(format!("Provided withdrawal vote account {} does not match delegation on stake receiver account {},
-                 remove this flag or provide a different stake account delegated to {}", vote_account_address, vote_account, vote_account_address).into());
+                return Err(format!("Provided withdrawal vote account {vote_account_address} does not match delegation on stake receiver account {vote_account},
+                 remove this flag or provide a different stake account delegated to {vote_account_address}").into());
             }
         }
         // Check if the vote account exists in the stake pool
         let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
         let validator_stake_info = validator_list
              .find(&vote_account)
-             .ok_or(format!("Provided stake account is delegated to a vote account {} which does not exist in the stake pool", vote_account))?;
+             .ok_or(format!("Provided stake account is delegated to a vote account {vote_account} which does not exist in the stake pool"))?;
         let validator_seed = NonZeroU32::new(validator_stake_info.validator_seed_suffix.into());
         let (stake_account_address, _) = find_stake_program_address(
             &spl_stake_pool::id(),
@@ -1581,8 +1574,7 @@ fn command_withdraw_stake(
 
         if available_for_withdrawal < pool_amount {
             return Err(format!(
-                "Not enough lamports available for withdrawal from {}, {} asked, {} available",
-                stake_account_address, pool_amount, available_for_withdrawal
+                "Not enough lamports available for withdrawal from {stake_account_address}, {pool_amount} asked, {available_for_withdrawal} available"
             )
             .into());
         }
@@ -1594,8 +1586,7 @@ fn command_withdraw_stake(
     } else if let Some(vote_account_address) = vote_account_address {
         let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
         let validator_stake_info = validator_list.find(vote_account_address).ok_or(format!(
-            "Provided vote account address {} does not exist in the stake pool",
-            vote_account_address
+            "Provided vote account address {vote_account_address} does not exist in the stake pool"
         ))?;
         let validator_seed = NonZeroU32::new(validator_stake_info.validator_seed_suffix.into());
         let (stake_account_address, _) = find_stake_program_address(
@@ -1617,8 +1608,7 @@ fn command_withdraw_stake(
 
         if available_for_withdrawal < pool_amount {
             return Err(format!(
-                "Not enough lamports available for withdrawal from {}, {} asked, {} available",
-                stake_account_address, pool_amount, available_for_withdrawal
+                "Not enough lamports available for withdrawal from {stake_account_address}, {pool_amount} asked, {available_for_withdrawal} available"
             )
             .into());
         }
@@ -3504,8 +3494,7 @@ fn main() {
             let fee = value_t_or_exit!(arg_matches, "fee", u8);
             assert!(
                 fee <= 100u8,
-                "Invalid fee {}%. Fee needs to be in range [0-100]",
-                fee
+                "Invalid fee {fee}%. Fee needs to be in range [0-100]"
             );
             let fee_type = match arg_matches.value_of("fee_type").unwrap() {
                 "sol" => FeeType::SolReferral(fee),
@@ -3613,7 +3602,7 @@ fn main() {
         _ => unreachable!(),
     }
     .map_err(|err| {
-        eprintln!("{}", err);
+        eprintln!("{err}");
         exit(1);
     });
 }
