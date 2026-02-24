@@ -3838,6 +3838,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pbkdf2"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
+dependencies = [
+ "digest 0.10.7",
+ "hmac 0.12.1",
+]
+
+[[package]]
 name = "pem"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5677,12 +5687,42 @@ dependencies = [
  "solana-native-token 2.3.0",
  "solana-presigner 2.2.1",
  "solana-pubkey 2.4.0",
- "solana-remote-wallet",
+ "solana-remote-wallet 2.3.13",
  "solana-seed-phrase 2.2.1",
  "solana-signature 2.3.0",
  "solana-signer 2.2.1",
  "thiserror 2.0.18",
- "tiny-bip39",
+ "tiny-bip39 0.8.2",
+ "uriparse",
+ "url",
+]
+
+[[package]]
+name = "solana-clap-utils"
+version = "3.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db9401cc0c7cb84214653fbee35c61aa06dce62405fa1c5c3f7b48126dad539b"
+dependencies = [
+ "chrono",
+ "clap 2.34.0",
+ "rpassword",
+ "solana-bls-signatures",
+ "solana-clock 3.0.1",
+ "solana-cluster-type 3.1.0",
+ "solana-commitment-config 3.1.1",
+ "solana-derivation-path 3.0.0",
+ "solana-hash 3.1.0",
+ "solana-keypair 3.1.1",
+ "solana-message 3.1.0",
+ "solana-native-token 3.0.0",
+ "solana-presigner 3.0.0",
+ "solana-pubkey 3.0.0",
+ "solana-remote-wallet 3.1.9",
+ "solana-seed-phrase 3.0.0",
+ "solana-signature 3.3.0",
+ "solana-signer 3.0.0",
+ "thiserror 2.0.18",
+ "tiny-bip39 2.0.0",
  "uriparse",
  "url",
 ]
@@ -5697,7 +5737,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_yaml",
- "solana-clap-utils",
+ "solana-clap-utils 2.3.13",
  "solana-commitment-config 2.2.1",
  "url",
 ]
@@ -5723,7 +5763,7 @@ dependencies = [
  "solana-account 2.2.1",
  "solana-account-decoder 2.3.13",
  "solana-bincode 2.2.1",
- "solana-clap-utils",
+ "solana-clap-utils 2.3.13",
  "solana-cli-config",
  "solana-clock 2.2.3",
  "solana-epoch-info 2.2.1",
@@ -7633,6 +7673,30 @@ dependencies = [
  "solana-pubkey 2.4.0",
  "solana-signature 2.3.0",
  "solana-signer 2.2.1",
+ "thiserror 2.0.18",
+ "uriparse",
+]
+
+[[package]]
+name = "solana-remote-wallet"
+version = "3.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "003e933e9b74c570b289a6531593b4b71574b776151c3d0235e0aaba691a9dbb"
+dependencies = [
+ "console 0.16.2",
+ "dialoguer",
+ "hidapi",
+ "log",
+ "num-derive",
+ "num-traits",
+ "parking_lot",
+ "qstring",
+ "semver",
+ "solana-derivation-path 3.0.0",
+ "solana-offchain-message 3.0.0",
+ "solana-pubkey 3.0.0",
+ "solana-signature 3.3.0",
+ "solana-signer 3.0.0",
  "thiserror 2.0.18",
  "uriparse",
 ]
@@ -10028,6 +10092,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "spl-token"
+version = "9.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "878b0183d51fcd8a53e1604f4c13321894cf53227e6773c529b0d03d499a8dfd"
+dependencies = [
+ "arrayref",
+ "bytemuck",
+ "num-derive",
+ "num-traits",
+ "num_enum",
+ "solana-account-info 3.1.0",
+ "solana-cpi 3.1.0",
+ "solana-instruction 3.2.0",
+ "solana-msg 3.1.0",
+ "solana-program-entrypoint 3.1.1",
+ "solana-program-error 3.0.0",
+ "solana-program-memory 3.1.0",
+ "solana-program-option 3.0.0",
+ "solana-program-pack 3.1.0",
+ "solana-pubkey 3.0.0",
+ "solana-rent 3.1.0",
+ "solana-sdk-ids 3.1.0",
+ "solana-sysvar 3.1.1",
+ "spl-token-interface",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "spl-token-2022"
 version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10407,18 +10499,21 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "solana-account-decoder 3.1.9",
- "solana-clap-utils",
+ "solana-clap-utils 3.1.9",
  "solana-cli-config",
  "solana-cli-output",
  "solana-client",
+ "solana-compute-budget-interface",
  "solana-logger",
  "solana-program 3.0.0",
- "solana-remote-wallet",
+ "solana-remote-wallet 3.1.9",
  "solana-sdk",
  "solana-stake-interface 3.0.0",
+ "solana-system-interface 3.1.0",
  "spl-associated-token-account-interface",
  "spl-governance",
  "spl-stake-pool",
+ "spl-token 9.0.0",
  "spl-token-interface",
  "stake-deposit-interceptor",
 ]
@@ -10747,6 +10842,23 @@ dependencies = [
  "rand 0.7.3",
  "rustc-hash 1.1.0",
  "sha2 0.9.9",
+ "thiserror 1.0.69",
+ "unicode-normalization",
+ "wasm-bindgen",
+ "zeroize",
+]
+
+[[package]]
+name = "tiny-bip39"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a30fd743a02bf35236f6faf99adb03089bb77e91c998dac2c2ad76bb424f668c"
+dependencies = [
+ "once_cell",
+ "pbkdf2 0.12.2",
+ "rand 0.8.5",
+ "rustc-hash 1.1.0",
+ "sha2 0.10.9",
  "thiserror 1.0.69",
  "unicode-normalization",
  "wasm-bindgen",

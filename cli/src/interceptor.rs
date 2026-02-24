@@ -11,7 +11,7 @@ use solana_client::{rpc_client::RpcClient, rpc_config::CommitmentConfig};
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use spl_associated_token_account_interface::address::get_associated_token_address;
 use spl_stake_pool::{find_stake_program_address, find_withdraw_authority_program_address};
-use stake_deposit_interceptor::{
+use stake_deposit_interceptor_program::{
     instruction::{
         create_claim_pool_tokens_instruction, create_deposit_stake_instruction,
         create_init_deposit_stake_authority_instruction, derive_stake_pool_deposit_stake_authority,
@@ -64,7 +64,7 @@ pub fn command_create_stake_deposit_authority(
     let base = Keypair::new();
     let stake_pool = get_stake_pool(&config.rpc_client, stake_pool_address)?;
     let ix = create_init_deposit_stake_authority_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &config.fee_payer.pubkey(),
         stake_pool_address,
         &stake_pool.pool_mint,
@@ -78,7 +78,7 @@ pub fn command_create_stake_deposit_authority(
     );
 
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         stake_pool_address,
         &base.pubkey(),
     );
@@ -151,7 +151,7 @@ pub fn command_deposit_stake(
     println!("Created DepositReceipt {}", deposit_receipt_base.pubkey());
 
     let ixs = create_deposit_stake_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &config.fee_payer.pubkey(),
         &spl_stake_pool::id(),
         &stake_deposit_authority.stake_pool,
@@ -217,7 +217,7 @@ pub fn get_all_deposit_receipts(
     }
 
     let accounts = rpc_client
-        .get_program_accounts_with_config(
+        .get_program_ui_accounts_with_config(
             program_id,
             RpcProgramAccountsConfig {
                 filters: Some(filters),
@@ -233,7 +233,8 @@ pub fn get_all_deposit_receipts(
 
     let mut receipts = Vec::new();
     for (pubkey, account) in accounts {
-        match DepositReceipt::try_from_slice_unchecked(account.data.as_slice()) {
+        let account_data = account.data.decode().unwrap();
+        match DepositReceipt::try_from_slice_unchecked(account_data.as_slice()) {
             Ok(receipt) => receipts.push((pubkey, *receipt)),
             Err(e) => eprintln!("Failed to deserialize receipt for {}: {}", pubkey, e),
         }
@@ -294,7 +295,7 @@ pub fn command_list_receipts(
     show_expired_only: bool,
     show_active_only: bool,
 ) -> CommandResult {
-    let default_program_id = stake_deposit_interceptor::id();
+    let default_program_id = stake_deposit_interceptor_program::id();
     let program_id = program_id.unwrap_or(&default_program_id);
 
     let receipts = get_all_deposit_receipts(&config.rpc_client, program_id, stake_pool)?;
@@ -464,7 +465,7 @@ pub fn command_claim_tokens(
 
     // Create the claim instruction
     let claim_ix = create_claim_pool_tokens_instruction(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         receipt_address,
         &receipt.owner,
         &stake_pool_deposit_authority.vault,

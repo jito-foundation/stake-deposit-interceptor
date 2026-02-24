@@ -3,9 +3,6 @@ use solana_account::Account;
 use solana_keypair::Signer;
 use solana_program_test::{BanksClient, ProgramTestContext};
 use solana_pubkey::Pubkey;
-// use solana_sdk::{
-//     account::Account as SolanaAccount, pubkey::Pubkey, signer::Signer, transaction::Transaction,
-// };
 use solana_system_interface::instruction::transfer;
 use solana_transaction::Transaction;
 

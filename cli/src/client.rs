@@ -7,6 +7,7 @@ use {
         rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
         rpc_filter::{Memcmp, RpcFilterType},
     },
+    solana_compute_budget_interface::ComputeBudgetInstruction,
     solana_program::{
         borsh1::try_from_slice_unchecked, hash::Hash, instruction::Instruction, program_pack::Pack,
         pubkey::Pubkey,
@@ -88,7 +89,7 @@ pub(crate) fn get_stake_pools(
     rpc_client: &RpcClient,
 ) -> Result<Vec<(Pubkey, StakePool, ValidatorList, Pubkey)>, ClientError> {
     rpc_client
-        .get_program_accounts_with_config(
+        .get_program_ui_accounts_with_config(
             &spl_stake_pool::id(),
             RpcProgramAccountsConfig {
                 // 0 is the account type
@@ -109,7 +110,8 @@ pub(crate) fn get_stake_pools(
                 .filter_map(|(address, account)| {
                     let pool_withdraw_authority =
                         find_withdraw_authority_program_address(&spl_stake_pool::id(), &address).0;
-                    match try_from_slice_unchecked::<StakePool>(account.data.as_slice()) {
+                    let account_data = account.data.decode().unwrap();
+                    match try_from_slice_unchecked::<StakePool>(account_data.as_slice()) {
                         Ok(stake_pool) => {
                             get_validator_list(rpc_client, &stake_pool.validator_list)
                                 .map(|validator_list| {
@@ -131,7 +133,7 @@ pub(crate) fn get_all_stake(
     rpc_client: &RpcClient,
     authorized_staker: &Pubkey,
 ) -> Result<HashSet<Pubkey>, ClientError> {
-    let all_stake_accounts = rpc_client.get_program_accounts_with_config(
+    let all_stake_accounts = rpc_client.get_program_ui_accounts_with_config(
         &solana_stake_interface::program::id(),
         RpcProgramAccountsConfig {
             filters: Some(vec![
