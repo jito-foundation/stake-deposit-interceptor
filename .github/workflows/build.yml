@@ -12,7 +12,7 @@ on:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: big-runner-1
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,7 +32,7 @@ jobs:
 
   verified_build:
     name: verified_build
-    runs-on: ubuntu-latest
+    runs-on: big-runner-1
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,13 +57,13 @@ jobs:
       - name: Upload program artifact
         uses: actions/upload-artifact@v4
         with:
-          name: program.so
+          name: stake_deposit_interceptor_program.so
           path: target/deploy/*.so
 
   # tests run on verified build
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: big-runner-1
 
     needs:
       - verified_build
