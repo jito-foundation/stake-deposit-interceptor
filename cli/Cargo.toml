@@ -1,7 +1,7 @@
 [package]
 name = "stake-deposit-interceptor-cli"
 description = "stake deposit interceptor CLI"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 
 [[bin]]
@@ -36,4 +36,4 @@ spl-stake-pool.workspace = true
 spl-token.workspace = true
 spl-token-interface.workspace = true
 # Added deps from fork
-stake-deposit-interceptor = { version = "0.1.0", path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }
+stake-deposit-interceptor = { version = "0.2.0", path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }
