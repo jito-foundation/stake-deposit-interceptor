@@ -11,7 +11,7 @@ edition = "2021"
 
 [workspace.dependencies]
 borsh = "1.6.0"
-jito-bytemuck = { git = "https://github.com/jito-foundation/jito-bytemuck.git", branch = "ak/v_3" }
+jito-bytemuck = { git = "https://github.com/jito-foundation/jito-bytemuck.git", tag = "v0.1.0" }
 solana-account = "3.0.0"
 solana-account-decoder = "3.0.0"
 solana-clap-utils = { version = "3.0.0", features = ["agave-unstable-api"] }

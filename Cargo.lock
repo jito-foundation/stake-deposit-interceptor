@@ -3022,7 +3022,7 @@ dependencies = [
 [[package]]
 name = "jito-bytemuck"
 version = "0.1.0"
-source = "git+https://github.com/jito-foundation/jito-bytemuck.git?branch=ak%2Fv_3#4aad970384e58cce842da653856801fd767b36e2"
+source = "git+https://github.com/jito-foundation/jito-bytemuck.git?tag=v0.1.0#9fa7b231550904be4ad16cdb08817f79838024a7"
 dependencies = [
  "borsh 0.10.4",
  "bytemuck",
