@@ -19,11 +19,11 @@ serde = "1.0.203"
 serde_derive = "1.0.130"
 serde_json = "1.0.117"
 solana-account-decoder.workspace = true
-solana-compute-budget-interface.workspace = true
 solana-clap-utils.workspace = true
 solana-cli-config = ">=1.18.11,<=2"
 solana-cli-output = ">=1.18.11,<=2"
 solana-client.workspace = true
+solana-compute-budget-interface.workspace = true
 solana-logger = ">=1.18.11,<=2"
 solana-program.workspace = true
 solana-remote-wallet.workspace = true
@@ -33,7 +33,7 @@ solana-system-interface.workspace = true
 spl-associated-token-account-interface.workspace = true
 spl-governance = { git = "https://github.com/solana-labs/solana-program-library", rev = "d85ea9ff0573cd82c9245965a55f379b4dc263bc", features = ["no-entrypoint"] }
 spl-stake-pool.workspace = true
-spl-token-interface.workspace = true
 spl-token.workspace = true
+spl-token-interface.workspace = true
 # Added deps from fork
 stake-deposit-interceptor = { version = "0.1.0", path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }

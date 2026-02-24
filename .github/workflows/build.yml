@@ -59,3 +59,34 @@ jobs:
         with:
           name: program.so
           path: target/deploy/*.so
+
+  # tests run on verified build
+  test:
+    name: test
+    runs-on: ubuntu-latest
+
+    needs:
+      - verified_build
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install Protobuf Compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libudev-dev libclang-dev
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stake_deposit_interceptor_program.so
+          path: target/sbf-solana-solana/release/
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: cargo nextest run
+        env:
+          SBF_OUT_DIR: ${{ github.workspace }}/target/sbf-solana-solana/release
