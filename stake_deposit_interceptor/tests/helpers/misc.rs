@@ -1,3 +1,4 @@
+use jito_whitelist_management_client::programs::JITO_WHITELIST_MANAGEMENT_ID;
 use solana_account::AccountSharedData;
 use solana_program::{instruction::InstructionError, pubkey::Pubkey};
 use solana_program_test::{BanksClientError, ProgramTest, ProgramTestContext};
@@ -14,6 +15,11 @@ pub fn program_test_with_stake_pool_program() -> ProgramTest {
         None,
     );
     program_test.add_program("spl_stake_pool", spl_stake_pool::id(), None);
+    program_test.add_program(
+        "jito_whitelist_management_program",
+        JITO_WHITELIST_MANAGEMENT_ID,
+        None,
+    );
     program_test
 }
 

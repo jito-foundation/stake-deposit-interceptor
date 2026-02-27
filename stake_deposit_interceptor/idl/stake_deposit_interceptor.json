@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "stake_deposit_interceptor",
   "instructions": [
     {
@@ -9,89 +9,66 @@
           "name": "payer",
           "isMut": true,
           "isSigner": true,
-          "docs": [
-            "Funding account"
-          ]
+          "docs": ["Funding account"]
         },
         {
           "name": "depositStakeAuthority",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "PDA to store deposit authority data"
-          ]
+          "isSigner": false
         },
         {
           "name": "vaultAta",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "New ATA owned by the StakePoolDepositStakeAuthority"
-          ]
+          "docs": ["New ATA owned by the StakePoolDepositStakeAuthority"]
         },
         {
           "name": "authority",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Authority"
-          ]
+          "docs": ["Authority"]
         },
         {
           "name": "base",
           "isMut": false,
           "isSigner": true,
-          "docs": [
-            "Base for PDA seed"
-          ]
+          "docs": ["Base for PDA seed"]
         },
         {
           "name": "stakePool",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "StakePool"
-          ]
+          "docs": ["StakePool"]
         },
         {
           "name": "stakePoolMint",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "StakePool's Pool Mint"
-          ]
+          "docs": ["StakePool's Pool Mint"]
         },
         {
           "name": "stakePoolProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "StakePool Program ID"
-          ]
+          "docs": ["StakePool Program ID"]
         },
         {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Token program"
-          ]
+          "docs": ["Token program"]
         },
         {
           "name": "associatedTokenProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Associated Token program"
-          ]
+          "docs": ["Associated Token program"]
         },
         {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "System program"
-          ]
+          "docs": ["System program"]
         }
       ],
       "args": [
@@ -114,26 +91,20 @@
           "name": "depositStakeAuthority",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "PDA storing deposit authority data"
-          ]
+          "docs": ["PDA storing deposit authority data"]
         },
         {
           "name": "authority",
           "isMut": false,
           "isSigner": true,
-          "docs": [
-            "Authority that can update the deposit authority"
-          ]
+          "docs": ["Authority that can update the deposit authority"]
         },
         {
           "name": "newAuthority",
           "isMut": false,
-          "isSigner": true,
+          "isSigner": false,
           "isOptional": true,
-          "docs": [
-            "Optional new authority"
-          ]
+          "docs": ["Optional new authority"]
         }
       ],
       "args": [
@@ -156,25 +127,125 @@
           "name": "payer",
           "isMut": true,
           "isSigner": true,
-          "docs": [
-            "Funding account"
-          ]
+          "docs": ["Funding account"]
         },
         {
           "name": "stakePoolProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Stake pool program id"
-          ]
+          "docs": ["Stake pool program id"]
         },
         {
           "name": "depositReceipt",
           "isMut": true,
           "isSigner": false,
+          "docs": ["PDA to store deposit receipt"]
+        },
+        {
+          "name": "stakePool",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["StakePool to deposit into"]
+        },
+        {
+          "name": "validatorStakeList",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Validator stake list storage account"]
+        },
+        {
+          "name": "depositStakeAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["StakePool stake_deposit_authority"]
+        },
+        {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true,
+          "docs": ["Base for PDA seed"]
+        },
+        {
+          "name": "stakePoolWithdrawAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Stake pool withdraw authority"]
+        },
+        {
+          "name": "stake",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Stake account to join the pool"]
+        },
+        {
+          "name": "validatorStakeAccount",
+          "isMut": true,
+          "isSigner": false,
           "docs": [
-            "PDA to store deposit receipt"
+            "Validator stake account for the stake account to be merged with"
           ]
+        },
+        {
+          "name": "reserveStakeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Reserve stake account, to withdraw rent exempt reserve"]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Vault account to receive pool tokens"]
+        },
+        {
+          "name": "managerFeeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Account to receive pool fee tokens"]
+        },
+        {
+          "name": "referrerPoolTokensAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Account to receive a portion of pool fee tokens as referral fees"
+          ]
+        },
+        {
+          "name": "poolMint",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Pool token mint account"]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Sysvar clock account"]
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Sysvar stake history account"]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Pool token program id"]
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Stake program id"]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["System program id"]
         }
       ],
       "args": [
@@ -197,25 +268,125 @@
           "name": "payer",
           "isMut": true,
           "isSigner": true,
-          "docs": [
-            "Funding account"
-          ]
+          "docs": ["Funding account"]
         },
         {
           "name": "stakePoolProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Stake pool program id"
-          ]
+          "docs": ["Stake pool program id"]
         },
         {
           "name": "depositReceipt",
           "isMut": true,
           "isSigner": false,
+          "docs": ["PDA to store deposit receipt"]
+        },
+        {
+          "name": "stakePool",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["StakePool to deposit into"]
+        },
+        {
+          "name": "validatorStakeList",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Validator stake list storage account"]
+        },
+        {
+          "name": "depositStakeAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["StakePool stake_deposit_authority"]
+        },
+        {
+          "name": "base",
+          "isMut": false,
+          "isSigner": true,
+          "docs": ["Base for PDA seed"]
+        },
+        {
+          "name": "stakePoolWithdrawAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Stake pool withdraw authority"]
+        },
+        {
+          "name": "stake",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Stake account to join the pool"]
+        },
+        {
+          "name": "validatorStakeAccount",
+          "isMut": true,
+          "isSigner": false,
           "docs": [
-            "PDA to store deposit receipt"
+            "Validator stake account for the stake account to be merged with"
           ]
+        },
+        {
+          "name": "reserveStakeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Reserve stake account, to withdraw rent exempt reserve"]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Vault account to receive pool tokens"]
+        },
+        {
+          "name": "managerFeeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Account to receive pool fee tokens"]
+        },
+        {
+          "name": "referrerPoolTokensAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Account to receive a portion of pool fee tokens as referral fees"
+          ]
+        },
+        {
+          "name": "poolMint",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Pool token mint account"]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Sysvar clock account"]
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Sysvar stake history account"]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Pool token program id"]
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Stake program id"]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["System program id"]
         }
       ],
       "args": [
@@ -238,25 +409,19 @@
           "name": "depositReceipt",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "PDA storing deposit receipt"
-          ]
+          "docs": ["PDA storing deposit receipt"]
         },
         {
           "name": "currentOwner",
           "isMut": false,
           "isSigner": true,
-          "docs": [
-            "Current owner of the receipt"
-          ]
+          "docs": ["Current owner of the receipt"]
         },
         {
           "name": "newOwner",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "New owner for the receipt"
-          ]
+          "docs": ["New owner for the receipt"]
         }
       ],
       "args": [],
@@ -272,79 +437,181 @@
           "name": "depositReceipt",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "PDA storing deposit receipt"
-          ]
+          "docs": ["PDA storing deposit receipt"]
         },
         {
           "name": "owner",
           "isMut": true,
           "isSigner": true,
-          "docs": [
-            "Owner of the receipt"
-          ]
+          "docs": ["Owner of the receipt"]
         },
         {
           "name": "vault",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "Vault token account"
-          ]
+          "docs": ["Vault token account"]
         },
         {
           "name": "destination",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "Destination token account"
-          ]
+          "docs": ["Destination token account"]
         },
         {
           "name": "feeWallet",
           "isMut": true,
           "isSigner": false,
-          "docs": [
-            "Fee wallet token account"
-          ]
+          "docs": ["Fee wallet token account"]
         },
         {
           "name": "depositAuthority",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Deposit authority PDA"
-          ]
+          "docs": ["Deposit authority PDA"]
         },
         {
           "name": "poolMint",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Pool token mint"
-          ]
+          "docs": ["Pool token mint"]
         },
         {
           "name": "tokenProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "Token program"
-          ]
+          "docs": ["Token program"]
         },
         {
           "name": "systemProgram",
           "isMut": false,
           "isSigner": false,
-          "docs": [
-            "System program"
-          ]
+          "docs": ["System program"]
         }
       ],
       "args": [],
       "discriminant": {
         "type": "u8",
         "value": 5
+      }
+    },
+    {
+      "name": "DepositStakeWhitelisted",
+      "accounts": [
+        {
+          "name": "whitelistedSigner",
+          "isMut": true,
+          "isSigner": true,
+          "docs": ["Must be present in the WHitelist.whitelist array"]
+        },
+        {
+          "name": "whitelist",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Whitelist account from WHitelistManagementProgram"]
+        },
+        {
+          "name": "stakePool",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Stake pool account"]
+        },
+        {
+          "name": "validatorList",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Validator List"]
+        },
+        {
+          "name": "stakeDepositAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Interceptor PDA - the stake deposit authority on the pool"]
+        },
+        {
+          "name": "withdrawAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Pool withdraw authority"]
+        },
+        {
+          "name": "depositStake",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["The stake account being deposited into the pool"]
+        },
+        {
+          "name": "validatorStake",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Validator stake account in the pool"]
+        },
+        {
+          "name": "reserveStake",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Reserve stake account"]
+        },
+        {
+          "name": "poolTokensTo",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Destination for minted JitoSOL - goes directly to depositor, no Ticket"
+          ]
+        },
+        {
+          "name": "managerFeeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Manager fee account"]
+        },
+        {
+          "name": "referralFeeAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Referral fee account"]
+        },
+        {
+          "name": "poolMint",
+          "isMut": true,
+          "isSigner": false,
+          "docs": ["Pool token mint account"]
+        },
+        {
+          "name": "clock",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Sysvar clock account"]
+        },
+        {
+          "name": "stakeHistory",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Sysvar stake history account"]
+        },
+        {
+          "name": "tokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Pool token program id"]
+        },
+        {
+          "name": "stakeProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["Stake program id"]
+        },
+        {
+          "name": "splStakePoolProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": ["SPL Stake Pool Program"]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 6
       }
     }
   ],
@@ -380,11 +647,15 @@
           },
           {
             "name": "coolDownSeconds",
-            "type": "u64"
+            "type": {
+              "defined": "PodU64"
+            }
           },
           {
             "name": "initalFeeBps",
-            "type": "u32"
+            "type": {
+              "defined": "PodU32"
+            }
           },
           {
             "name": "feeWallet",
@@ -395,12 +666,13 @@
             "type": "u8"
           },
           {
+            "name": "jitoWhitelistManagementProgramId",
+            "type": "publicKey"
+          },
+          {
             "name": "reserved",
             "type": {
-              "array": [
-                "u8",
-                256
-              ]
+              "array": ["u8", 224]
             }
           }
         ]
@@ -429,19 +701,27 @@
           },
           {
             "name": "depositTime",
-            "type": "u64"
+            "type": {
+              "defined": "PodU64"
+            }
           },
           {
             "name": "lstAmount",
-            "type": "u64"
+            "type": {
+              "defined": "PodU64"
+            }
           },
           {
             "name": "coolDownSeconds",
-            "type": "u64"
+            "type": {
+              "defined": "PodU64"
+            }
           },
           {
             "name": "initialFeeBps",
-            "type": "u32"
+            "type": {
+              "defined": "PodU32"
+            }
           },
           {
             "name": "bumpSeed",
@@ -450,10 +730,7 @@
           {
             "name": "reserved",
             "type": {
-              "array": [
-                "u8",
-                256
-              ]
+              "array": ["u8", 256]
             }
           }
         ]
@@ -503,6 +780,12 @@
             "type": {
               "option": "u32"
             }
+          },
+          {
+            "name": "jitoWhitelistManagementProgramId",
+            "type": {
+              "option": "publicKey"
+            }
           }
         ]
       }
@@ -536,10 +819,100 @@
       }
     }
   ],
+  "errors": [
+    {
+      "code": 0,
+      "name": "SignatureMissing",
+      "msg": "Signature missing"
+    },
+    {
+      "code": 1,
+      "name": "InvalidSeeds",
+      "msg": "Invalid seeds"
+    },
+    {
+      "code": 2,
+      "name": "AlreadyInUse",
+      "msg": "Account already in use"
+    },
+    {
+      "code": 3,
+      "name": "InvalidStakePool",
+      "msg": "StakePool does not match other inputs"
+    },
+    {
+      "code": 4,
+      "name": "InvalidStakePoolManager",
+      "msg": "StakePool manager is invalid"
+    },
+    {
+      "code": 5,
+      "name": "InvalidAuthority",
+      "msg": "Authority is invalid"
+    },
+    {
+      "code": 6,
+      "name": "InvalidStakePoolDepositStakeAuthority",
+      "msg": "StakePoolDepositStakeAuthority key is invalid"
+    },
+    {
+      "code": 7,
+      "name": "InvalidVault",
+      "msg": "Vault ATA is invalid"
+    },
+    {
+      "code": 8,
+      "name": "InvalidTokenProgram",
+      "msg": "Token program is invalid"
+    },
+    {
+      "code": 9,
+      "name": "InvalidDepositReceipt",
+      "msg": "DepositReceipt key is invalid"
+    },
+    {
+      "code": 10,
+      "name": "InvalidDepositReceiptOwner",
+      "msg": "DepositReceipt owner is invalid"
+    },
+    {
+      "code": 11,
+      "name": "InvalidFeeTokenAccount",
+      "msg": "Fee token account is invalid"
+    },
+    {
+      "code": 12,
+      "name": "InvalidDestinationTokenAccount",
+      "msg": "Destination token account is invalid"
+    },
+    {
+      "code": 13,
+      "name": "ActiveCooldown",
+      "msg": "Only owner can claim during cool down period"
+    },
+    {
+      "code": 14,
+      "name": "InitialFeeRateMaxExceeded",
+      "msg": "Fee rate exceeds the max limit"
+    },
+    {
+      "code": 15,
+      "name": "InvalidPoolMint",
+      "msg": "Invalid pool mint"
+    },
+    {
+      "code": 16,
+      "name": "InvalidStakePoolProgram",
+      "msg": "StakePool program is invalid"
+    },
+    {
+      "code": 17,
+      "name": "InvalidWhitelistedSigner",
+      "msg": "Whitelisted signer is invalid"
+    }
+  ],
   "metadata": {
     "origin": "shank",
-    "address": "5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV",
-    "binaryVersion": "0.3.0",
-    "libVersion": "0.3.0"
+    "address": "5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV"
   }
 }

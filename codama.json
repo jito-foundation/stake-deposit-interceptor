@@ -1,0 +1,15 @@
+{
+  "idl": "stake_deposit_interceptor/idl/stake_deposit_interceptor.json",
+  "before": [],
+  "scripts": {
+    "rust": {
+      "from": "@codama/renderers-rust",
+      "args": [
+        "clients/rust/stake-deposit-interceptor",
+        {
+          "formatCode": true
+        }
+      ]
+    }
+  }
+}

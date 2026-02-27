@@ -54,6 +54,10 @@ pub enum StakeDepositInterceptorError {
     /// 16 : Invalid stake-pool program
     #[error("StakePool program is invalid")]
     InvalidStakePoolProgram,
+
+    /// 17 : Signer is not whitelisted
+    #[error("Whitelisted signer is invalid")]
+    InvalidWhitelistedSigner,
 }
 
 impl From<StakeDepositInterceptorError> for ProgramError {

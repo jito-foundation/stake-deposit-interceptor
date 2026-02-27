@@ -35,8 +35,12 @@ pub struct StakePoolDepositStakeAuthority {
     pub fee_wallet: Pubkey,
     /// Bump seed for derivation
     pub bump_seed: u8,
+
+    /// Program ID for Jito Whitelist Management
+    pub jito_whitelist_management_program_id: Pubkey,
+
     // reserved bytes
-    reserved: [u8; 256],
+    reserved: [u8; 224],
 }
 
 impl Discriminator for StakePoolDepositStakeAuthority {

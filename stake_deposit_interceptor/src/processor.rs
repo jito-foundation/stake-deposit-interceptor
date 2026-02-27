@@ -2,6 +2,7 @@ use std::mem;
 
 use borsh::BorshDeserialize;
 use jito_bytemuck::{AccountDeserialize, Discriminator};
+use jito_whitelist_management_core::whitelist::Whitelist;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     borsh1::try_from_slice_unchecked,
@@ -233,6 +234,13 @@ impl Processor {
         }
         if let Some(fee_wallet) = update_deposit_stake_authority_args.fee_wallet {
             deposit_stake_authority.fee_wallet = fee_wallet;
+        }
+
+        if let Some(jito_whitelist_management_program_id) =
+            update_deposit_stake_authority_args.jito_whitelist_management_program_id
+        {
+            deposit_stake_authority.jito_whitelist_management_program_id =
+                jito_whitelist_management_program_id;
         }
 
         Ok(())
@@ -583,6 +591,86 @@ impl Processor {
         Ok(())
     }
 
+    pub fn process_deposit_stake_whitelisted(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let whitelisted_signer_info = next_account_info(account_info_iter)?;
+        let whitelist_info = next_account_info(account_info_iter)?;
+        let stake_pool_info = next_account_info(account_info_iter)?;
+        let validator_list_info = next_account_info(account_info_iter)?;
+        let stake_deposit_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let withdraw_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let deposit_stake_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let validator_stake_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let reserve_stake_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let pool_tokens_to_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let manager_fee_account_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let referral_fee_account_info = next_account_info(account_info_iter)?;
+        let pool_mint_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let clock_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let stake_history_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let token_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let stake_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let spl_stake_pool_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let system_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+
+        // Validate: System program is correct native program
+        check_system_program(system_program_info.key)?;
+
+        // Validate `StakePoolDepositStakeAuthority` is owned by current program.
+        check_account_owner(stake_deposit_authority_info, program_id)?;
+
+        // Validate: base signed the TX
+        if !whitelisted_signer_info.is_signer {
+            return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
+        let deposit_stake_authority_data = stake_deposit_authority_info.try_borrow_data()?;
+        let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
+            &deposit_stake_authority_data,
+        )?;
+
+        // Validate `StakePoolDepositStakeAuthority` is owned by current program.
+        check_account_owner(
+            whitelist_info,
+            &deposit_stake_authority.jito_whitelist_management_program_id,
+        )?;
+
+        let whitelist_data = whitelist_info.try_borrow_data()?;
+        let whitelist = Whitelist::try_from_slice_unchecked(&whitelist_data)?;
+
+        if !whitelist.whitelist.contains(whitelisted_signer_info.key) {
+            return Err(StakeDepositInterceptorError::InvalidWhitelistedSigner.into());
+        }
+
+        // CPI to SPL stake-pool program to invoke DepositStake with the `StakePoolDepositStakeAuthority` as the
+        // `stake_deposit_authority`.
+        deposit_stake_cpi(
+            spl_stake_pool_program_info,
+            stake_pool_info,
+            validator_list_info,
+            stake_deposit_authority_info,
+            withdraw_authority_info,
+            deposit_stake_info,
+            validator_stake_info,
+            reserve_stake_info,
+            pool_tokens_to_info,
+            manager_fee_account_info,
+            referral_fee_account_info,
+            pool_mint_info,
+            token_program_info,
+            clock_info,
+            stake_history_info,
+            stake_program_info,
+            deposit_stake_authority,
+            None,
+        )?;
+
+        Ok(())
+    }
+
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
         let instruction = StakeDepositInterceptorInstruction::try_from_slice(input)?;
         match instruction {
@@ -609,6 +697,9 @@ impl Processor {
             }
             StakeDepositInterceptorInstruction::ClaimPoolTokens => {
                 Self::process_claim_pool_tokens(program_id, accounts)?;
+            }
+            StakeDepositInterceptorInstruction::DepositStakeWhitelisted => {
+                Self::process_deposit_stake_whitelisted(program_id, accounts)?;
             }
         }
         Ok(())

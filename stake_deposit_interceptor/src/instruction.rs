@@ -20,6 +20,7 @@ pub struct UpdateStakePoolDepositStakeAuthorityArgs {
     pub fee_wallet: Option<Pubkey>,
     pub cool_down_seconds: Option<u64>,
     pub initial_fee_bps: Option<u32>,
+    pub jito_whitelist_management_program_id: Option<Pubkey>,
 }
 
 /// Arguments for DepositStake.
@@ -332,6 +333,89 @@ pub enum StakeDepositInterceptorInstruction {
     #[account(7, name = "token_program", desc = "Token program")]
     #[account(8, name = "system_program", desc = "System program")]
     ClaimPoolTokens,
+
+    /// Deposits stake directly into the spl-stake-pool — bypassing the Ticket/cooldown mechanism.
+    ///
+    /// JitoSOL is minted straight to the depositor.
+    /// Requires a whitelisted signer from the Whitelist account on the WhitelistManagementProgram.
+    ///
+    ///   0. `[w,s]` Whitelisted Signer
+    ///   1. `[]` Whitelist PDA
+    ///   2. `[w]` Stake pool account
+    ///   3. `[w]` Validator list account
+    ///   4. `[]` StakePoolDepositStakeAuthority PDA
+    ///   5. `[]` Pool withdraw authority
+    ///   6. `[w]` Deposit stake account
+    ///   7. `[w]` Validator stake account
+    ///   8. `[w]` Reserve stake account
+    ///   9. `[w]` Destination for minted JitoSOL
+    ///   10. `[w]` Manager fee account
+    ///   11. `[w]` Referral fee account
+    ///   12. `[w]` Pool mint account
+    ///   13. '[]' Sysvar clock account
+    ///   14. '[]' Sysvar stake history account
+    ///   15. `[]` Pool token program id
+    ///   16. `[]` Stake program id
+    ///   17. `[]` System program id
+    #[account(
+        0,
+        signer,
+        writable,
+        name = "whitelisted_signer",
+        desc = "Must be present in the WHitelist.whitelist array"
+    )]
+    #[account(
+        1,
+        name = "whitelist",
+        desc = "Whitelist account from WHitelistManagementProgram"
+    )]
+    #[account(2, writable, name = "stake_pool", desc = "Stake pool account")]
+    #[account(3, writable, name = "validator_list", desc = "Validator List")]
+    #[account(
+        4,
+        name = "stake_deposit_authority",
+        desc = "Interceptor PDA - the stake deposit authority on the pool"
+    )]
+    #[account(5, name = "withdraw_authority", desc = "Pool withdraw authority")]
+    #[account(
+        6,
+        writable,
+        name = "deposit_stake",
+        desc = "The stake account being deposited into the pool"
+    )]
+    #[account(
+        7,
+        writable,
+        name = "validator_stake",
+        desc = "Validator stake account in the pool"
+    )]
+    #[account(8, writable, name = "reserve_stake", desc = "Reserve stake account")]
+    #[account(
+        9,
+        writable,
+        name = "pool_tokens_to",
+        desc = "Destination for minted JitoSOL - goes directly to depositor, no Ticket"
+    )]
+    #[account(
+        10,
+        writable,
+        name = "manager_fee_account",
+        desc = "Manager fee account"
+    )]
+    #[account(
+        11,
+        writable,
+        name = "referral_fee_account",
+        desc = "Referral fee account"
+    )]
+    #[account(12, writable, name = "pool_mint", desc = "Pool token mint account")]
+    #[account(13, name = "clock", desc = "Sysvar clock account")]
+    #[account(14, name = "stake_history", desc = "Sysvar stake history account")]
+    #[account(15, name = "token_program", desc = "Pool token program id")]
+    #[account(16, name = "stake_program", desc = "Stake program id")]
+    #[account(17, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
+    #[account(18, name = "system_program", desc = "System program")]
+    DepositStakeWhitelisted,
 }
 
 pub const STAKE_POOL_DEPOSIT_STAKE_AUTHORITY: &[u8] = b"deposit_stake_authority";
@@ -421,6 +505,7 @@ pub fn create_update_deposit_stake_authority_instruction(
     fee_wallet: Option<Pubkey>,
     cool_down_seconds: Option<u64>,
     initial_fee_bps: Option<u32>,
+    jito_whitelist_management_program_id: Option<Pubkey>,
 ) -> Instruction {
     let (deposit_stake_authority_pubkey, _bump_seed) =
         derive_stake_pool_deposit_stake_authority(program_id, stake_pool, base);
@@ -428,6 +513,7 @@ pub fn create_update_deposit_stake_authority_instruction(
         fee_wallet,
         initial_fee_bps,
         cool_down_seconds,
+        jito_whitelist_management_program_id,
     };
     let mut accounts = vec![
         AccountMeta::new(deposit_stake_authority_pubkey, false),
