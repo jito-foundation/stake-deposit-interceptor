@@ -39,6 +39,7 @@ pub struct TestBuilder {
 }
 
 impl TestBuilder {
+    #[allow(dead_code)]
     pub async fn new() -> Self {
         // $ cargo-build-sbf && SBF_OUT_DIR=$(pwd)/target/sbf-solana-solana/release cargo nextest run
         let mut program_test = ProgramTest::default();
@@ -74,6 +75,7 @@ impl TestBuilder {
             .await
     }
 
+    #[allow(dead_code)]
     pub fn stake_deposit_interceptor_program_client(&self) -> StakeDepositInterceptorProgramClient {
         StakeDepositInterceptorProgramClient::new(
             self.context.banks_client.clone(),
@@ -81,6 +83,7 @@ impl TestBuilder {
         )
     }
 
+    #[allow(dead_code)]
     pub fn whitelist_management_program_client(&self) -> WhitelistManagementProgramClient {
         WhitelistManagementProgramClient::new(
             self.context.banks_client.clone(),
@@ -111,6 +114,7 @@ pub enum TestError {
 }
 
 impl TestError {
+    #[allow(dead_code)]
     pub fn to_transaction_error(&self) -> Option<TransactionError> {
         match self {
             TestError::BanksClientError(e) => match e {
@@ -125,6 +129,7 @@ impl TestError {
 
 #[inline(always)]
 #[track_caller]
+#[allow(dead_code)]
 pub fn assert_ix_error<T>(test_error: Result<T, TestError>, ix_error: InstructionError) {
     assert!(test_error.is_err());
     assert_eq!(

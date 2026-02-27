@@ -22,6 +22,7 @@ pub struct WhitelistManagementProgramClient {
 }
 
 impl WhitelistManagementProgramClient {
+    #[allow(dead_code)]
     pub const fn new(banks_client: BanksClient, payer: Keypair) -> Self {
         Self {
             banks_client,
@@ -29,6 +30,7 @@ impl WhitelistManagementProgramClient {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn get_whitelist(&mut self, base: &Pubkey) -> Whitelist {
         let pda = self.get_whitelist_pda(base);
         let account = self.banks_client.get_account(pda).await.unwrap().unwrap();
@@ -51,6 +53,7 @@ impl WhitelistManagementProgramClient {
         )
     }
 
+    #[allow(dead_code)]
     pub async fn do_initialize_whitelist(&mut self, base: &Keypair, initial_admin: Pubkey) -> () {
         let whitelist_pda = self.get_whitelist_pda(&base.pubkey());
 
@@ -58,6 +61,7 @@ impl WhitelistManagementProgramClient {
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn initialize_whitelist(
         &mut self,
         base: &Keypair,

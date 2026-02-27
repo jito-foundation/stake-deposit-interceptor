@@ -15,6 +15,7 @@ pub struct StakeDepositInterceptorProgramClient {
 }
 
 impl StakeDepositInterceptorProgramClient {
+    #[allow(dead_code)]
     pub const fn new(banks_client: BanksClient, payer: Keypair) -> Self {
         Self {
             banks_client,
@@ -22,7 +23,7 @@ impl StakeDepositInterceptorProgramClient {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, dead_code)]
     pub async fn deposit_stake_whitelisted(
         &mut self,
         whitelisted_signer: Keypair,

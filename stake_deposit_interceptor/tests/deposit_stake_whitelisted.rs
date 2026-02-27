@@ -12,10 +12,9 @@ use solana_pubkey::Pubkey;
 use spl_associated_token_account_interface::{
     address::get_associated_token_address, instruction::create_associated_token_account,
 };
-use spl_pod::{primitives::PodU64, solana_program::borsh1::try_from_slice_unchecked};
+use spl_pod::solana_program::borsh1::try_from_slice_unchecked;
 use stake_deposit_interceptor_program::{
-    instruction::{derive_stake_deposit_receipt, derive_stake_pool_deposit_stake_authority},
-    state::{DepositReceipt, StakePoolDepositStakeAuthority},
+    instruction::derive_stake_pool_deposit_stake_authority, state::StakePoolDepositStakeAuthority,
 };
 
 use crate::helpers::{
@@ -189,7 +188,7 @@ async fn test_deposit_stake_whitelisted() {
         deposit_stake_authority,
         depositor,
         depositor_stake_account,
-        deposit_receipt_base,
+        _deposit_receipt_base,
         deposit_authority_base,
         total_staked_amount,
     ) = setup().await;

@@ -55,6 +55,7 @@ pub async fn clone_account_to_new_address(
 
 /// Given a transaction and an error, assert the exact error is thrown during transaction
 /// execution in the ProgramTestContext.
+#[allow(dead_code)]
 pub async fn assert_transaction_err(
     ctx: &mut ProgramTestContext,
     tx: Transaction,
