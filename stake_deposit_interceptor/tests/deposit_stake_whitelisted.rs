@@ -195,15 +195,12 @@ async fn test_deposit_stake_whitelisted() {
     ) = setup().await;
 
     // Build clients from the same context that has all accounts
-    let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
+    let mut whitelist_management_program_client =
+        WhitelistManagementProgramClient::new(ctx.banks_client.clone(), ctx.payer.insecure_clone());
+    let mut stake_deposit_interceptor_program_client = StakeDepositInterceptorProgramClient::new(
         ctx.banks_client.clone(),
         ctx.payer.insecure_clone(),
     );
-    let mut stake_deposit_interceptor_program_client =
-        StakeDepositInterceptorProgramClient::new(
-            ctx.banks_client.clone(),
-            ctx.payer.insecure_clone(),
-        );
 
     let admin = Keypair::new();
     airdrop_lamports(&mut ctx, &admin.pubkey(), LAMPORTS_PER_SOL).await;
@@ -301,8 +298,7 @@ async fn test_deposit_stake_whitelisted() {
     .unwrap();
 
     // Assert LST was minted directly to the whitelisted signer's token account (no vault/ticket)
-    let pool_tokens_to_account =
-        get_account(&mut ctx.banks_client, &pool_tokens_to).await;
+    let pool_tokens_to_account = get_account(&mut ctx.banks_client, &pool_tokens_to).await;
     let pool_tokens_to_token =
         spl_token_interface::state::Account::unpack(&pool_tokens_to_account.data).unwrap();
     assert_eq!(pool_tokens_to_token.amount, pool_tokens_amount);
