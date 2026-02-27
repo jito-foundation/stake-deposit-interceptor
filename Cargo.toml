@@ -1,5 +1,13 @@
 [workspace]
-members = ["api", "cli", "core", "clients/rust/whitelist-management", "clients/rust/stake-deposit-interceptor", "cranker", "stake_deposit_interceptor"]
+members = [
+    "api",
+    "cli",
+    "clients/rust/stake-deposit-interceptor",
+    "clients/rust/whitelist-management",
+    "core",
+    "cranker",
+    "stake_deposit_interceptor",
+]
 resolver = "2"
 
 [workspace.package]
@@ -14,29 +22,28 @@ anchor-lang = { version = "0.32.1" }
 borsh = "1.6.0"
 bytemuck = "1.19.0"
 jito-bytemuck = { git = "https://github.com/jito-foundation/jito-bytemuck.git", tag = "v0.1.0" }
-stake-deposit-interceptor-client = { path = "clients/rust/stake-deposit-interceptor" }
 jito-whitelist-management-client = { path = "clients/rust/whitelist-management" }
 jito-whitelist-management-core = { path = "core" }
-shank = "0.3.0"
 num-derive = "0.4.2"
 num-traits = "0.2.19"
 serde = "1.0.228"
 serde-big-array = "0.5.1"
 serde_json = "1.0.149"
 serde_with = "3.16.1"
+shank = "0.3.0"
 solana-account = "3.0.0"
-solana-account-info = "3.0.0"
 solana-account-decoder = "3.0.0"
+solana-account-info = "3.0.0"
 solana-clap-utils = { version = "3.0.0", features = ["agave-unstable-api"] }
 solana-client = "3.0.0"
 solana-clock = { version = "3.0.0", features = ["sysvar"] }
-solana-cpi = "3.0.0"
-solana-instruction = "3.0.0"
 solana-commitment-config = "3.0.0"
-solana-native-token = "3.0.0"
 solana-compute-budget-interface = "3.0.0"
+solana-cpi = "3.0.0"
 solana-hash = "3.0.0"
+solana-instruction = "3.0.0"
 solana-keypair = "3.0.0"
+solana-native-token = "3.0.0"
 solana-program = "3.0.0"
 solana-program-error = "3.0.0"
 solana-program-log = "1.1.0"
@@ -55,5 +62,6 @@ spl-stake-pool = { git = "https://github.com/solana-program/stake-pool.git", ver
 spl-token = { version = "9.0", features = ["no-entrypoint"] }
 spl-token-2022-interface = "2.1.0"
 spl-token-interface = "2.0.0"
-tokio = { version = "1.49.0", features = ["macros"] }
+stake-deposit-interceptor-client = { path = "clients/rust/stake-deposit-interceptor" }
 thiserror = "1.0.65"
+tokio = { version = "1.49.0", features = ["macros"] }
