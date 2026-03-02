@@ -32,8 +32,7 @@ impl StakeDepositInterceptorProgramClient {
 
     #[allow(dead_code)]
     pub fn get_hopper_pda(&self, whitelist: &Pubkey) -> Pubkey {
-        let hopper_pda = Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, &whitelist).0;
-        hopper_pda
+        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist).0
     }
 
     #[allow(clippy::too_many_arguments, dead_code)]
@@ -80,7 +79,7 @@ impl StakeDepositInterceptorProgramClient {
         self.process_transaction(&Transaction::new_signed_with_payer(
             &[ix],
             Some(&self.payer.pubkey()),
-            &[&self.payer, &whitelisted_signer],
+            &[&self.payer, whitelisted_signer],
             blockhash,
         ))
         .await

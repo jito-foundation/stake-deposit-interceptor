@@ -36,7 +36,7 @@ impl StakeProgramClient {
         let authorize_ix = solana_stake_interface::instruction::authorize(
             stake_pubkey,
             &authorized.pubkey(),
-            &new_authorized,
+            new_authorized,
             stake_authorize,
             None,
         );
@@ -45,7 +45,7 @@ impl StakeProgramClient {
         self.process_transaction(&Transaction::new_signed_with_payer(
             &[authorize_ix],
             Some(&self.payer.pubkey()),
-            &[&self.payer, &authorized],
+            &[&self.payer, authorized],
             blockhash,
         ))
         .await
