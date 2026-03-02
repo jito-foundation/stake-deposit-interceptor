@@ -3,8 +3,12 @@ use solana_keypair::{Keypair, Signer};
 use solana_program::sysvar::SysvarId;
 use solana_program_test::BanksClient;
 use solana_pubkey::Pubkey;
-use solana_transaction::Transaction;
-use stake_deposit_interceptor_client::instructions::DepositStakeWhitelistedBuilder;
+use solana_transaction::{InstructionError, Transaction, TransactionError};
+use stake_deposit_interceptor_client::{
+    errors::StakeDepositInterceptorError, instructions::DepositStakeWhitelistedBuilder,
+};
+
+use crate::helpers::TestError;
 
 pub struct StakeDepositInterceptorProgramClient {
     /// Banks client
@@ -39,7 +43,7 @@ impl StakeDepositInterceptorProgramClient {
         manager_fee_account: Pubkey,
         referral_fee_account: Pubkey,
         pool_mint: Pubkey,
-    ) {
+    ) -> Result<(), TestError> {
         let blockhash = self.banks_client.get_latest_blockhash().await.unwrap();
         let ix = DepositStakeWhitelistedBuilder::new()
             .whitelisted_signer(whitelisted_signer.pubkey())
@@ -73,13 +77,28 @@ impl StakeDepositInterceptorProgramClient {
         .await
     }
 
-    pub async fn process_transaction(&mut self, tx: &Transaction) {
+    pub async fn process_transaction(&mut self, tx: &Transaction) -> Result<(), TestError> {
         self.banks_client
             .process_transaction_with_preflight_and_commitment(
                 tx.clone(),
                 CommitmentLevel::Processed,
             )
-            .await
-            .unwrap();
+            .await?;
+
+        Ok(())
     }
+}
+
+#[inline(always)]
+#[track_caller]
+#[allow(dead_code)]
+pub fn assert_stake_deposit_interceptor_error<T>(
+    test_error: Result<T, TestError>,
+    error: StakeDepositInterceptorError,
+) {
+    assert!(test_error.is_err());
+    assert_eq!(
+        test_error.err().unwrap().to_transaction_error().unwrap(),
+        TransactionError::InstructionError(0, InstructionError::Custom(error as u32))
+    );
 }
