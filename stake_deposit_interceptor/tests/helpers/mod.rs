@@ -1,5 +1,6 @@
 pub mod misc;
 pub mod spl;
+pub mod stake_client;
 pub mod stake_deposit_interceptor;
 pub mod stake_deposit_interceptor_client;
 pub mod stake_pool;
@@ -10,6 +11,7 @@ pub mod whitelist_management_client;
 
 pub use misc::*;
 pub use spl::*;
+pub use stake_client::*;
 #[allow(unused_imports)]
 pub use stake_deposit_interceptor::*;
 pub use stake_pool::*;
@@ -73,6 +75,14 @@ impl TestBuilder {
                 CommitmentLevel::Processed,
             )
             .await
+    }
+
+    #[allow(dead_code)]
+    pub fn stake_program_client(&self) -> StakeProgramClient {
+        StakeProgramClient::new(
+            self.context.banks_client.clone(),
+            self.context.payer.insecure_clone(),
+        )
     }
 
     #[allow(dead_code)]

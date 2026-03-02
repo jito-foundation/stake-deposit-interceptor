@@ -20,6 +20,7 @@ mod tests {
         airdrop_lamports, create_stake_account, create_stake_deposit_authority,
         create_token_account, create_validator_and_add_to_pool, delegate_stake_account,
         get_account, get_account_data_deserialized, program_test_context_with_stake_pool_state,
+        stake_client::StakeProgramClient,
         stake_deposit_interceptor_client::{
             assert_stake_deposit_interceptor_error, StakeDepositInterceptorProgramClient,
         },
@@ -199,6 +200,8 @@ mod tests {
         ) = setup().await;
 
         // Build clients from the same context that has all accounts
+        let mut stake_program_client =
+            StakeProgramClient::new(ctx.banks_client.clone(), ctx.payer.insecure_clone());
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
             ctx.banks_client.clone(),
             ctx.payer.insecure_clone(),
@@ -257,29 +260,22 @@ mod tests {
 
         // Authorize the depositor's stake account staker & withdrawer to the interceptor PDA
         // (same as what the normal DepositStake path does client-side)
-        let authorize_staker_ix = solana_stake_interface::instruction::authorize(
-            &depositor_stake_account,
-            &depositor.pubkey(),
-            &deposit_stake_authority_pubkey,
-            solana_stake_interface::state::StakeAuthorize::Staker,
-            None,
-        );
-        let authorize_withdrawer_ix = solana_stake_interface::instruction::authorize(
-            &depositor_stake_account,
-            &depositor.pubkey(),
-            &deposit_stake_authority_pubkey,
-            solana_stake_interface::state::StakeAuthorize::Withdrawer,
-            None,
-        );
-        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
-        let authorize_tx = solana_transaction::Transaction::new_signed_with_payer(
-            &[authorize_staker_ix, authorize_withdrawer_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &depositor],
-            blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(authorize_tx)
+        stake_program_client
+            .authorize(
+                &depositor_stake_account,
+                &depositor,
+                &deposit_stake_authority_pubkey,
+                solana_stake_interface::state::StakeAuthorize::Staker,
+            )
+            .await
+            .unwrap();
+        stake_program_client
+            .authorize(
+                &depositor_stake_account,
+                &depositor,
+                &deposit_stake_authority_pubkey,
+                solana_stake_interface::state::StakeAuthorize::Withdrawer,
+            )
             .await
             .unwrap();
 
@@ -398,6 +394,8 @@ mod tests {
         ) = setup().await;
 
         // Build clients from the same context that has all accounts
+        let mut stake_program_client =
+            StakeProgramClient::new(ctx.banks_client.clone(), ctx.payer.insecure_clone());
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
             ctx.banks_client.clone(),
             ctx.payer.insecure_clone(),
@@ -456,29 +454,22 @@ mod tests {
 
         // Authorize the depositor's stake account staker & withdrawer to the interceptor PDA
         // (same as what the normal DepositStake path does client-side)
-        let authorize_staker_ix = solana_stake_interface::instruction::authorize(
-            &depositor_stake_account,
-            &depositor.pubkey(),
-            &deposit_stake_authority_pubkey,
-            solana_stake_interface::state::StakeAuthorize::Staker,
-            None,
-        );
-        let authorize_withdrawer_ix = solana_stake_interface::instruction::authorize(
-            &depositor_stake_account,
-            &depositor.pubkey(),
-            &deposit_stake_authority_pubkey,
-            solana_stake_interface::state::StakeAuthorize::Withdrawer,
-            None,
-        );
-        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
-        let authorize_tx = solana_transaction::Transaction::new_signed_with_payer(
-            &[authorize_staker_ix, authorize_withdrawer_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &depositor],
-            blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(authorize_tx)
+        stake_program_client
+            .authorize(
+                &depositor_stake_account,
+                &depositor,
+                &deposit_stake_authority_pubkey,
+                solana_stake_interface::state::StakeAuthorize::Staker,
+            )
+            .await
+            .unwrap();
+        stake_program_client
+            .authorize(
+                &depositor_stake_account,
+                &depositor,
+                &deposit_stake_authority_pubkey,
+                solana_stake_interface::state::StakeAuthorize::Withdrawer,
+            )
             .await
             .unwrap();
 

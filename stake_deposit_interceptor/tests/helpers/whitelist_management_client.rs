@@ -12,7 +12,6 @@ use solana_keypair::{Keypair, Signer};
 use solana_program_test::BanksClient;
 use solana_pubkey::Pubkey;
 use solana_transaction::Transaction;
-use stake_deposit_interceptor_program::state::hopper::Hopper;
 
 pub struct WhitelistManagementProgramClient {
     /// Banks client

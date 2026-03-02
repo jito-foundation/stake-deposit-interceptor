@@ -30,6 +30,7 @@ impl StakeDepositInterceptorProgramClient {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_hopper_pda(&self, whitelist: &Pubkey) -> Pubkey {
         let hopper_pda = Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, &whitelist).0;
         hopper_pda
