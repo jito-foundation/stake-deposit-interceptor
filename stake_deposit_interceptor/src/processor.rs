@@ -17,7 +17,9 @@ use solana_program::{
     rent::Rent,
     sysvar::Sysvar,
 };
+use solana_system_interface::instruction::transfer;
 use spl_associated_token_account_interface::address::get_associated_token_address;
+use spl_stake_pool::state::StakePool;
 
 use crate::{
     deposit_receipt_signer_seeds, deposit_stake_authority_signer_seeds,
@@ -28,7 +30,8 @@ use crate::{
         UpdateStakePoolDepositStakeAuthorityArgs, DEPOSIT_RECEIPT,
         STAKE_POOL_DEPOSIT_STAKE_AUTHORITY,
     },
-    state::{DepositReceipt, StakePoolDepositStakeAuthority},
+    state::{hopper::Hopper, DepositReceipt, StakePoolDepositStakeAuthority},
+    BASIS_POINTS_MAX,
 };
 
 pub struct Processor;
@@ -671,6 +674,125 @@ impl Processor {
         Ok(())
     }
 
+    pub fn process_withdraw_stake_whitelisted(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        amount: u64,
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let whitelisted_signer_info = next_account_info(account_info_iter)?;
+        let whitelist_info = next_account_info(account_info_iter)?;
+        let stake_pool_info = next_account_info(account_info_iter)?;
+        let validator_list_info = next_account_info(account_info_iter)?;
+        let withdraw_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let stake_split_from_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let stake_split_to_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let user_stake_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let user_transfer_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let user_pool_token_account_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let manager_fee_account_info = next_account_info(account_info_iter)?;
+        let pool_mint_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let fee_rebate_hopper_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let fee_rebate_recipient_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let clock_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let token_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let stake_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let spl_stake_pool_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+        let system_program_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
+
+        // Validate: System program is correct native program
+        check_system_program(system_program_info.key)?;
+
+        // Validate: base signed the TX
+        if !whitelisted_signer_info.is_signer {
+            return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
+        if !user_transfer_authority_info.is_signer {
+            return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
+        let whitelist_data = whitelist_info.try_borrow_data()?;
+        let whitelist = Whitelist::try_from_slice_unchecked(&whitelist_data)?;
+
+        if !whitelist.whitelist.contains(whitelisted_signer_info.key) {
+            return Err(StakeDepositInterceptorError::InvalidWhitelistedSigner.into());
+        }
+
+        let stake_pool: StakePool = try_from_slice_unchecked(&stake_pool_info.data.borrow())?;
+        let pool_tokens_fee = stake_pool
+            .calc_pool_tokens_stake_withdrawal_fee(amount)
+            .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
+        let conversion_rate_bps = (stake_pool.total_lamports as u128)
+            .checked_mul(BASIS_POINTS_MAX as u128)
+            .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
+            .map(|n| n as u64)
+            .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
+        let fee_lamports = (pool_tokens_fee as u128)
+            .checked_mul(conversion_rate_bps as u128)
+            .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
+            .map(|n| n as u64)
+            .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
+
+        invoke(
+            &spl_stake_pool::instruction::withdraw_stake(
+                spl_stake_pool_program_info.key,
+                stake_pool_info.key,
+                validator_list_info.key,
+                withdraw_authority_info.key,
+                stake_split_from_info.key,
+                stake_split_to_info.key,
+                user_stake_authority_info.key,
+                user_transfer_authority_info.key,
+                user_pool_token_account_info.key,
+                manager_fee_account_info.key,
+                pool_mint_info.key,
+                token_program_info.key,
+                amount,
+            ),
+            &[
+                stake_pool_info.clone(),
+                validator_list_info.clone(),
+                withdraw_authority_info.clone(),
+                stake_split_from_info.clone(),
+                stake_split_to_info.clone(),
+                user_stake_authority_info.clone(),
+                user_transfer_authority_info.clone(),
+                user_pool_token_account_info.clone(),
+                manager_fee_account_info.clone(),
+                pool_mint_info.clone(),
+                clock_info.clone(),
+                stake_program_info.clone(),
+                token_program_info.clone(),
+            ],
+        )?;
+
+        Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
+        let (_, hopper_bump, mut hopper_seeds) =
+            Hopper::find_program_address(program_id, whitelist_info.key);
+        hopper_seeds.push(vec![hopper_bump]);
+
+        invoke_signed(
+            &transfer(
+                fee_rebate_hopper_info.key,
+                fee_rebate_recipient_info.key,
+                fee_lamports,
+            ),
+            &[
+                fee_rebate_hopper_info.clone(),
+                fee_rebate_recipient_info.clone(),
+                system_program_info.clone(),
+            ],
+            &[hopper_seeds
+                .iter()
+                .map(|seed| seed.as_slice())
+                .collect::<Vec<&[u8]>>()
+                .as_slice()],
+        )?;
+
+        Ok(())
+    }
+
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
         let instruction = StakeDepositInterceptorInstruction::try_from_slice(input)?;
         match instruction {
@@ -700,6 +822,10 @@ impl Processor {
             }
             StakeDepositInterceptorInstruction::DepositStakeWhitelisted => {
                 Self::process_deposit_stake_whitelisted(program_id, accounts)?;
+            }
+            StakeDepositInterceptorInstruction::WithdrawStakeWhitelisted { amount } => {
+                msg!("Instruction: WithdrawStakeWhitelisted");
+                Self::process_withdraw_stake_whitelisted(program_id, accounts, amount)?;
             }
         }
         Ok(())

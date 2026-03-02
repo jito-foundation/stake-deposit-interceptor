@@ -210,6 +210,10 @@ pub async fn create_stake_pool(ctx: &mut ProgramTestContext) -> StakePoolAccount
         denominator: 100,
         numerator: 0,
     };
+    let one_fee = spl_stake_pool::state::Fee {
+        denominator: 100,
+        numerator: 1,
+    };
     let (withdraw_authority, _) = Pubkey::find_program_address(
         &[&stake_pool_keypair.pubkey().to_bytes(), b"withdraw"],
         &spl_stake_pool::id(),
@@ -266,7 +270,7 @@ pub async fn create_stake_pool(ctx: &mut ProgramTestContext) -> StakePoolAccount
         &spl_token_interface::id(),
         None,
         zero_fee,
-        zero_fee,
+        one_fee,
         zero_fee,
         0,
         max_validators,

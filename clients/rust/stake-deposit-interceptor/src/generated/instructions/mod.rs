@@ -12,6 +12,7 @@ pub(crate) mod r#deposit_stake_whitelisted;
 pub(crate) mod r#deposit_stake_with_slippage;
 pub(crate) mod r#init_stake_pool_deposit_stake_authority;
 pub(crate) mod r#update_stake_pool_deposit_stake_authority;
+pub(crate) mod r#withdraw_stake_whitelisted;
 
 pub use self::r#change_deposit_receipt_owner::*;
 pub use self::r#claim_pool_tokens::*;
@@ -20,3 +21,4 @@ pub use self::r#deposit_stake_whitelisted::*;
 pub use self::r#deposit_stake_with_slippage::*;
 pub use self::r#init_stake_pool_deposit_stake_authority::*;
 pub use self::r#update_stake_pool_deposit_stake_authority::*;
+pub use self::r#withdraw_stake_whitelisted::*;

@@ -64,6 +64,12 @@ pub enum StakeDepositInterceptorError {
     /// 17 - Whitelisted signer is invalid
     #[error("Whitelisted signer is invalid")]
     InvalidWhitelistedSigner = 0x11,
+    /// 18 - CalculationFailure
+    #[error("CalculationFailure")]
+    CalculationFailure = 0x12,
+    /// 19 - ArithmeticError
+    #[error("ArithmeticError")]
+    ArithmeticError = 0x13,
 }
 
 impl From<StakeDepositInterceptorError> for solana_program_error::ProgramError {

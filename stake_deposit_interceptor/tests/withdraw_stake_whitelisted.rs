@@ -184,145 +184,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_deposit_stake_whitelisted_ok() {
-        let (
-            mut ctx,
-            stake_pool_accounts,
-            stake_pool,
-            validator_stake_accounts,
-            deposit_stake_authority,
-            depositor,
-            depositor_stake_account,
-            _deposit_receipt_base,
-            deposit_authority_base,
-            total_staked_amount,
-        ) = setup().await;
-
-        // Build clients from the same context that has all accounts
-        let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
-            ctx.banks_client.clone(),
-            ctx.payer.insecure_clone(),
-        );
-        let mut stake_deposit_interceptor_program_client =
-            StakeDepositInterceptorProgramClient::new(
-                ctx.banks_client.clone(),
-                ctx.payer.insecure_clone(),
-            );
-
-        let admin = Keypair::new();
-        airdrop_lamports(&mut ctx, &admin.pubkey(), LAMPORTS_PER_SOL).await;
-
-        let base = Keypair::new();
-
-        whitelist_management_program_client
-            .do_initialize_whitelist(&base, admin.pubkey())
-            .await;
-
-        let whitelisted_signer = Keypair::new();
-        airdrop_lamports(&mut ctx, &whitelisted_signer.pubkey(), LAMPORTS_PER_SOL).await;
-
-        whitelist_management_program_client
-            .do_add_to_whitelist(&admin, &base, whitelisted_signer.pubkey())
-            .await;
-
-        let (deposit_stake_authority_pubkey, _bump_seed) =
-            derive_stake_pool_deposit_stake_authority(
-                &stake_deposit_interceptor_program::id(),
-                &stake_pool_accounts.stake_pool,
-                &deposit_authority_base.pubkey(),
-            );
-
-        // Create the pool token ATA for the whitelisted signer
-        let pool_tokens_to = get_associated_token_address(
-            &whitelisted_signer.pubkey(),
-            &stake_pool_accounts.pool_mint,
-        );
-        let create_ata_ix = create_associated_token_account(
-            &ctx.payer.pubkey(),
-            &whitelisted_signer.pubkey(),
-            &stake_pool_accounts.pool_mint,
-            &spl_token_interface::id(),
-        );
-        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
-        let create_ata_tx = solana_transaction::Transaction::new_signed_with_payer(
-            &[create_ata_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer],
-            blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(create_ata_tx)
-            .await
-            .unwrap();
-
-        // Authorize the depositor's stake account staker & withdrawer to the interceptor PDA
-        // (same as what the normal DepositStake path does client-side)
-        let authorize_staker_ix = solana_stake_interface::instruction::authorize(
-            &depositor_stake_account,
-            &depositor.pubkey(),
-            &deposit_stake_authority_pubkey,
-            solana_stake_interface::state::StakeAuthorize::Staker,
-            None,
-        );
-        let authorize_withdrawer_ix = solana_stake_interface::instruction::authorize(
-            &depositor_stake_account,
-            &depositor.pubkey(),
-            &deposit_stake_authority_pubkey,
-            solana_stake_interface::state::StakeAuthorize::Withdrawer,
-            None,
-        );
-        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
-        let authorize_tx = solana_transaction::Transaction::new_signed_with_payer(
-            &[authorize_staker_ix, authorize_withdrawer_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &depositor],
-            blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(authorize_tx)
-            .await
-            .unwrap();
-
-        stake_deposit_interceptor_program_client
-            .deposit_stake_whitelisted(
-                &whitelisted_signer,
-                whitelist_management_program_client.get_whitelist_pda(&base.pubkey()),
-                stake_pool_accounts.stake_pool,
-                stake_pool_accounts.validator_list,
-                deposit_stake_authority_pubkey,
-                stake_pool_accounts.withdraw_authority,
-                depositor_stake_account,
-                validator_stake_accounts.stake_account,
-                stake_pool.reserve_stake,
-                pool_tokens_to,
-                stake_pool_accounts.pool_fee_account,
-                stake_pool_accounts.pool_fee_account,
-                stake_pool_accounts.pool_mint,
-            )
-            .await
-            .unwrap();
-
-        let pool_tokens_amount = spl_stake_pool::state::StakePool::calc_pool_tokens_for_deposit(
-            &stake_pool,
-            total_staked_amount,
-        )
-        .unwrap();
-
-        // Assert LST was minted directly to the whitelisted signer's token account (no vault/ticket)
-        let pool_tokens_to_account = get_account(&mut ctx.banks_client, &pool_tokens_to).await;
-        let pool_tokens_to_token =
-            spl_token_interface::state::Account::unpack(&pool_tokens_to_account.data).unwrap();
-        assert_eq!(pool_tokens_to_token.amount, pool_tokens_amount);
-
-        // Assert the vault is empty (no tokens held by the interceptor)
-        let vault_account =
-            get_account(&mut ctx.banks_client, &deposit_stake_authority.vault).await;
-        let vault = spl_token_interface::state::Account::unpack(&vault_account.data).unwrap();
-        assert_eq!(vault.amount, 0);
-    }
-
-    #[tokio::test]
-    async fn test_deposit_stake_whitelisted_invalid_whitelisted_signer_fails() {
+    async fn test_withdraw_stake_whitelisted_ok() {
         let (
             mut ctx,
             stake_pool_accounts,
@@ -421,18 +283,12 @@ mod tests {
             .await
             .unwrap();
 
-        let invalid_whitelisted_signer = Keypair::new();
-        airdrop_lamports(
-            &mut ctx,
-            &invalid_whitelisted_signer.pubkey(),
-            LAMPORTS_PER_SOL,
-        )
-        .await;
+        let whitelist_pda = whitelist_management_program_client.get_whitelist_pda(&base.pubkey());
 
-        let test_error = stake_deposit_interceptor_program_client
+        stake_deposit_interceptor_program_client
             .deposit_stake_whitelisted(
-                &invalid_whitelisted_signer,
-                whitelist_management_program_client.get_whitelist_pda(&base.pubkey()),
+                &whitelisted_signer,
+                whitelist_pda,
                 stake_pool_accounts.stake_pool,
                 stake_pool_accounts.validator_list,
                 deposit_stake_authority_pubkey,
@@ -444,6 +300,270 @@ mod tests {
                 stake_pool_accounts.pool_fee_account,
                 stake_pool_accounts.pool_fee_account,
                 stake_pool_accounts.pool_mint,
+            )
+            .await
+            .unwrap();
+
+        let pool_tokens_to_account = get_account(&mut ctx.banks_client, &pool_tokens_to).await;
+        let pool_tokens_to_token =
+            spl_token_interface::state::Account::unpack(&pool_tokens_to_account.data).unwrap();
+
+        // Create an uninitialized stake account for the split destination
+        let stake_split_to = Keypair::new();
+        let rent = ctx.banks_client.get_rent().await.unwrap();
+        let stake_account_rent = rent.minimum_balance(std::mem::size_of::<
+            solana_stake_interface::state::StakeStateV2,
+        >());
+        let create_split_to_ix = solana_system_interface::instruction::create_account(
+            &ctx.payer.pubkey(),
+            &stake_split_to.pubkey(),
+            stake_account_rent,
+            std::mem::size_of::<solana_stake_interface::state::StakeStateV2>() as u64,
+            &solana_stake_interface::program::id(),
+        );
+        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
+        let create_split_to_tx = solana_transaction::Transaction::new_signed_with_payer(
+            &[create_split_to_ix],
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &stake_split_to],
+            blockhash,
+        );
+        ctx.banks_client
+            .process_transaction(create_split_to_tx)
+            .await
+            .unwrap();
+
+        let user_stake_authority = Pubkey::new_unique();
+        let user_transfer_authority = whitelisted_signer.insecure_clone();
+        let fee_rebate_receiver = Pubkey::new_unique();
+
+        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
+
+        stake_deposit_interceptor_program_client
+            .withdraw_stake_whitelisted(
+                whitelisted_signer,
+                whitelist_pda,
+                stake_pool_accounts.stake_pool,
+                stake_pool_accounts.validator_list,
+                stake_pool_accounts.withdraw_authority,
+                validator_stake_accounts.stake_account,
+                stake_split_to.pubkey(),
+                user_stake_authority,
+                user_transfer_authority,
+                pool_tokens_to,
+                stake_pool_accounts.pool_fee_account,
+                stake_pool_accounts.pool_mint,
+                hopper_pda,
+                fee_rebate_receiver,
+                pool_tokens_to_token.amount,
+            )
+            .await
+            .unwrap();
+
+        // Assert all pool tokens were burned
+        let pool_tokens_to_account_after =
+            get_account(&mut ctx.banks_client, &pool_tokens_to).await;
+        let pool_tokens_to_token_after =
+            spl_token_interface::state::Account::unpack(&pool_tokens_to_account_after.data)
+                .unwrap();
+        assert_eq!(pool_tokens_to_token_after.amount, 0);
+
+        // Assert the split-to stake account received stake
+        let split_to_account = get_account(&mut ctx.banks_client, &stake_split_to.pubkey()).await;
+        assert!(split_to_account.lamports > stake_account_rent);
+
+        // Assert the fee rebate was transferred from the hopper to the recipient
+        let hopper_account_after = get_account(&mut ctx.banks_client, &hopper_pda).await;
+        assert!(hopper_account_after.lamports < LAMPORTS_PER_SOL);
+
+        let fee_rebate_receiver_account =
+            get_account(&mut ctx.banks_client, &fee_rebate_receiver).await;
+        assert!(fee_rebate_receiver_account.lamports > 0);
+    }
+
+    #[tokio::test]
+    async fn test_withdraw_stake_whitelisted_invalid_whitelisted_signer_fails() {
+        let (
+            mut ctx,
+            stake_pool_accounts,
+            stake_pool,
+            validator_stake_accounts,
+            _deposit_stake_authority,
+            depositor,
+            depositor_stake_account,
+            _deposit_receipt_base,
+            deposit_authority_base,
+            _total_staked_amount,
+        ) = setup().await;
+
+        // Build clients from the same context that has all accounts
+        let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
+            ctx.banks_client.clone(),
+            ctx.payer.insecure_clone(),
+        );
+        let mut stake_deposit_interceptor_program_client =
+            StakeDepositInterceptorProgramClient::new(
+                ctx.banks_client.clone(),
+                ctx.payer.insecure_clone(),
+            );
+
+        let admin = Keypair::new();
+        airdrop_lamports(&mut ctx, &admin.pubkey(), LAMPORTS_PER_SOL).await;
+
+        let base = Keypair::new();
+
+        whitelist_management_program_client
+            .do_initialize_whitelist(&base, admin.pubkey())
+            .await;
+
+        let whitelisted_signer = Keypair::new();
+        airdrop_lamports(&mut ctx, &whitelisted_signer.pubkey(), LAMPORTS_PER_SOL).await;
+
+        whitelist_management_program_client
+            .do_add_to_whitelist(&admin, &base, whitelisted_signer.pubkey())
+            .await;
+
+        let (deposit_stake_authority_pubkey, _bump_seed) =
+            derive_stake_pool_deposit_stake_authority(
+                &stake_deposit_interceptor_program::id(),
+                &stake_pool_accounts.stake_pool,
+                &deposit_authority_base.pubkey(),
+            );
+
+        // Create the pool token ATA for the whitelisted signer
+        let pool_tokens_to = get_associated_token_address(
+            &whitelisted_signer.pubkey(),
+            &stake_pool_accounts.pool_mint,
+        );
+        let create_ata_ix = create_associated_token_account(
+            &ctx.payer.pubkey(),
+            &whitelisted_signer.pubkey(),
+            &stake_pool_accounts.pool_mint,
+            &spl_token_interface::id(),
+        );
+        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
+        let create_ata_tx = solana_transaction::Transaction::new_signed_with_payer(
+            &[create_ata_ix],
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer],
+            blockhash,
+        );
+        ctx.banks_client
+            .process_transaction(create_ata_tx)
+            .await
+            .unwrap();
+
+        // Authorize the depositor's stake account staker & withdrawer to the interceptor PDA
+        // (same as what the normal DepositStake path does client-side)
+        let authorize_staker_ix = solana_stake_interface::instruction::authorize(
+            &depositor_stake_account,
+            &depositor.pubkey(),
+            &deposit_stake_authority_pubkey,
+            solana_stake_interface::state::StakeAuthorize::Staker,
+            None,
+        );
+        let authorize_withdrawer_ix = solana_stake_interface::instruction::authorize(
+            &depositor_stake_account,
+            &depositor.pubkey(),
+            &deposit_stake_authority_pubkey,
+            solana_stake_interface::state::StakeAuthorize::Withdrawer,
+            None,
+        );
+        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
+        let authorize_tx = solana_transaction::Transaction::new_signed_with_payer(
+            &[authorize_staker_ix, authorize_withdrawer_ix],
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &depositor],
+            blockhash,
+        );
+        ctx.banks_client
+            .process_transaction(authorize_tx)
+            .await
+            .unwrap();
+
+        let whitelist_pda = whitelist_management_program_client.get_whitelist_pda(&base.pubkey());
+
+        stake_deposit_interceptor_program_client
+            .deposit_stake_whitelisted(
+                &whitelisted_signer,
+                whitelist_pda,
+                stake_pool_accounts.stake_pool,
+                stake_pool_accounts.validator_list,
+                deposit_stake_authority_pubkey,
+                stake_pool_accounts.withdraw_authority,
+                depositor_stake_account,
+                validator_stake_accounts.stake_account,
+                stake_pool.reserve_stake,
+                pool_tokens_to,
+                stake_pool_accounts.pool_fee_account,
+                stake_pool_accounts.pool_fee_account,
+                stake_pool_accounts.pool_mint,
+            )
+            .await
+            .unwrap();
+
+        let invalid_whitelisted_signer = Keypair::new();
+        airdrop_lamports(
+            &mut ctx,
+            &invalid_whitelisted_signer.pubkey(),
+            LAMPORTS_PER_SOL,
+        )
+        .await;
+
+        let pool_tokens_to_account = get_account(&mut ctx.banks_client, &pool_tokens_to).await;
+        let pool_tokens_to_token =
+            spl_token_interface::state::Account::unpack(&pool_tokens_to_account.data).unwrap();
+
+        // Create an uninitialized stake account for the split destination
+        let stake_split_to = Keypair::new();
+        let rent = ctx.banks_client.get_rent().await.unwrap();
+        let stake_account_rent = rent.minimum_balance(std::mem::size_of::<
+            solana_stake_interface::state::StakeStateV2,
+        >());
+        let create_split_to_ix = solana_system_interface::instruction::create_account(
+            &ctx.payer.pubkey(),
+            &stake_split_to.pubkey(),
+            stake_account_rent,
+            std::mem::size_of::<solana_stake_interface::state::StakeStateV2>() as u64,
+            &solana_stake_interface::program::id(),
+        );
+        let blockhash = ctx.banks_client.get_latest_blockhash().await.unwrap();
+        let create_split_to_tx = solana_transaction::Transaction::new_signed_with_payer(
+            &[create_split_to_ix],
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &stake_split_to],
+            blockhash,
+        );
+        ctx.banks_client
+            .process_transaction(create_split_to_tx)
+            .await
+            .unwrap();
+
+        let user_stake_authority = Pubkey::new_unique();
+        let user_transfer_authority = whitelisted_signer.insecure_clone();
+        let fee_rebate_receiver = Pubkey::new_unique();
+
+        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
+
+        let test_error = stake_deposit_interceptor_program_client
+            .withdraw_stake_whitelisted(
+                invalid_whitelisted_signer,
+                whitelist_pda,
+                stake_pool_accounts.stake_pool,
+                stake_pool_accounts.validator_list,
+                stake_pool_accounts.withdraw_authority,
+                validator_stake_accounts.stake_account,
+                stake_split_to.pubkey(),
+                user_stake_authority,
+                user_transfer_authority,
+                pool_tokens_to,
+                stake_pool_accounts.pool_fee_account,
+                stake_pool_accounts.pool_mint,
+                hopper_pda,
+                fee_rebate_receiver,
+                pool_tokens_to_token.amount,
             )
             .await;
 

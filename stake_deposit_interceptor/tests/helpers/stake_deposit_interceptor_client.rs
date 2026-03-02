@@ -5,8 +5,11 @@ use solana_program_test::BanksClient;
 use solana_pubkey::Pubkey;
 use solana_transaction::{InstructionError, Transaction, TransactionError};
 use stake_deposit_interceptor_client::{
-    errors::StakeDepositInterceptorError, instructions::DepositStakeWhitelistedBuilder,
+    errors::StakeDepositInterceptorError,
+    instructions::{DepositStakeWhitelistedBuilder, WithdrawStakeWhitelistedBuilder},
+    programs::STAKE_DEPOSIT_INTERCEPTOR_ID,
 };
+use stake_deposit_interceptor_program::state::hopper::Hopper;
 
 use crate::helpers::TestError;
 
@@ -27,10 +30,15 @@ impl StakeDepositInterceptorProgramClient {
         }
     }
 
+    pub fn get_hopper_pda(&self, whitelist: &Pubkey) -> Pubkey {
+        let hopper_pda = Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, &whitelist).0;
+        hopper_pda
+    }
+
     #[allow(clippy::too_many_arguments, dead_code)]
     pub async fn deposit_stake_whitelisted(
         &mut self,
-        whitelisted_signer: Keypair,
+        whitelisted_signer: &Keypair,
         whitelist: Pubkey,
         stake_pool: Pubkey,
         validator_list: Pubkey,
@@ -72,6 +80,55 @@ impl StakeDepositInterceptorProgramClient {
             &[ix],
             Some(&self.payer.pubkey()),
             &[&self.payer, &whitelisted_signer],
+            blockhash,
+        ))
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments, dead_code)]
+    pub async fn withdraw_stake_whitelisted(
+        &mut self,
+        whitelisted_signer: Keypair,
+        whitelist: Pubkey,
+        stake_pool: Pubkey,
+        validator_list: Pubkey,
+        withdraw_authority: Pubkey,
+        stake_split_from: Pubkey,
+        stake_split_to: Pubkey,
+        user_stake_authority: Pubkey,
+        user_transfer_authority: Keypair,
+        user_pool_token_account: Pubkey,
+        manager_fee_account: Pubkey,
+        pool_mint: Pubkey,
+        fee_rebate_hopper: Pubkey,
+        fee_rebate_receiver: Pubkey,
+        amount: u64,
+    ) -> Result<(), TestError> {
+        let blockhash = self.banks_client.get_latest_blockhash().await.unwrap();
+        let ix = WithdrawStakeWhitelistedBuilder::new()
+            .whitelisted_signer(whitelisted_signer.pubkey())
+            .whitelist(whitelist)
+            .stake_pool(stake_pool)
+            .validator_list(validator_list)
+            .withdraw_authority(withdraw_authority)
+            .stake_split_from(stake_split_from)
+            .stake_split_to(stake_split_to)
+            .user_stake_authority(user_stake_authority)
+            .user_transfer_authority(user_transfer_authority.pubkey())
+            .user_pool_token_account(user_pool_token_account)
+            .manager_fee_account(manager_fee_account)
+            .pool_mint(pool_mint)
+            .fee_rebate_hopper(fee_rebate_hopper)
+            .fee_rebate_recipient(fee_rebate_receiver)
+            .clock(solana_clock::Clock::id())
+            .spl_stake_pool_program(spl_stake_pool::id())
+            .stake_program(solana_stake_interface::program::id())
+            .amount(amount)
+            .instruction();
+        self.process_transaction(&Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.payer.pubkey()),
+            &[&self.payer, &whitelisted_signer, &user_transfer_authority],
             blockhash,
         ))
         .await

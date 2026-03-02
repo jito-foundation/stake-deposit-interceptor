@@ -58,6 +58,14 @@ pub enum StakeDepositInterceptorError {
     /// 17 : Signer is not whitelisted
     #[error("Whitelisted signer is invalid")]
     InvalidWhitelistedSigner,
+
+    /// 18 : Calculation failed
+    #[error("CalculationFailure")]
+    CalculationFailure,
+
+    /// 18 : ArithmeticError
+    #[error("ArithmeticError")]
+    ArithmeticError,
 }
 
 impl From<StakeDepositInterceptorError> for ProgramError {

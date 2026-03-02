@@ -8,6 +8,8 @@ pub mod macros;
 pub mod processor;
 pub mod state;
 
+pub const BASIS_POINTS_MAX: u16 = 10_000;
+
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
 
