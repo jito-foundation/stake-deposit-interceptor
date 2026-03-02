@@ -3,6 +3,9 @@ use bytemuck::{Pod, Zeroable};
 use jito_bytemuck::{AccountDeserialize, Discriminator};
 use solana_program::pubkey::Pubkey;
 use spl_pod::primitives::{PodU32, PodU64};
+
+pub mod hopper;
+
 /// Discriminators for accounts
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StakeDepositInterceptorDiscriminators {
