@@ -65,3 +65,9 @@ impl From<StakeDepositInterceptorError> for ProgramError {
         Self::Custom(value as u32)
     }
 }
+
+impl From<StakeDepositInterceptorError> for ProgramError {
+    fn from(value: StakeDepositInterceptorError) -> Self {
+        Self::Custom(value as u32)
+    }
+}
