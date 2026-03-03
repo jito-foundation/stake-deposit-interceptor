@@ -1,18 +1,13 @@
 use std::num::NonZeroU32;
 
-use solana_program_test::{BanksClient, ProgramTestContext};
-use solana_sdk::{
-    borsh1::{get_instance_packed_len, get_packed_len, try_from_slice_unchecked},
-    hash::Hash,
-    native_token::LAMPORTS_PER_SOL,
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    stake,
-    system_instruction::{self},
-    transaction::Transaction,
-    transport::TransportError,
-};
+use solana_hash::Hash;
+use solana_keypair::{Keypair, Signer};
+use solana_program::{borsh1::try_from_slice_unchecked, native_token::LAMPORTS_PER_SOL};
+use solana_program_test::{BanksClient, BanksClientError, ProgramTestContext};
+use solana_pubkey::Pubkey;
+use solana_system_interface::instruction::create_account;
+use solana_transaction::Transaction;
+use spl_pod::solana_program::borsh1::{get_instance_packed_len, get_packed_len};
 use spl_stake_pool::MAX_VALIDATORS_TO_UPDATE;
 
 use super::{create_mint, create_token_account, create_vote, get_account};
@@ -76,7 +71,7 @@ pub async fn stake_get_minimum_delegation(
     recent_blockhash: &Hash,
 ) -> u64 {
     let transaction = Transaction::new_signed_with_payer(
-        &[stake::instruction::get_minimum_delegation()],
+        &[solana_stake_interface::instruction::get_minimum_delegation()],
         Some(&payer.pubkey()),
         &[payer],
         *recent_blockhash,
@@ -98,16 +93,17 @@ pub async fn stake_get_minimum_delegation(
 pub async fn create_stake_account(
     banks_client: &mut BanksClient,
     payer: &Keypair,
-    authorized: &stake::state::Authorized,
-    lockup: &stake::state::Lockup,
+    authorized: &solana_stake_interface::state::Authorized,
+    lockup: &solana_stake_interface::state::Lockup,
     stake_amount: u64,
     recent_blockhash: Hash,
 ) -> Pubkey {
     let keypair = Keypair::new();
     let rent = banks_client.get_rent().await.unwrap();
-    let lamports =
-        rent.minimum_balance(std::mem::size_of::<stake::state::StakeStateV2>()) + stake_amount;
-    let create_stake_account_ix = stake::instruction::create_account(
+    let lamports = rent.minimum_balance(std::mem::size_of::<
+        solana_stake_interface::state::StakeStateV2,
+    >()) + stake_amount;
+    let create_stake_account_ix = solana_stake_interface::instruction::create_account(
         &payer.pubkey(),
         &keypair.pubkey(),
         authorized,
@@ -137,7 +133,7 @@ pub async fn delegate_stake_account(
     vote: &Pubkey,
 ) {
     let mut transaction = Transaction::new_with_payer(
-        &[stake::instruction::delegate_stake(
+        &[solana_stake_interface::instruction::delegate_stake(
             stake,
             &authorized.pubkey(),
             vote,
@@ -219,11 +215,11 @@ pub async fn create_stake_pool(ctx: &mut ProgramTestContext) -> StakePoolAccount
         &spl_stake_pool::id(),
     );
     // Stake account with 1 Sol from the ProgramTestContect `payer`
-    let authorized = stake::state::Authorized {
+    let authorized = solana_stake_interface::state::Authorized {
         staker: withdraw_authority,
         withdrawer: withdraw_authority,
     };
-    let lockup = stake::state::Lockup::default();
+    let lockup = solana_stake_interface::state::Lockup::default();
     let reserve_stake_account = create_stake_account(
         &mut ctx.banks_client,
         &ctx.payer,
@@ -233,25 +229,25 @@ pub async fn create_stake_pool(ctx: &mut ProgramTestContext) -> StakePoolAccount
         ctx.last_blockhash,
     )
     .await;
-    let create_stake_pool_account_ix = system_instruction::create_account(
+    let create_stake_pool_account_ix = create_account(
         &ctx.payer.pubkey(),
         &stake_pool_keypair.pubkey(),
         rent_stake_pool,
         get_packed_len::<spl_stake_pool::state::StakePool>() as u64,
         &spl_stake_pool::id(),
     );
-    let create_validator_list_account_ix = system_instruction::create_account(
+    let create_validator_list_account_ix = create_account(
         &ctx.payer.pubkey(),
         &validator_list_keypair.pubkey(),
         rent_validator_list,
         validator_list_size as u64,
         &spl_stake_pool::id(),
     );
-    let update_mint_authority_ix = spl_token::instruction::set_authority(
-        &spl_token::id(),
+    let update_mint_authority_ix = spl_token_interface::instruction::set_authority(
+        &spl_token_interface::id(),
         &pool_mint,
         Some(&withdraw_authority),
-        spl_token::instruction::AuthorityType::MintTokens,
+        spl_token_interface::instruction::AuthorityType::MintTokens,
         &ctx.payer.pubkey(),
         &[],
     )
@@ -267,7 +263,7 @@ pub async fn create_stake_pool(ctx: &mut ProgramTestContext) -> StakePoolAccount
         &reserve_stake_account,
         &pool_mint,
         &pool_fee_account,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         None,
         zero_fee,
         zero_fee,
@@ -351,7 +347,7 @@ pub async fn deposit_sol(
         pool_fee_account,
         pool_fee_account,
         pool_mint,
-        &spl_token::id(),
+        &spl_token_interface::id(),
         amount,
     );
     let transaction = Transaction::new_signed_with_payer(
@@ -380,7 +376,9 @@ pub async fn create_validator_and_add_to_pool(
         create_token_account(ctx, &ctx.payer.pubkey(), &stake_pool_accounts.pool_mint).await;
 
     let rent = ctx.banks_client.get_rent().await.unwrap();
-    let stake_rent = rent.minimum_balance(std::mem::size_of::<stake::state::StakeStateV2>());
+    let stake_rent = rent.minimum_balance(std::mem::size_of::<
+        solana_stake_interface::state::StakeStateV2,
+    >());
     let min_delegation =
         stake_get_minimum_delegation(&mut ctx.banks_client, &ctx.payer, &ctx.last_blockhash).await;
     let current_minimum_delegation = spl_stake_pool::minimum_delegation(min_delegation);
@@ -434,7 +432,7 @@ pub async fn stake_pool_update_all(
     stake_pool_accounts: &StakePoolAccounts,
     recent_blockhash: &Hash,
     no_merge: bool,
-) -> Option<TransportError> {
+) -> Option<BanksClientError> {
     let validator_list_account =
         get_account(banks_client, &stake_pool_accounts.validator_list).await;
     let validator_list = try_from_slice_unchecked::<spl_stake_pool::state::ValidatorList>(
@@ -471,7 +469,7 @@ pub async fn stake_pool_update_all(
             &stake_pool_accounts.reserve_stake_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
         ),
         spl_stake_pool::instruction::cleanup_removed_validator_entries(
             &spl_stake_pool::id(),
@@ -485,9 +483,5 @@ pub async fn stake_pool_update_all(
         &[payer],
         *recent_blockhash,
     );
-    banks_client
-        .process_transaction(transaction)
-        .await
-        .map_err(|e| e.into())
-        .err()
+    banks_client.process_transaction(transaction).await.err()
 }

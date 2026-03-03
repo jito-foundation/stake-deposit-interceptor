@@ -1,5 +1,5 @@
+use solana_clock::Clock;
 use solana_program_test::ProgramTestContext;
-use solana_sdk::clock::Clock;
 
 /// Set the sysvar Clock's time to the given timestamp.
 #[allow(dead_code)]

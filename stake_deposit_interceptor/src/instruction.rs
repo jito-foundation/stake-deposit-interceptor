@@ -3,9 +3,8 @@ use shank::ShankInstruction;
 use solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    stake, system_program, sysvar,
 };
-use spl_associated_token_account::get_associated_token_address;
+use spl_associated_token_account_interface::address::get_associated_token_address;
 
 /// Initialize arguments for StakePoolDepositStakeAuthority
 #[derive(Clone, Debug, PartialEq, BorshSerialize, BorshDeserialize)]
@@ -399,8 +398,8 @@ pub fn create_init_deposit_stake_authority_instruction(
         AccountMeta::new_readonly(*stake_pool_mint, false),
         AccountMeta::new_readonly(*stake_pool_program_id, false),
         AccountMeta::new_readonly(*token_program_id, false),
-        AccountMeta::new_readonly(spl_associated_token_account::id(), false),
-        AccountMeta::new_readonly(system_program::id(), false),
+        AccountMeta::new_readonly(spl_associated_token_account_interface::program::id(), false),
+        AccountMeta::new_readonly(solana_system_interface::program::id(), false),
     ];
     Instruction {
         program_id: *program_id,
@@ -483,18 +482,18 @@ fn deposit_stake_internal(
     ];
     // NOTE: Assumes the withdrawer and staker authorities are the same (i.e. `deposit_stake_withdraw_authority`).
     instructions.extend_from_slice(&[
-        stake::instruction::authorize(
+        solana_stake_interface::instruction::authorize(
             deposit_stake_address,
             deposit_stake_withdraw_authority,
             stake_pool_deposit_authority,
-            stake::state::StakeAuthorize::Staker,
+            solana_stake_interface::state::StakeAuthorize::Staker,
             None,
         ),
-        stake::instruction::authorize(
+        solana_stake_interface::instruction::authorize(
             deposit_stake_address,
             deposit_stake_withdraw_authority,
             stake_pool_deposit_authority,
-            stake::state::StakeAuthorize::Withdrawer,
+            solana_stake_interface::state::StakeAuthorize::Withdrawer,
             None,
         ),
     ]);
@@ -508,11 +507,11 @@ fn deposit_stake_internal(
         AccountMeta::new(*manager_fee_account, false),
         AccountMeta::new(*referrer_pool_tokens_account, false),
         AccountMeta::new(*pool_mint, false),
-        AccountMeta::new_readonly(sysvar::clock::id(), false),
-        AccountMeta::new_readonly(sysvar::stake_history::id(), false),
+        AccountMeta::new_readonly(solana_clock::sysvar::id(), false),
+        AccountMeta::new_readonly(solana_stake_interface::sysvar::stake_history::id(), false),
         AccountMeta::new_readonly(*token_program_id, false),
-        AccountMeta::new_readonly(stake::program::id(), false),
-        AccountMeta::new_readonly(system_program::id(), false),
+        AccountMeta::new_readonly(solana_stake_interface::program::id(), false),
+        AccountMeta::new_readonly(solana_system_interface::program::id(), false),
     ]);
     instructions.push(
         if let Some(minimum_pool_tokens_out) = minimum_pool_tokens_out {
@@ -684,7 +683,7 @@ pub fn create_claim_pool_tokens_instruction(
         AccountMeta::new_readonly(*deposit_stake_authority, false),
         AccountMeta::new_readonly(*pool_mint, false),
         AccountMeta::new_readonly(*token_program, false),
-        AccountMeta::new_readonly(system_program::id(), false),
+        AccountMeta::new_readonly(solana_system_interface::program::id(), false),
     ];
     Instruction {
         program_id: *program_id,

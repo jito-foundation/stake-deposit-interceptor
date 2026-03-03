@@ -2,12 +2,40 @@
 members = ["api", "cli", "cranker", "stake_deposit_interceptor"]
 resolver = "2"
 
+[workspace.package]
+version = "0.2.0"
+authors = ["Jito Network <team@jito.network>"]
+repository = "https://github.com/jito-foundation/stake-deposit-interceptor"
+homepage = "https://jito.network"
+edition = "2021"
+
 [workspace.dependencies]
-jito-bytemuck = { git = "https://github.com/jito-foundation/restaking.git", rev = "4c37d76102496edd784bb25436cb9c4340f0df01" }
-solana-client = ">=1.18.11,<=2"
-solana-rpc-client = ">=1.18.11,<=2"
-solana-rpc-client-api = ">=1.18.11,<=2"
-solana-sdk = "2.0.14"
-spl-stake-pool = { version = "2.0.0", features = ["no-entrypoint"] }
-spl-token = "6.0.0"
-spl-token-2022 = "5.0.2"
+borsh = "1.6.0"
+jito-bytemuck = { git = "https://github.com/jito-foundation/jito-bytemuck.git", tag = "v0.1.0" }
+solana-account = "3.0.0"
+solana-account-decoder = "3.0.0"
+solana-clap-utils = { version = "3.0.0", features = ["agave-unstable-api"] }
+solana-client = "3.0.0"
+solana-clock = { version = "3.0.0", features = ["sysvar"] }
+solana-commitment-config = "3.0.0"
+solana-compute-budget-interface = "3.0.0"
+solana-hash = "3.0.0"
+solana-keypair = "3.0.0"
+solana-program = "3.0.0"
+solana-program-error = "3.0.0"
+solana-program-test = { version = "3.0.0", features = ["agave-unstable-api"] }
+solana-pubkey = "3.0.0"
+solana-remote-wallet = "3.0.0"
+solana-rpc-client = "3.0.0"
+solana-rpc-client-api = "3.0.0"
+solana-sdk = "3.0.0"
+solana-stake-interface = { version = "3.0.0", features = ["bincode", "sysvar"] }
+solana-system-interface = "3.0.0"
+solana-transaction = "3.0.0"
+solana-vote-interface = { version = "3.0.0", features = ["bincode"] }
+spl-associated-token-account-interface = "2.0.0"
+spl-stake-pool = { git = "https://github.com/solana-program/stake-pool.git", version = "2.0.3", features = ["no-entrypoint"] }
+spl-token = { version = "9.0", features = ["no-entrypoint"] }
+spl-token-2022-interface = "2.1.0"
+spl-token-interface = "2.0.0"
+tokio = { version = "1.49.0", features = ["macros"] }

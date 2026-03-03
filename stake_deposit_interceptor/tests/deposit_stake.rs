@@ -7,25 +7,18 @@ use helpers::{
     program_test_context_with_stake_pool_state, stake_pool_update_all,
     update_stake_deposit_authority, StakePoolAccounts, ValidatorStakeAccount,
 };
-use solana_program_test::ProgramTestContext;
-use solana_sdk::{
-    account::AccountSharedData,
-    borsh1::try_from_slice_unchecked,
-    instruction::{AccountMeta, Instruction, InstructionError},
-    native_token::LAMPORTS_PER_SOL,
-    program_pack::Pack,
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    stake::{self},
-    system_program,
-    transaction::{Transaction, TransactionError},
-    transport::TransportError,
+use solana_account::AccountSharedData;
+use solana_keypair::{Keypair, Signer};
+use solana_program::{native_token::LAMPORTS_PER_SOL, program_pack::Pack};
+use solana_program_test::{BanksClientError, ProgramTestContext};
+use solana_pubkey::Pubkey;
+use solana_transaction::{
+    AccountMeta, Instruction, InstructionError, Transaction, TransactionError,
 };
-use spl_associated_token_account::get_associated_token_address;
-use spl_pod::primitives::PodU64;
+use spl_associated_token_account_interface::address::get_associated_token_address;
+use spl_pod::{primitives::PodU64, solana_program::borsh1::try_from_slice_unchecked};
 use spl_stake_pool::error::StakePoolError;
-use stake_deposit_interceptor::{
+use stake_deposit_interceptor_program::{
     error::StakeDepositInterceptorError,
     instruction::{derive_stake_deposit_receipt, derive_stake_pool_deposit_stake_authority},
     state::{DepositReceipt, StakePoolDepositStakeAuthority},
@@ -56,7 +49,7 @@ async fn setup() -> (
             .unwrap();
     let deposit_authority_base = Keypair::new();
     let (deposit_stake_authority_pubkey, _bump) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
@@ -88,14 +81,15 @@ async fn setup() -> (
     airdrop_lamports(&mut ctx, &depositor.pubkey(), 10 * LAMPORTS_PER_SOL).await;
 
     // Create "Depositor" owned stake account
-    let authorized = stake::state::Authorized {
+    let authorized = solana_stake_interface::state::Authorized {
         staker: depositor.pubkey(),
         withdrawer: depositor.pubkey(),
     };
-    let lockup = stake::state::Lockup::default();
+    let lockup = solana_stake_interface::state::Lockup::default();
     let stake_amount = 2 * LAMPORTS_PER_SOL;
-    let total_staked_amount =
-        rent.minimum_balance(std::mem::size_of::<stake::state::StakeStateV2>()) + stake_amount;
+    let total_staked_amount = rent.minimum_balance(std::mem::size_of::<
+        solana_stake_interface::state::StakeStateV2,
+    >()) + stake_amount;
     let depositor_stake_account = create_stake_account(
         &mut ctx.banks_client,
         &depositor,
@@ -179,15 +173,15 @@ async fn test_deposit_stake() {
     ) = setup().await;
 
     let (deposit_stake_authority_pubkey, _bump_seed) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
 
     // Actually test DepositStake
     let deposit_stake_instructions =
-        stake_deposit_interceptor::instruction::create_deposit_stake_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_deposit_stake_instruction(
+            &stake_deposit_interceptor_program::id(),
             &depositor.pubkey(),
             &spl_stake_pool::id(),
             &stake_pool_accounts.stake_pool,
@@ -201,7 +195,7 @@ async fn test_deposit_stake() {
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &deposit_receipt_base.pubkey(),
             &deposit_authority_base.pubkey(),
         );
@@ -216,7 +210,7 @@ async fn test_deposit_stake() {
     ctx.banks_client.process_transaction(tx).await.unwrap();
 
     let vault_account = get_account(&mut ctx.banks_client, &deposit_stake_authority.vault).await;
-    let vault = spl_token::state::Account::unpack(&vault_account.data).unwrap();
+    let vault = spl_token_interface::state::Account::unpack(&vault_account.data).unwrap();
 
     let pool_tokens_amount = spl_stake_pool::state::StakePool::calc_pool_tokens_for_deposit(
         &stake_pool,
@@ -229,7 +223,7 @@ async fn test_deposit_stake() {
 
     // Assert DepositReceipt has correct data.
     let (deposit_receipt_pda, bump_seed) = derive_stake_deposit_receipt(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_receipt_base.pubkey(),
     );
@@ -262,7 +256,7 @@ async fn test_deposit_stake() {
 #[tokio::test]
 async fn success_error_with_slippage() {
     let (
-        mut ctx,
+        ctx,
         stake_pool_accounts,
         stake_pool,
         validator_stake_accounts,
@@ -281,8 +275,8 @@ async fn success_error_with_slippage() {
     .unwrap();
 
     let deposit_stake_with_slippage_instructions =
-        stake_deposit_interceptor::instruction::create_deposit_stake_with_slippage_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_deposit_stake_with_slippage_instruction(
+            &stake_deposit_interceptor_program::id(),
             &depositor.pubkey(),
             &spl_stake_pool::id(),
             &stake_pool_accounts.stake_pool,
@@ -296,7 +290,7 @@ async fn success_error_with_slippage() {
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &deposit_receipt_base.pubkey(),
             &deposit_authority_base.pubkey(),
             pool_tokens_amount + 1,
@@ -309,15 +303,14 @@ async fn success_error_with_slippage() {
         ctx.last_blockhash,
     );
 
-    let transaction_error: TransportError = ctx
+    let transaction_error: BanksClientError = ctx
         .banks_client
         .process_transaction(tx)
         .await
-        .expect_err("Should have errored")
-        .into();
+        .expect_err("Should have errored");
 
     match transaction_error {
-        TransportError::TransactionError(TransactionError::InstructionError(_, error)) => {
+        BanksClientError::TransactionError(TransactionError::InstructionError(_, error)) => {
             assert_eq!(
                 error,
                 InstructionError::Custom(StakePoolError::ExceededSlippage as u32)
@@ -327,8 +320,8 @@ async fn success_error_with_slippage() {
     };
 
     let deposit_stake_with_slippage_instructions =
-        stake_deposit_interceptor::instruction::create_deposit_stake_with_slippage_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_deposit_stake_with_slippage_instruction(
+            &stake_deposit_interceptor_program::id(),
             &depositor.pubkey(),
             &spl_stake_pool::id(),
             &stake_pool_accounts.stake_pool,
@@ -342,7 +335,7 @@ async fn success_error_with_slippage() {
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &deposit_receipt_base.pubkey(),
             &deposit_authority_base.pubkey(),
             pool_tokens_amount,
@@ -382,8 +375,8 @@ async fn setup_with_ix() -> (
 
     // Actually test DepositStake
     let deposit_stake_instructions =
-        stake_deposit_interceptor::instruction::create_deposit_stake_instruction(
-            &stake_deposit_interceptor::id(),
+        stake_deposit_interceptor_program::instruction::create_deposit_stake_instruction(
+            &stake_deposit_interceptor_program::id(),
             &depositor.pubkey(),
             &spl_stake_pool::id(),
             &stake_pool_accounts.stake_pool,
@@ -397,18 +390,18 @@ async fn setup_with_ix() -> (
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_fee_account,
             &stake_pool_accounts.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             &deposit_receipt_base.pubkey(),
             &deposit_authority_base.pubkey(),
         );
 
     let (deposit_stake_authority_pubkey, _bump) = derive_stake_pool_deposit_stake_authority(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_authority_base.pubkey(),
     );
     let (deposit_receipt_pda, _bump_seed) = derive_stake_deposit_receipt(
-        &stake_deposit_interceptor::id(),
+        &stake_deposit_interceptor_program::id(),
         &stake_pool_accounts.stake_pool,
         &deposit_receipt_base.pubkey(),
     );
@@ -573,7 +566,7 @@ async fn test_fail_invalid_deposit_receipt_owner() {
         depositor,
         instructions,
     ) = setup_with_ix().await;
-    let bad_account = AccountSharedData::new(1, 0, &stake_deposit_interceptor::id());
+    let bad_account = AccountSharedData::new(1, 0, &stake_deposit_interceptor_program::id());
     ctx.set_account(&deposit_receipt_pda, &bad_account);
 
     let tx = Transaction::new_signed_with_payer(
@@ -605,7 +598,7 @@ async fn test_fail_deposit_receipt_not_empty() {
         ctx.last_blockhash,
     );
 
-    let bad_account = AccountSharedData::new(1, 1, &system_program::id());
+    let bad_account = AccountSharedData::new(1, 1, &solana_system_interface::program::id());
     ctx.set_account(&deposit_receipt_pda, &bad_account);
     assert_transaction_err(
         &mut ctx,

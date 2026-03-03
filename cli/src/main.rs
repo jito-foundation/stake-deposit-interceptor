@@ -3,20 +3,19 @@ mod client;
 mod interceptor;
 mod output;
 
-use std::io::Cursor;
-
 use interceptor::command_create_stake_deposit_authority;
-// use instruction::create_associated_token_account once ATA 1.0.5 is released
-#[allow(deprecated)]
-use spl_associated_token_account::create_associated_token_account;
+use solana_client::rpc_config::CommitmentConfig;
+use solana_compute_budget_interface::ComputeBudgetInstruction;
+use solana_sdk::program_pack::Pack;
+use spl_associated_token_account_interface::{
+    address::get_associated_token_address, instruction::create_associated_token_account,
+};
 use {
     crate::{
         client::*,
         output::{CliStakePool, CliStakePoolDetails, CliStakePoolStakeAccountInfo, CliStakePools},
     },
-    base64::prelude::*,
     bincode::deserialize,
-    borsh::BorshSerialize,
     clap::{
         crate_description, crate_name, crate_version, value_t, value_t_or_exit, App, AppSettings,
         Arg, ArgGroup, ArgMatches, SubCommand,
@@ -36,23 +35,17 @@ use {
     solana_program::{
         borsh1::{get_instance_packed_len, get_packed_len},
         instruction::Instruction,
-        program_pack::Pack,
         pubkey::Pubkey,
-        stake,
     },
     solana_remote_wallet::remote_wallet::RemoteWalletManager,
     solana_sdk::{
-        commitment_config::CommitmentConfig,
-        compute_budget::ComputeBudgetInstruction,
         hash::Hash,
         message::Message,
         native_token::{self, Sol},
         signature::{Keypair, Signer},
         signers::Signers,
-        system_instruction,
         transaction::Transaction,
     },
-    spl_associated_token_account::get_associated_token_address,
     // spl_governance
     spl_stake_pool::{
         self, find_stake_program_address, find_transient_stake_program_address,
@@ -107,10 +100,10 @@ fn check_fee_payer_balance(config: &Config, required_balance: u64) -> Result<(),
 }
 
 const FEES_REFERENCE: &str = "Consider setting a minimal fee. \
-                              See https://spl.solana.com/stake-pool/fees for more \
-                              information about fees and best practices. If you are \
-                              aware of the possible risks of a stake pool with no fees, \
-                              you may force pool creation with the --unsafe-fees flag.";
+                               See https://spl.solana.com/stake-pool/fees for more \
+                               information about fees and best practices. If you are \
+                               aware of the possible risks of a stake pool with no fees, \
+                               you may force pool creation with the --unsafe-fees flag.";
 
 enum ComputeUnitLimit {
     Default,
@@ -121,11 +114,11 @@ const COMPUTE_UNIT_LIMIT_ARG: ArgConstant<'static> = ArgConstant {
     name: "compute_unit_limit",
     long: "--with-compute-unit-limit",
     help: "Set compute unit limit for transaction, in compute units; also accepts \
-        keyword DEFAULT to use the default compute unit limit, which is 200k per \
-        top-level instruction, with a maximum of 1.4 million. \
-        If nothing is set, transactions are simulated prior to sending, and the \
-        compute units consumed are set as the limit. This may may fail if accounts \
-        are modified by another transaction between simulation and execution.",
+         keyword DEFAULT to use the default compute unit limit, which is 200k per \
+         top-level instruction, with a maximum of 1.4 million. \
+         If nothing is set, transactions are simulated prior to sending, and the \
+         compute units consumed are set as the limit. This may may fail if accounts \
+         are modified by another transaction between simulation and execution.",
 };
 fn is_compute_unit_limit_or_simulated<T>(string: T) -> Result<(), String>
 where
@@ -158,16 +151,14 @@ fn check_stake_pool_fees(
     deposit_fee: &Fee,
 ) -> Result<(), Error> {
     if epoch_fee.numerator == 0 || epoch_fee.denominator == 0 {
-        return Err(format!("Epoch fee should not be 0. {}", FEES_REFERENCE,).into());
+        return Err(format!("Epoch fee should not be 0. {FEES_REFERENCE}",).into());
     }
     let is_withdrawal_fee_zero = withdrawal_fee.numerator == 0 || withdrawal_fee.denominator == 0;
     let is_deposit_fee_zero = deposit_fee.numerator == 0 || deposit_fee.denominator == 0;
     if is_withdrawal_fee_zero && is_deposit_fee_zero {
-        return Err(format!(
-            "Withdrawal and deposit fee should not both be 0. {}",
-            FEES_REFERENCE,
-        )
-        .into());
+        return Err(
+            format!("Withdrawal and deposit fee should not both be 0. {FEES_REFERENCE}",).into(),
+        );
     }
     Ok(())
 }
@@ -187,7 +178,7 @@ fn get_signer(
         &signer_from_path_config,
     )
     .unwrap_or_else(|e| {
-        eprintln!("error: {}", e);
+        eprintln!("error: {e}");
         exit(1);
     })
 }
@@ -204,10 +195,10 @@ fn send_transaction_no_wait(
 ) -> solana_client::client_error::Result<()> {
     if config.dry_run {
         let result = config.rpc_client.simulate_transaction(&transaction)?;
-        println!("Simulate result: {:?}", result);
+        println!("Simulate result: {result:?}");
     } else {
         let signature = config.rpc_client.send_transaction(&transaction)?;
-        println!("Signature: {}", signature);
+        println!("Signature: {signature}");
     }
     Ok(())
 }
@@ -218,12 +209,12 @@ fn send_transaction(
 ) -> solana_client::client_error::Result<()> {
     if config.dry_run {
         let result = config.rpc_client.simulate_transaction(&transaction)?;
-        println!("Simulate result: {:?}", result);
+        println!("Simulate result: {result:?}");
     } else {
         let signature = config
             .rpc_client
             .send_and_confirm_transaction_with_spinner(&transaction)?;
-        println!("Signature: {}", signature);
+        println!("Signature: {signature}");
     }
     Ok(())
 }
@@ -286,19 +277,16 @@ fn new_stake_account(
     // Account for tokens not specified, creating one
     let stake_receiver_keypair = Keypair::new();
     let stake_receiver_pubkey = stake_receiver_keypair.pubkey();
-    println!(
-        "Creating account to receive stake {}",
-        stake_receiver_pubkey
-    );
+    println!("Creating account to receive stake {stake_receiver_pubkey}");
 
     instructions.push(
         // Creating new account
-        system_instruction::create_account(
+        solana_system_interface::instruction::create_account(
             fee_payer,
             &stake_receiver_pubkey,
             lamports,
             STAKE_STATE_LEN as u64,
-            &stake::program::id(),
+            &solana_stake_interface::program::id(),
         ),
     );
 
@@ -366,28 +354,28 @@ fn command_create_pool(
     );
 
     if config.verbose {
-        println!("Stake pool withdraw authority {}", withdraw_authority);
+        println!("Stake pool withdraw authority {withdraw_authority}");
     }
 
     let mut setup_instructions = vec![
         // Account for the stake pool reserve
-        system_instruction::create_account(
+        solana_system_interface::instruction::create_account(
             &config.fee_payer.pubkey(),
             &reserve_keypair.pubkey(),
             reserve_stake_balance,
             STAKE_STATE_LEN as u64,
-            &stake::program::id(),
+            &solana_stake_interface::program::id(),
         ),
-        stake::instruction::initialize(
+        solana_stake_interface::instruction::initialize(
             &reserve_keypair.pubkey(),
-            &stake::state::Authorized {
+            &solana_stake_interface::state::Authorized {
                 staker: withdraw_authority,
                 withdrawer: withdraw_authority,
             },
-            &stake::state::Lockup::default(),
+            &solana_stake_interface::state::Lockup::default(),
         ),
         // Account for the stake pool mint
-        system_instruction::create_account(
+        solana_system_interface::instruction::create_account(
             &config.fee_payer.pubkey(),
             &mint_keypair.pubkey(),
             mint_account_balance,
@@ -411,11 +399,11 @@ fn command_create_pool(
         &mut setup_instructions,
         &mut total_rent_free_balances,
     );
-    println!("Creating pool fee collection account {}", pool_fee_account);
+    println!("Creating pool fee collection account {pool_fee_account}");
 
     let initialize_instructions = &[
         // Validator stake account list storage
-        system_instruction::create_account(
+        solana_system_interface::instruction::create_account(
             &config.fee_payer.pubkey(),
             &validator_list_keypair.pubkey(),
             validator_list_balance,
@@ -423,7 +411,7 @@ fn command_create_pool(
             &spl_stake_pool::id(),
         ),
         // Account for the stake pool
-        system_instruction::create_account(
+        solana_system_interface::instruction::create_account(
             &config.fee_payer.pubkey(),
             &stake_pool_keypair.pubkey(),
             stake_pool_account_lamports,
@@ -475,9 +463,9 @@ fn command_create_pool(
         ];
         let initialize_transaction = if let Some(deposit_authority) = deposit_authority {
             println!(
-                "Deposits will be restricted to {} only, this can be changed using the set-funding-authority command.",
-                deposit_authority.pubkey()
-            );
+                 "Deposits will be restricted to {} only, this can be changed using the set-funding-authority command.",
+                 deposit_authority.pubkey()
+             );
             let mut initialize_signers = initialize_signers.clone();
             initialize_signers.push(&deposit_authority);
             unique_signers!(initialize_signers);
@@ -557,10 +545,7 @@ fn command_vsa_add(
     let stake_pool = get_stake_pool(&config.rpc_client, stake_pool_address)?;
     let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
     if validator_list.contains(vote_account) {
-        println!(
-            "Stake pool already contains validator {}, ignoring",
-            vote_account
-        );
+        println!("Stake pool already contains validator {vote_account}, ignoring");
         return Ok(());
     }
 
@@ -592,10 +577,7 @@ fn command_vsa_add(
             i += 1;
         }
     };
-    println!(
-        "Adding stake account {}, delegated to {}",
-        stake_account_address, vote_account
-    );
+    println!("Adding stake account {stake_account_address}, delegated to {vote_account}");
 
     let mut signers = vec![config.fee_payer.as_ref(), config.staker.as_ref()];
     unique_signers!(signers);
@@ -639,10 +621,7 @@ fn command_vsa_remove(
         stake_pool_address,
         validator_seed,
     );
-    println!(
-        "Removing stake account {}, delegated to {}",
-        stake_account_address, vote_account
-    );
+    println!("Removing stake account {stake_account_address}, delegated to {vote_account}");
 
     let mut signers = vec![config.fee_payer.as_ref(), config.staker.as_ref()];
     let instructions = vec![
@@ -668,7 +647,7 @@ fn command_increase_validator_stake(
     vote_account: &Pubkey,
     amount: f64,
 ) -> CommandResult {
-    let lamports = native_token::sol_to_lamports(amount);
+    let lamports = native_token::sol_str_to_lamports(&amount.to_string()).unwrap();
     if !config.no_update {
         command_update(config, stake_pool_address, false, false, false)?;
     }
@@ -707,7 +686,7 @@ fn command_decrease_validator_stake(
     vote_account: &Pubkey,
     amount: f64,
 ) -> CommandResult {
-    let lamports = native_token::sol_to_lamports(amount);
+    let lamports = native_token::sol_str_to_lamports(&amount.to_string()).unwrap();
     if !config.no_update {
         command_update(config, stake_pool_address, false, false, false)?;
     }
@@ -775,7 +754,7 @@ fn add_associated_token_account(
     // Account for tokens not specified, creating one
     let account = get_associated_token_address(owner, mint);
     if get_token_account(&config.rpc_client, &account, mint).is_err() {
-        println!("Creating associated token account {} to receive stake pool tokens of mint {}, owned by {}", account, mint, owner);
+        println!("Creating associated token account {account} to receive stake pool tokens of mint {mint}, owned by {owner}");
 
         let min_account_balance = config
             .rpc_client
@@ -787,11 +766,12 @@ fn add_associated_token_account(
             &config.fee_payer.pubkey(),
             owner,
             mint,
+            &spl_token_interface::id(),
         ));
 
         *rent_free_balances += min_account_balance;
     } else {
-        println!("Using existing associated token account {} to receive stake pool tokens of mint {}, owned by {}", account, mint, owner);
+        println!("Using existing associated token account {account} to receive stake pool tokens of mint {mint}, owned by {owner}");
     }
 
     account
@@ -813,10 +793,12 @@ fn command_deposit_stake(
     let stake_state = get_stake_state(&config.rpc_client, stake)?;
 
     if config.verbose {
-        println!("Depositing stake account {:?}", stake_state);
+        println!("Depositing stake account {stake_state:?}");
     }
     let vote_account = match stake_state {
-        stake::state::StakeStateV2::Stake(_, stake, _) => Ok(stake.delegation.voter_pubkey),
+        solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
+            Ok(stake.delegation.voter_pubkey)
+        }
         _ => Err("Wrong stake account state, must be delegated to validator"),
     }?;
 
@@ -836,12 +818,9 @@ fn command_deposit_stake(
     );
 
     let validator_stake_state = get_stake_state(&config.rpc_client, &validator_stake_account)?;
-    println!(
-        "Depositing stake {} into stake pool account {}",
-        stake, validator_stake_account
-    );
+    println!("Depositing stake {stake} into stake pool account {validator_stake_account}");
     if config.verbose {
-        println!("{:?}", validator_stake_state);
+        println!("{validator_stake_state:?}");
     }
 
     let mut instructions: Vec<Instruction> = vec![];
@@ -988,7 +967,9 @@ fn command_deposit_all_stake(
         let stake_state = get_stake_state(&config.rpc_client, &stake_address)?;
 
         let vote_account = match stake_state {
-            stake::state::StakeStateV2::Stake(_, stake, _) => Ok(stake.delegation.voter_pubkey),
+            solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
+                Ok(stake.delegation.voter_pubkey)
+            }
             _ => Err("Wrong stake account state, must be delegated to validator"),
         }?;
 
@@ -1006,11 +987,8 @@ fn command_deposit_all_stake(
         );
 
         let validator_stake_state = get_stake_state(&config.rpc_client, &validator_stake_account)?;
-        println!("Depositing user stake {}: {:?}", stake_address, stake_state);
-        println!(
-            "..into pool stake {}: {:?}",
-            validator_stake_account, validator_stake_state
-        );
+        println!("Depositing user stake {stake_address}: {stake_state:?}");
+        println!("..into pool stake {validator_stake_account}: {validator_stake_state:?}");
 
         let instructions = if let Some(stake_deposit_authority) = config.funding_authority.as_ref()
         {
@@ -1066,7 +1044,7 @@ fn command_deposit_sol(
         command_update(config, stake_pool_address, false, false, false)?;
     }
 
-    let amount = native_token::sol_to_lamports(amount);
+    let amount = native_token::sol_str_to_lamports(&amount.to_string()).unwrap();
 
     // Check withdraw_from balance
     let from_pubkey = from
@@ -1096,7 +1074,7 @@ fn command_deposit_sol(
     let mut total_rent_free_balances: u64 = 0;
 
     // Create the ephemeral SOL account
-    instructions.push(system_instruction::transfer(
+    instructions.push(solana_system_interface::instruction::transfer(
         &from_pubkey,
         &user_sol_transfer.pubkey(),
         amount,
@@ -1510,24 +1488,24 @@ fn command_withdraw_stake(
     // Check withdraw_from balance
     if token_account.amount < pool_amount {
         return Err(format!(
-            "Not enough token balance to withdraw {} pool tokens.\nMaximum withdraw amount is {} pool tokens.",
-            spl_token::amount_to_ui_amount(pool_amount, pool_mint.decimals),
-            spl_token::amount_to_ui_amount(token_account.amount, pool_mint.decimals)
-        )
-        .into());
+             "Not enough token balance to withdraw {} pool tokens.\nMaximum withdraw amount is {} pool tokens.",
+             spl_token::amount_to_ui_amount(pool_amount, pool_mint.decimals),
+             spl_token::amount_to_ui_amount(token_account.amount, pool_mint.decimals)
+         )
+         .into());
     }
 
     // Check for the delegated stake receiver
     let maybe_stake_receiver_state = stake_receiver_param
         .map(|stake_receiver_pubkey| {
             let stake_account = config.rpc_client.get_account(&stake_receiver_pubkey).ok()?;
-            let stake_state: stake::state::StakeStateV2 =
+            let stake_state: solana_stake_interface::state::StakeStateV2 =
                 deserialize(stake_account.data.as_slice())
-                    .map_err(|err| {
-                        format!("Invalid stake account {}: {}", stake_receiver_pubkey, err)
-                    })
+                    .map_err(|err| format!("Invalid stake account {stake_receiver_pubkey}: {err}"))
                     .ok()?;
-            if stake_state.delegation().is_some() && stake_account.owner == stake::program::id() {
+            if stake_state.delegation().is_some()
+                && stake_account.owner == solana_stake_interface::program::id()
+            {
                 Some(stake_state)
             } else {
                 None
@@ -1552,15 +1530,15 @@ fn command_withdraw_stake(
             .voter_pubkey;
         if let Some(vote_account_address) = vote_account_address {
             if *vote_account_address != vote_account {
-                return Err(format!("Provided withdrawal vote account {} does not match delegation on stake receiver account {},
-                remove this flag or provide a different stake account delegated to {}", vote_account_address, vote_account, vote_account_address).into());
+                return Err(format!("Provided withdrawal vote account {vote_account_address} does not match delegation on stake receiver account {vote_account},
+                 remove this flag or provide a different stake account delegated to {vote_account_address}").into());
             }
         }
         // Check if the vote account exists in the stake pool
         let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
         let validator_stake_info = validator_list
-            .find(&vote_account)
-            .ok_or(format!("Provided stake account is delegated to a vote account {} which does not exist in the stake pool", vote_account))?;
+             .find(&vote_account)
+             .ok_or(format!("Provided stake account is delegated to a vote account {vote_account} which does not exist in the stake pool"))?;
         let validator_seed = NonZeroU32::new(validator_stake_info.validator_seed_suffix.into());
         let (stake_account_address, _) = find_stake_program_address(
             &spl_stake_pool::id(),
@@ -1581,8 +1559,7 @@ fn command_withdraw_stake(
 
         if available_for_withdrawal < pool_amount {
             return Err(format!(
-                "Not enough lamports available for withdrawal from {}, {} asked, {} available",
-                stake_account_address, pool_amount, available_for_withdrawal
+                "Not enough lamports available for withdrawal from {stake_account_address}, {pool_amount} asked, {available_for_withdrawal} available"
             )
             .into());
         }
@@ -1594,8 +1571,7 @@ fn command_withdraw_stake(
     } else if let Some(vote_account_address) = vote_account_address {
         let validator_list = get_validator_list(&config.rpc_client, &stake_pool.validator_list)?;
         let validator_stake_info = validator_list.find(vote_account_address).ok_or(format!(
-            "Provided vote account address {} does not exist in the stake pool",
-            vote_account_address
+            "Provided vote account address {vote_account_address} does not exist in the stake pool"
         ))?;
         let validator_seed = NonZeroU32::new(validator_stake_info.validator_seed_suffix.into());
         let (stake_account_address, _) = find_stake_program_address(
@@ -1617,8 +1593,7 @@ fn command_withdraw_stake(
 
         if available_for_withdrawal < pool_amount {
             return Err(format!(
-                "Not enough lamports available for withdrawal from {}, {} asked, {} available",
-                stake_account_address, pool_amount, available_for_withdrawal
+                "Not enough lamports available for withdrawal from {stake_account_address}, {pool_amount} asked, {available_for_withdrawal} available"
             )
             .into());
         }
@@ -1720,7 +1695,7 @@ fn command_withdraw_stake(
     // Merging the stake with account provided by user
     if maybe_stake_receiver_state.is_some() {
         for new_stake_keypair in &new_stake_keypairs {
-            instructions.extend(stake::instruction::merge(
+            instructions.extend(solana_stake_interface::instruction::merge(
                 &stake_receiver_param.unwrap(),
                 &new_stake_keypair.pubkey(),
                 &config.fee_payer.pubkey(),
@@ -1770,11 +1745,11 @@ fn command_withdraw_sol(
     // Check withdraw_from balance
     if token_account.amount < pool_amount {
         return Err(format!(
-            "Not enough token balance to withdraw {} pool tokens.\nMaximum withdraw amount is {} pool tokens.",
-            spl_token::amount_to_ui_amount(pool_amount, pool_mint.decimals),
-            spl_token::amount_to_ui_amount(token_account.amount, pool_mint.decimals)
-        )
-        .into());
+             "Not enough token balance to withdraw {} pool tokens.\nMaximum withdraw amount is {} pool tokens.",
+             spl_token::amount_to_ui_amount(pool_amount, pool_mint.decimals),
+             spl_token::amount_to_ui_amount(token_account.amount, pool_mint.decimals)
+         )
+         .into());
     }
 
     // Construct transaction to withdraw from withdraw_accounts account list
@@ -1787,8 +1762,8 @@ fn command_withdraw_sol(
 
     let mut instructions = vec![
         // Approve spending token
-        spl_token::instruction::approve(
-            &spl_token::id(),
+        spl_token_interface::instruction::approve(
+            &spl_token_interface::id(),
             &pool_token_account,
             &user_transfer_authority.pubkey(),
             &config.token_owner.pubkey(),
@@ -1826,7 +1801,7 @@ fn command_withdraw_sol(
             sol_receiver,
             &stake_pool.manager_fee_account,
             &stake_pool.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             pool_amount,
         )
     } else {
@@ -1840,7 +1815,7 @@ fn command_withdraw_sol(
             sol_receiver,
             &stake_pool.manager_fee_account,
             &stake_pool.pool_mint,
-            &spl_token::id(),
+            &spl_token_interface::id(),
             pool_amount,
         )
     };
@@ -1956,30 +1931,30 @@ fn command_set_funding_authority(
     Ok(())
 }
 
-fn command_get_set_funding_authority_ix_serialized(
-    manager_address: &Pubkey,
-    stake_pool_address: &Pubkey,
-    new_authority: Option<Pubkey>,
-    funding_type: FundingType,
-) -> CommandResult {
-    let ix = spl_stake_pool::instruction::set_funding_authority(
-        &spl_stake_pool::id(),
-        stake_pool_address,
-        manager_address,
-        new_authority.as_ref(),
-        funding_type,
-    );
-
-    let gov_ix_data = spl_governance::state::proposal_transaction::InstructionData::from(ix);
-    let mut buffer = Cursor::new(Vec::new());
-    if let Err(err) = gov_ix_data.serialize(&mut buffer) {
-        return Err(format!("Failed to serialize InstructionData: {}", err).into());
-    }
-    let base64_ix = BASE64_STANDARD.encode(buffer.into_inner());
-    println!("Base64 InstructionData: {:?}", base64_ix);
-
-    Ok(())
-}
+// fn command_get_set_funding_authority_ix_serialized(
+// manager_address: &Pubkey,
+// stake_pool_address: &Pubkey,
+// new_authority: Option<Pubkey>,
+// funding_type: FundingType,
+// ) -> CommandResult {
+// let ix = spl_stake_pool::instruction::set_funding_authority(
+// &spl_stake_pool::id(),
+// stake_pool_address,
+// manager_address,
+// new_authority.as_ref(),
+// funding_type,
+// );
+//
+// let gov_ix_data = spl_governance::state::proposal_transaction::InstructionData::from(ix);
+// let mut buffer = Cursor::new(Vec::new());
+// if let Err(err) = gov_ix_data.serialize(&mut buffer) {
+// return Err(format!("Failed to serialize InstructionData: {}", err).into());
+// }
+// let base64_ix = BASE64_STANDARD.encode(buffer.into_inner());
+// println!("Base64 InstructionData: {:?}", base64_ix);
+//
+// Ok(())
+// }
 
 fn command_set_fee(
     config: &Config,
@@ -2023,1104 +1998,1104 @@ fn main() {
     solana_logger::setup_with_default("solana=info");
 
     let matches = App::new(crate_name!())
-        .about(crate_description!())
-        .version(crate_version!())
-        .setting(AppSettings::SubcommandRequiredElseHelp)
-        .arg({
-            let arg = Arg::with_name("config_file")
-                .short("C")
-                .long("config")
-                .value_name("PATH")
-                .takes_value(true)
-                .global(true)
-                .help("Configuration file to use");
-            if let Some(ref config_file) = *solana_cli_config::CONFIG_FILE {
-                arg.default_value(config_file)
-            } else {
-                arg
-            }
-        })
-        .arg(
-            Arg::with_name("verbose")
-                .long("verbose")
-                .short("v")
-                .takes_value(false)
-                .global(true)
-                .help("Show additional information"),
-        )
-        .arg(
-            Arg::with_name("output_format")
-                .long("output")
-                .value_name("FORMAT")
-                .global(true)
-                .takes_value(true)
-                .possible_values(&["json", "json-compact"])
-                .help("Return information in specified output format"),
-        )
-        .arg(
-            Arg::with_name("dry_run")
-                .long("dry-run")
-                .takes_value(false)
-                .global(true)
-                .help("Simulate transaction instead of executing"),
-        )
-        .arg(
-            Arg::with_name("no_update")
-                .long("no-update")
-                .takes_value(false)
-                .global(true)
-                .help("Do not automatically update the stake pool if needed"),
-        )
-        .arg(
-            Arg::with_name("json_rpc_url")
-                .long("url")
-                .value_name("URL")
-                .takes_value(true)
-                .validator(is_url)
-                .global(true)
-                .help("JSON RPC URL for the cluster.  Default from the configuration file."),
-        )
-        .arg(
-            Arg::with_name("staker")
-                .long("staker")
-                .value_name("KEYPAIR")
-                .validator(is_valid_signer)
-                .takes_value(true)
-                .global(true)
-                .help("Stake pool staker. [default: cli config keypair]"),
-        )
-        .arg(
-            Arg::with_name("manager")
-                .long("manager")
-                .value_name("KEYPAIR")
-                .validator(is_valid_signer)
-                .takes_value(true)
-                .global(true)
-                .help("Stake pool manager. [default: cli config keypair]"),
-        )
-        .arg(
-            Arg::with_name("funding_authority")
-                .long("funding-authority")
-                .value_name("KEYPAIR")
-                .validator(is_valid_signer)
-                .takes_value(true)
-                .global(true)
-                .help("Stake pool funding authority for deposits or withdrawals. [default: cli config keypair]"),
-        )
-        .arg(
-            Arg::with_name("token_owner")
-                .long("token-owner")
-                .value_name("KEYPAIR")
-                .validator(is_valid_signer)
-                .takes_value(true)
-                .global(true)
-                .help("Owner of pool token account [default: cli config keypair]"),
-        )
-        .arg(
-            Arg::with_name("fee_payer")
-                .long("fee-payer")
-                .value_name("KEYPAIR")
-                .validator(is_valid_signer)
-                .takes_value(true)
-                .global(true)
-                .help("Transaction fee payer account [default: cli config keypair]"),
-        )
-        .arg(compute_unit_price_arg().validator(is_parsable::<u64>).global(true))
-        .arg(
-            Arg::with_name(COMPUTE_UNIT_LIMIT_ARG.name)
-                .long(COMPUTE_UNIT_LIMIT_ARG.long)
-                .takes_value(true)
-                .value_name("COMPUTE-UNIT-LIMIT")
-                .help(COMPUTE_UNIT_LIMIT_ARG.help)
-                .validator(is_compute_unit_limit_or_simulated)
-                .global(true)
-        )
-        .subcommand(SubCommand::with_name("create-pool")
-            .about("Create a new stake pool")
-            .arg(
-                Arg::with_name("epoch_fee_numerator")
-                    .long("epoch-fee-numerator")
-                    .short("n")
-                    .validator(is_parsable::<u64>)
-                    .value_name("NUMERATOR")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Epoch fee numerator, fee amount is numerator divided by denominator."),
-            )
-            .arg(
-                Arg::with_name("epoch_fee_denominator")
-                    .long("epoch-fee-denominator")
-                    .short("d")
-                    .validator(is_parsable::<u64>)
-                    .value_name("DENOMINATOR")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Epoch fee denominator, fee amount is numerator divided by denominator."),
-            )
-            .arg(
-                Arg::with_name("withdrawal_fee_numerator")
-                    .long("withdrawal-fee-numerator")
-                    .validator(is_parsable::<u64>)
-                    .value_name("NUMERATOR")
-                    .takes_value(true)
-                    .requires("withdrawal_fee_denominator")
-                    .help("Withdrawal fee numerator, fee amount is numerator divided by denominator [default: 0]"),
-            ).arg(
-                Arg::with_name("withdrawal_fee_denominator")
-                    .long("withdrawal-fee-denominator")
-                    .validator(is_parsable::<u64>)
-                    .value_name("DENOMINATOR")
-                    .takes_value(true)
-                    .requires("withdrawal_fee_numerator")
-                    .help("Withdrawal fee denominator, fee amount is numerator divided by denominator [default: 0]"),
-            )
-            .arg(
-                Arg::with_name("deposit_fee_numerator")
-                    .long("deposit-fee-numerator")
-                    .validator(is_parsable::<u64>)
-                    .value_name("NUMERATOR")
-                    .takes_value(true)
-                    .requires("deposit_fee_denominator")
-                    .help("Deposit fee numerator, fee amount is numerator divided by denominator [default: 0]"),
-            ).arg(
-                Arg::with_name("deposit_fee_denominator")
-                    .long("deposit-fee-denominator")
-                    .validator(is_parsable::<u64>)
-                    .value_name("DENOMINATOR")
-                    .takes_value(true)
-                    .requires("deposit_fee_numerator")
-                    .help("Deposit fee denominator, fee amount is numerator divided by denominator [default: 0]"),
-            )
-            .arg(
-                Arg::with_name("referral_fee")
-                    .long("referral-fee")
-                    .validator(is_valid_percentage)
-                    .value_name("FEE_PERCENTAGE")
-                    .takes_value(true)
-                    .help("Referral fee percentage, maximum 100"),
-            )
-            .arg(
-                Arg::with_name("max_validators")
-                    .long("max-validators")
-                    .short("m")
-                    .validator(is_parsable::<u32>)
-                    .value_name("NUMBER")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Max number of validators included in the stake pool"),
-            )
-            .arg(
-                Arg::with_name("deposit_authority")
-                    .long("deposit-authority")
-                    .short("a")
-                    .validator(is_valid_signer)
-                    .value_name("DEPOSIT_AUTHORITY_KEYPAIR")
-                    .takes_value(true)
-                    .help("Deposit authority required to sign all deposits into the stake pool"),
-            )
-            .arg(
-                Arg::with_name("pool_keypair")
-                    .long("pool-keypair")
-                    .short("p")
-                    .validator(is_keypair_or_ask_keyword)
-                    .value_name("PATH")
-                    .takes_value(true)
-                    .help("Stake pool keypair [default: new keypair]"),
-            )
-            .arg(
-                Arg::with_name("validator_list_keypair")
-                    .long("validator-list-keypair")
-                    .validator(is_keypair_or_ask_keyword)
-                    .value_name("PATH")
-                    .takes_value(true)
-                    .help("Validator list keypair [default: new keypair]"),
-            )
-            .arg(
-                Arg::with_name("mint_keypair")
-                    .long("mint-keypair")
-                    .validator(is_keypair_or_ask_keyword)
-                    .value_name("PATH")
-                    .takes_value(true)
-                    .help("Stake pool mint keypair [default: new keypair]"),
-            )
-            .arg(
-                Arg::with_name("reserve_keypair")
-                    .long("reserve-keypair")
-                    .validator(is_keypair_or_ask_keyword)
-                    .value_name("PATH")
-                    .takes_value(true)
-                    .help("Stake pool reserve keypair [default: new keypair]"),
-            )
-            .arg(
-                Arg::with_name("unsafe_fees")
-                    .long("unsafe-fees")
-                    .takes_value(false)
-                    .help("Bypass fee checks, allowing pool to be created with unsafe fees"),
-            )
-        )
-        .subcommand(SubCommand::with_name("create-token-metadata")
-        .about("Creates stake pool token metadata")
-        .arg(
-            Arg::with_name("pool")
-                .index(1)
-                .validator(is_pubkey)
-                .value_name("POOL_ADDRESS")
-                .takes_value(true)
-                .required(true)
-                .help("Stake pool address"),
-        )
-        .arg(
-            Arg::with_name("name")
-                .index(2)
-                .value_name("TOKEN_NAME")
-                .takes_value(true)
-                .required(true)
-                .help("Name of the token"),
-        )
-        .arg(
-            Arg::with_name("symbol")
-                .index(3)
-                .value_name("TOKEN_SYMBOL")
-                .takes_value(true)
-                .required(true)
-                .help("Symbol of the token"),
-        )
-        .arg(
-            Arg::with_name("uri")
-                .index(4)
-                .value_name("TOKEN_URI")
-                .takes_value(true)
-                .required(true)
-                .help("URI of the token metadata json"),
-        )
-    )
-    .subcommand(SubCommand::with_name("update-token-metadata")
-    .about("Updates stake pool token metadata")
-    .arg(
-        Arg::with_name("pool")
-            .index(1)
-            .validator(is_pubkey)
-            .value_name("POOL_ADDRESS")
-            .takes_value(true)
-            .required(true)
-            .help("Stake pool address"),
-    )
-    .arg(
-        Arg::with_name("name")
-            .index(2)
-            .value_name("TOKEN_NAME")
-            .takes_value(true)
-            .required(true)
-            .help("Name of the token"),
-    )
-    .arg(
-        Arg::with_name("symbol")
-            .index(3)
-            .value_name("TOKEN_SYMBOL")
-            .takes_value(true)
-            .required(true)
-            .help("Symbol of the token"),
-    )
-    .arg(
-        Arg::with_name("uri")
-            .index(4)
-            .value_name("TOKEN_URI")
-            .takes_value(true)
-            .required(true)
-            .help("URI of the token metadata json"),
-        )
-    )
-        .subcommand(SubCommand::with_name("add-validator")
-            .about("Add validator account to the stake pool. Must be signed by the pool staker.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("vote_account")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("VOTE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("The validator vote account that the stake is delegated to"),
-            )
-        )
-        .subcommand(SubCommand::with_name("remove-validator")
-            .about("Remove validator account from the stake pool. Must be signed by the pool staker.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("vote_account")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("VOTE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Vote account for the validator to remove from the pool"),
-            )
-        )
-        .subcommand(SubCommand::with_name("increase-validator-stake")
-            .about("Increase stake to a validator, drawing from the stake pool reserve. Must be signed by the pool staker.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("vote_account")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("VOTE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Vote account for the validator to increase stake to"),
-            )
-            .arg(
-                Arg::with_name("amount")
-                    .index(3)
-                    .validator(is_amount)
-                    .value_name("AMOUNT")
-                    .takes_value(true)
-                    .help("Amount in SOL to add to the validator stake account. Must be at least the rent-exempt amount for a stake plus 1 SOL for merging."),
-            )
-        )
-        .subcommand(SubCommand::with_name("decrease-validator-stake")
-            .about("Decrease stake to a validator, splitting from the active stake. Must be signed by the pool staker.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("vote_account")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("VOTE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Vote account for the validator to decrease stake from"),
-            )
-            .arg(
-                Arg::with_name("amount")
-                    .index(3)
-                    .validator(is_amount)
-                    .value_name("AMOUNT")
-                    .takes_value(true)
-                    .help("Amount in SOL to remove from the validator stake account. Must be at least the rent-exempt amount for a stake."),
-            )
-        )
-        .subcommand(SubCommand::with_name("set-preferred-validator")
-            .about("Set the preferred validator for deposits or withdrawals. Must be signed by the pool staker.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("preferred_type")
-                    .index(2)
-                    .value_name("OPERATION")
-                    .possible_values(&["deposit", "withdraw"]) // PreferredValidatorType enum
-                    .takes_value(true)
-                    .required(true)
-                    .help("Operation for which to restrict the validator"),
-            )
-            .arg(
-                Arg::with_name("vote_account")
-                    .long("vote-account")
-                    .validator(is_pubkey)
-                    .value_name("VOTE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .help("Vote account for the validator that users must deposit into."),
-            )
-            .arg(
-                Arg::with_name("unset")
-                    .long("unset")
-                    .takes_value(false)
-                    .help("Unset the preferred validator."),
-            )
-            .group(ArgGroup::with_name("validator")
-                .arg("vote_account")
-                .arg("unset")
-                .required(true)
-            )
-        )
-        .subcommand(SubCommand::with_name("deposit-stake")
-            .about("Deposit active stake account into the stake pool in exchange for pool tokens")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("stake_account")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("STAKE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake address to join the pool"),
-            )
-            .arg(
-                Arg::with_name("withdraw_authority")
-                    .long("withdraw-authority")
-                    .validator(is_valid_signer)
-                    .value_name("KEYPAIR")
-                    .takes_value(true)
-                    .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
-            )
-            .arg(
-                Arg::with_name("token_receiver")
-                    .long("token-receiver")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Account to receive the minted pool tokens. \
-                          Defaults to the token-owner's associated pool token account. \
-                          Creates the account if it does not exist."),
-            )
-            .arg(
-                Arg::with_name("referrer")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Pool token account to receive the referral fees for deposits. \
-                          Defaults to the token receiver."),
-            )
-        )
-        .subcommand(SubCommand::with_name("deposit-all-stake")
-            .about("Deposit all active stake accounts into the stake pool in exchange for pool tokens")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            )
-            .arg(
-                Arg::with_name("stake_authority")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake authority address to search for stake accounts"),
-            )
-            .arg(
-                Arg::with_name("withdraw_authority")
-                    .long("withdraw-authority")
-                    .validator(is_valid_signer)
-                    .value_name("KEYPAIR")
-                    .takes_value(true)
-                    .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
-            )
-            .arg(
-                Arg::with_name("token_receiver")
-                    .long("token-receiver")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Account to receive the minted pool tokens. \
-                          Defaults to the token-owner's associated pool token account. \
-                          Creates the account if it does not exist."),
-            )
-            .arg(
-                Arg::with_name("referrer")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Pool token account to receive the referral fees for deposits. \
-                          Defaults to the token receiver."),
-            )
-        )
-        .subcommand(SubCommand::with_name("deposit-sol")
-            .about("Deposit SOL into the stake pool in exchange for pool tokens")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address"),
-            ).arg(
-                Arg::with_name("amount")
-                    .index(2)
-                    .validator(is_amount)
-                    .value_name("AMOUNT")
-                    .takes_value(true)
-                    .help("Amount in SOL to deposit into the stake pool reserve account."),
-            )
-            .arg(
-                Arg::with_name("from")
-                    .long("from")
-                    .validator(is_valid_signer)
-                    .value_name("KEYPAIR")
-                    .takes_value(true)
-                    .help("Source account of funds. [default: cli config keypair]"),
-            )
-            .arg(
-                Arg::with_name("token_receiver")
-                    .long("token-receiver")
-                    .validator(is_pubkey)
-                    .value_name("POOL_TOKEN_RECEIVER_ADDRESS")
-                    .takes_value(true)
-                    .help("Account to receive the minted pool tokens. \
-                          Defaults to the token-owner's associated pool token account. \
-                          Creates the account if it does not exist."),
-            )
-            .arg(
-                Arg::with_name("referrer")
-                    .long("referrer")
-                    .validator(is_pubkey)
-                    .value_name("REFERRER_TOKEN_ADDRESS")
-                    .takes_value(true)
-                    .help("Account to receive the referral fees for deposits. \
-                          Defaults to the token receiver."),
-            )
-        )
-        .subcommand(SubCommand::with_name("list")
-            .about("List stake accounts managed by this pool")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-        )
-        .subcommand(SubCommand::with_name("update")
-            .about("Updates all balances in the pool after validator stake accounts receive rewards.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("force")
-                    .long("force")
-                    .takes_value(false)
-                    .help("Update balances, even if it has already been performed this epoch."),
-            )
-            .arg(
-                Arg::with_name("no_merge")
-                    .long("no-merge")
-                    .takes_value(false)
-                    .help("Do not automatically merge transient stakes. Useful if the stake pool is in an expected state, but the balances still need to be updated."),
-            )
-            .arg(
-                Arg::with_name("stale_only")
-                    .long("stale-only")
-                    .takes_value(false)
-                    .help("If set, only updates validator list balances that have not been updated for this epoch. Otherwise, updates all validator balances on the validator list."),
-            )
-        )
-        .subcommand(SubCommand::with_name("withdraw-stake")
-            .about("Withdraw active stake from the stake pool in exchange for pool tokens")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("amount")
-                    .index(2)
-                    .validator(is_amount)
-                    .value_name("AMOUNT")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Amount of pool tokens to withdraw for activated stake."),
-            )
-            .arg(
-                Arg::with_name("pool_account")
-                    .long("pool-account")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Pool token account to withdraw tokens from. Defaults to the token-owner's associated token account."),
-            )
-            .arg(
-                Arg::with_name("stake_receiver")
-                    .long("stake-receiver")
-                    .validator(is_pubkey)
-                    .value_name("STAKE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .requires("withdraw_from")
-                    .help("Stake account from which to receive a stake from the stake pool. Defaults to a new stake account."),
-            )
-            .arg(
-                Arg::with_name("vote_account")
-                    .long("vote-account")
-                    .validator(is_pubkey)
-                    .value_name("VOTE_ACCOUNT_ADDRESS")
-                    .takes_value(true)
-                    .help("Validator to withdraw from. Defaults to the largest validator stakes in the pool."),
-            )
-            .arg(
-                Arg::with_name("use_reserve")
-                    .long("use-reserve")
-                    .takes_value(false)
-                    .help("Withdraw from the stake pool's reserve. Only possible if all validator stakes are at the minimum possible amount."),
-            )
-            .group(ArgGroup::with_name("withdraw_from")
-                .arg("use_reserve")
-                .arg("vote_account")
-            )
-        )
-        .subcommand(SubCommand::with_name("withdraw-sol")
-            .about("Withdraw SOL from the stake pool's reserve in exchange for pool tokens")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("sol_receiver")
-                    .index(2)
-                    .validator(is_valid_pubkey)
-                    .value_name("SYSTEM_ACCOUNT_ADDRESS_OR_KEYPAIR")
-                    .takes_value(true)
-                    .required(true)
-                    .help("System account to receive SOL from the stake pool. Defaults to the payer."),
-            )
-            .arg(
-                Arg::with_name("amount")
-                    .index(3)
-                    .validator(is_amount)
-                    .value_name("AMOUNT")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Amount of pool tokens to withdraw for SOL."),
-            )
-            .arg(
-                Arg::with_name("pool_account")
-                    .long("pool-account")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Pool token account to withdraw tokens from. Defaults to the token-owner's associated token account."),
-            )
-        )
-        .subcommand(SubCommand::with_name("set-manager")
-            .about("Change manager or fee receiver account for the stake pool. Must be signed by the current manager.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("new_manager")
-                    .long("new-manager")
-                    .validator(is_valid_signer)
-                    .value_name("KEYPAIR")
-                    .takes_value(true)
-                    .help("Keypair for the new stake pool manager."),
-            )
-            .arg(
-                Arg::with_name("new_fee_receiver")
-                    .long("new-fee-receiver")
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Public key for the new account to set as the stake pool fee receiver."),
-            )
-            .group(ArgGroup::with_name("new_accounts")
-                .arg("new_manager")
-                .arg("new_fee_receiver")
-                .required(true)
-                .multiple(true)
-            )
-        )
-        .subcommand(SubCommand::with_name("set-staker")
-            .about("Change staker account for the stake pool. Must be signed by the manager or current staker.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("new_staker")
-                    .index(2)
-                    .validator(is_pubkey)
-                    .value_name("ADDRESS")
-                    .takes_value(true)
-                    .help("Public key for the new stake pool staker."),
-            )
-        )
-        .subcommand(SubCommand::with_name("set-funding-authority")
-            .about("Change one of the funding authorities for the stake pool. Must be signed by the manager.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("funding_type")
-                    .index(2)
-                    .value_name("FUNDING_TYPE")
-                    .possible_values(&["stake-deposit", "sol-deposit", "sol-withdraw"]) // FundingType enum
-                    .takes_value(true)
-                    .required(true)
-                    .help("Funding type to be updated."),
-            )
-            .arg(
-                Arg::with_name("new_authority")
-                    .index(3)
-                    .validator(is_pubkey)
-                    .value_name("AUTHORITY_ADDRESS")
-                    .takes_value(true)
-                    .help("Public key for the new stake pool funding authority."),
-            )
-            .arg(
-                Arg::with_name("unset")
-                    .long("unset")
-                    .takes_value(false)
-                    .help("Unset the stake deposit authority. The program will use a program derived address.")
-            )
-            .group(ArgGroup::with_name("validator")
-                .arg("new_authority")
-                .arg("unset")
-                .required(true)
-            )
-        )
-        .subcommand(SubCommand::with_name("set-funding-authority-ix-serialized")
-            .about("Print a serialized instruction for changing one of the funding authorities for the stake pool. Must be signed by the manager.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(
-                Arg::with_name("funding_type")
-                    .index(2)
-                    .value_name("FUNDING_TYPE")
-                    .possible_values(&["stake-deposit", "sol-deposit", "sol-withdraw"]) // FundingType enum
-                    .takes_value(true)
-                    .required(true)
-                    .help("Funding type to be updated."),
-            )
-            .arg(
-                Arg::with_name("new_authority")
-                    .index(3)
-                    .validator(is_pubkey)
-                    .value_name("AUTHORITY_ADDRESS")
-                    .takes_value(true)
-                    .help("Public key for the new stake pool funding authority."),
-            )
-            .arg(
-                Arg::with_name("manager_address")
-                    .index(4)
-                    .validator(is_pubkey)
-                    .value_name("MANAGER_ADDRESS")
-                    .takes_value(true)
-                    // Note the manager here is not required to sign as part of the CLI allowing
-                    // this command to work for externally governed stake pools.
-                    .help("Pubic key for the stake pool's manager (that is not required to sign)"),
-            )
-            .arg(
-                Arg::with_name("unset")
-                    .long("unset")
-                    .takes_value(false)
-                    .help("Unset the stake deposit authority. The program will use a program derived address.")
-            )
-            .group(ArgGroup::with_name("validator")
-                .arg("new_authority")
-                .arg("unset")
-                .required(true)
-            )
-        )
-        .subcommand(SubCommand::with_name("set-fee")
-            .about("Change the [epoch/withdraw/stake deposit/sol deposit] fee assessed by the stake pool. Must be signed by the manager.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(Arg::with_name("fee_type")
-                .index(2)
-                .value_name("FEE_TYPE")
-                .possible_values(&["epoch", "stake-deposit", "sol-deposit", "stake-withdrawal", "sol-withdrawal"]) // FeeType enum
-                .takes_value(true)
-                .required(true)
-                .help("Fee type to be updated."),
-            )
-            .arg(
-                Arg::with_name("fee_numerator")
-                    .index(3)
-                    .validator(is_parsable::<u64>)
-                    .value_name("NUMERATOR")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Fee numerator, fee amount is numerator divided by denominator."),
-            )
-            .arg(
-                Arg::with_name("fee_denominator")
-                    .index(4)
-                    .validator(is_parsable::<u64>)
-                    .value_name("DENOMINATOR")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Fee denominator, fee amount is numerator divided by denominator."),
-            )
-        )
-        .subcommand(SubCommand::with_name("set-referral-fee")
-            .about("Change the referral fee assessed by the stake pool for stake deposits. Must be signed by the manager.")
-            .arg(
-                Arg::with_name("pool")
-                    .index(1)
-                    .validator(is_pubkey)
-                    .value_name("POOL_ADDRESS")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Stake pool address."),
-            )
-            .arg(Arg::with_name("fee_type")
-                .index(2)
-                .value_name("FEE_TYPE")
-                .possible_values(&["stake", "sol"]) // FeeType enum, kind of
-                .takes_value(true)
-                .required(true)
-                .help("Fee type to be updated."),
-            )
-            .arg(
-                Arg::with_name("fee")
-                    .index(3)
-                    .validator(is_valid_percentage)
-                    .value_name("FEE_PERCENTAGE")
-                    .takes_value(true)
-                    .required(true)
-                    .help("Fee percentage, maximum 100"),
-            )
-        )
-        .subcommand(SubCommand::with_name("list-all")
-            .about("List information about all stake pools")
-        )
-        .subcommand(SubCommand::with_name("interceptor")
-            .about("Interceptor related commands")
-            .subcommand(SubCommand::with_name("create-stake-deposit-authority")
-                .about("Create a stake deposit authority for a specific stake pool")
-                .arg(
-                    Arg::with_name("pool")
-                        .long("pool")
-                        .short("p")
-                        .validator(is_pubkey)
-                        .value_name("POOL_ADDRESS")
-                        .takes_value(true)
-                        .required(true)
-                        .help("Stake pool address"),
-                )
-                .arg(
-                    Arg::with_name("fee_wallet")
-                        .long("fee-wallet")
-                        .validator(is_pubkey)
-                        .value_name("FEE_WALLET")
-                        .takes_value(true)
-                        .required(true)
-                        .help("Fee wallet that will own the token account(s) to collect any fees from the interceptor"),
-                )
-                .arg(
-                    Arg::with_name("cool_down_seconds")
-                        .long("cool-down-seconds")
-                        .validator(is_parsable::<u64>)
-                        .value_name("COOL_DOWN_SECONDS")
-                        .takes_value(true)
-                        .required(true)
-                        .help("Duration for which fees are applied by the interceptor"),
-                )
-                .arg(
-                    Arg::with_name("initial_fee_bps")
-                        .long("initial-fee-bps")
-                        .validator(is_parsable::<u32>)
-                        .value_name("INITIAL_FEE_BPS")
-                        .takes_value(true)
-                        .required(true)
-                        .help("The fee rate (in basis points) that will be charged at time 0 and linearly decay until cool_down_seconds has elapsed"),
-                )
-                .arg(
-                    Arg::with_name("authority")
-                        .long("authority")
-                        .validator(is_pubkey)
-                        .value_name("AUTHORITY")
-                        .takes_value(true)
-                        .required(true)
-                        .help("The authority address that has permissions to adjust authority, cool_down_seconds, and initial_fee_bps"),
-                )
-            )
-            .subcommand(SubCommand::with_name("deposit-stake")
-                .about("Deposit active stake account into the stake pool and receive a receipt to claim pool tokens later")
-                .arg(
-                    Arg::with_name("stake_deposit_authority")
-                        .index(1)
-                        .validator(is_pubkey)
-                        .value_name("STAKE_DEPOSIT_AUTHORITY")
-                        .takes_value(true)
-                        .required(true)
-                        .help("stake_deposit_authority of the stake pool that will be deposited to"),
-                )
-                .arg(
-                    Arg::with_name("stake_account")
-                        .index(2)
-                        .validator(is_pubkey)
-                        .value_name("STAKE_ACCOUNT_ADDRESS")
-                        .takes_value(true)
-                        .required(true)
-                        .help("Stake address to join the pool"),
-                )
-                .arg(
-                    Arg::with_name("withdraw_authority")
-                        .long("withdraw-authority")
-                        .validator(is_valid_signer)
-                        .value_name("KEYPAIR")
-                        .takes_value(true)
-                        .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
-                )
-                .arg(
-                    Arg::with_name("referrer")
-                        .validator(is_pubkey)
-                        .value_name("ADDRESS")
-                        .takes_value(true)
-                        .help("Pool token account to receive the referral fees for deposits. \
-                            Defaults to the token receiver."),
-                )
-            )
-            .subcommand(SubCommand::with_name("list-receipts")
-                .about("List all deposit receipts with their status (active/expired)")
-                .arg(
-                    Arg::with_name("program_id")
-                        .long("program-id")
-                        .validator(is_pubkey)
-                        .value_name("PROGRAM_ID")
-                        .takes_value(true)
-                        .help("Stake deposit interceptor program ID [default: known program ID]"),
-                )
-                .arg(
-                    Arg::with_name("stake_pool")
-                        .long("stake-pool")
-                        .validator(is_pubkey)
-                        .value_name("STAKE_POOL")
-                        .takes_value(true)
-                        .help("Filter by specific stake pool address"),
-                )
-                .arg(
-                    Arg::with_name("show_expired_only")
-                        .long("expired-only")
-                        .help("Only show expired receipts"),
-                )
-                .arg(
-                    Arg::with_name("show_active_only")
-                        .long("active-only")
-                        .help("Only show active receipts"),
-                )
-            )
-            .subcommand(SubCommand::with_name("claim-tokens")
-                .about("Claim pool tokens for a specific deposit receipt")
-                .arg(
-                    Arg::with_name("receipt_address")
-                        .index(1)
-                        .validator(is_pubkey)
-                        .value_name("RECEIPT_ADDRESS")
-                        .takes_value(true)
-                        .required(true)
-                        .help("The deposit receipt PDA address"),
-                )
-                .arg(
-                    Arg::with_name("destination")
-                        .long("destination")
-                        .validator(is_pubkey)
-                        .value_name("DESTINATION")
-                        .takes_value(true)
-                        .help("Destination token account [default: owner's ATA]"),
-                )
-                .arg(
-                    Arg::with_name("after_cooldown")
-                        .long("after-cooldown")
-                        .help("Skip fee calculation if claiming after cooldown period"),
-                )
-                .arg(
-                    Arg::with_name("create_ata")
-                        .long("create-ata")
-                        .help("Create the destination ATA if it doesn't exist"),
-                )
-            )
-            .subcommand(SubCommand::with_name("get-stake-deposit-authority")
-                .about("Get a stake deposit authority for a specific stake pool")
-                .arg(
-                    Arg::with_name("stake_deposit_authority")
-                        .index(1)
-                        .validator(is_pubkey)
-                        .value_name("STAKE_DEPOSIT_AUTHORITY")
-                        .takes_value(true)
-                        .required(true)
-                        .help("stake_deposit_authority of the stake pool that will be deposited to"),
-                )
-            )
-        )
-        .get_matches();
+         .about(crate_description!())
+         .version(crate_version!())
+         .setting(AppSettings::SubcommandRequiredElseHelp)
+         .arg({
+             let arg = Arg::with_name("config_file")
+                 .short("C")
+                 .long("config")
+                 .value_name("PATH")
+                 .takes_value(true)
+                 .global(true)
+                 .help("Configuration file to use");
+             if let Some(ref config_file) = *solana_cli_config::CONFIG_FILE {
+                 arg.default_value(config_file)
+             } else {
+                 arg
+             }
+         })
+         .arg(
+             Arg::with_name("verbose")
+                 .long("verbose")
+                 .short("v")
+                 .takes_value(false)
+                 .global(true)
+                 .help("Show additional information"),
+         )
+         .arg(
+             Arg::with_name("output_format")
+                 .long("output")
+                 .value_name("FORMAT")
+                 .global(true)
+                 .takes_value(true)
+                 .possible_values(&["json", "json-compact"])
+                 .help("Return information in specified output format"),
+         )
+         .arg(
+             Arg::with_name("dry_run")
+                 .long("dry-run")
+                 .takes_value(false)
+                 .global(true)
+                 .help("Simulate transaction instead of executing"),
+         )
+         .arg(
+             Arg::with_name("no_update")
+                 .long("no-update")
+                 .takes_value(false)
+                 .global(true)
+                 .help("Do not automatically update the stake pool if needed"),
+         )
+         .arg(
+             Arg::with_name("json_rpc_url")
+                 .long("url")
+                 .value_name("URL")
+                 .takes_value(true)
+                 .validator(is_url)
+                 .global(true)
+                 .help("JSON RPC URL for the cluster.  Default from the configuration file."),
+         )
+         .arg(
+             Arg::with_name("staker")
+                 .long("staker")
+                 .value_name("KEYPAIR")
+                 .validator(is_valid_signer)
+                 .takes_value(true)
+                 .global(true)
+                 .help("Stake pool staker. [default: cli config keypair]"),
+         )
+         .arg(
+             Arg::with_name("manager")
+                 .long("manager")
+                 .value_name("KEYPAIR")
+                 .validator(is_valid_signer)
+                 .takes_value(true)
+                 .global(true)
+                 .help("Stake pool manager. [default: cli config keypair]"),
+         )
+         .arg(
+             Arg::with_name("funding_authority")
+                 .long("funding-authority")
+                 .value_name("KEYPAIR")
+                 .validator(is_valid_signer)
+                 .takes_value(true)
+                 .global(true)
+                 .help("Stake pool funding authority for deposits or withdrawals. [default: cli config keypair]"),
+         )
+         .arg(
+             Arg::with_name("token_owner")
+                 .long("token-owner")
+                 .value_name("KEYPAIR")
+                 .validator(is_valid_signer)
+                 .takes_value(true)
+                 .global(true)
+                 .help("Owner of pool token account [default: cli config keypair]"),
+         )
+         .arg(
+             Arg::with_name("fee_payer")
+                 .long("fee-payer")
+                 .value_name("KEYPAIR")
+                 .validator(is_valid_signer)
+                 .takes_value(true)
+                 .global(true)
+                 .help("Transaction fee payer account [default: cli config keypair]"),
+         )
+         .arg(compute_unit_price_arg().validator(is_parsable::<u64>).global(true))
+         .arg(
+             Arg::with_name(COMPUTE_UNIT_LIMIT_ARG.name)
+                 .long(COMPUTE_UNIT_LIMIT_ARG.long)
+                 .takes_value(true)
+                 .value_name("COMPUTE-UNIT-LIMIT")
+                 .help(COMPUTE_UNIT_LIMIT_ARG.help)
+                 .validator(is_compute_unit_limit_or_simulated)
+                 .global(true)
+         )
+         .subcommand(SubCommand::with_name("create-pool")
+             .about("Create a new stake pool")
+             .arg(
+                 Arg::with_name("epoch_fee_numerator")
+                     .long("epoch-fee-numerator")
+                     .short("n")
+                     .validator(is_parsable::<u64>)
+                     .value_name("NUMERATOR")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Epoch fee numerator, fee amount is numerator divided by denominator."),
+             )
+             .arg(
+                 Arg::with_name("epoch_fee_denominator")
+                     .long("epoch-fee-denominator")
+                     .short("d")
+                     .validator(is_parsable::<u64>)
+                     .value_name("DENOMINATOR")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Epoch fee denominator, fee amount is numerator divided by denominator."),
+             )
+             .arg(
+                 Arg::with_name("withdrawal_fee_numerator")
+                     .long("withdrawal-fee-numerator")
+                     .validator(is_parsable::<u64>)
+                     .value_name("NUMERATOR")
+                     .takes_value(true)
+                     .requires("withdrawal_fee_denominator")
+                     .help("Withdrawal fee numerator, fee amount is numerator divided by denominator [default: 0]"),
+             ).arg(
+                 Arg::with_name("withdrawal_fee_denominator")
+                     .long("withdrawal-fee-denominator")
+                     .validator(is_parsable::<u64>)
+                     .value_name("DENOMINATOR")
+                     .takes_value(true)
+                     .requires("withdrawal_fee_numerator")
+                     .help("Withdrawal fee denominator, fee amount is numerator divided by denominator [default: 0]"),
+             )
+             .arg(
+                 Arg::with_name("deposit_fee_numerator")
+                     .long("deposit-fee-numerator")
+                     .validator(is_parsable::<u64>)
+                     .value_name("NUMERATOR")
+                     .takes_value(true)
+                     .requires("deposit_fee_denominator")
+                     .help("Deposit fee numerator, fee amount is numerator divided by denominator [default: 0]"),
+             ).arg(
+                 Arg::with_name("deposit_fee_denominator")
+                     .long("deposit-fee-denominator")
+                     .validator(is_parsable::<u64>)
+                     .value_name("DENOMINATOR")
+                     .takes_value(true)
+                     .requires("deposit_fee_numerator")
+                     .help("Deposit fee denominator, fee amount is numerator divided by denominator [default: 0]"),
+             )
+             .arg(
+                 Arg::with_name("referral_fee")
+                     .long("referral-fee")
+                     .validator(is_valid_percentage)
+                     .value_name("FEE_PERCENTAGE")
+                     .takes_value(true)
+                     .help("Referral fee percentage, maximum 100"),
+             )
+             .arg(
+                 Arg::with_name("max_validators")
+                     .long("max-validators")
+                     .short("m")
+                     .validator(is_parsable::<u32>)
+                     .value_name("NUMBER")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Max number of validators included in the stake pool"),
+             )
+             .arg(
+                 Arg::with_name("deposit_authority")
+                     .long("deposit-authority")
+                     .short("a")
+                     .validator(is_valid_signer)
+                     .value_name("DEPOSIT_AUTHORITY_KEYPAIR")
+                     .takes_value(true)
+                     .help("Deposit authority required to sign all deposits into the stake pool"),
+             )
+             .arg(
+                 Arg::with_name("pool_keypair")
+                     .long("pool-keypair")
+                     .short("p")
+                     .validator(is_keypair_or_ask_keyword)
+                     .value_name("PATH")
+                     .takes_value(true)
+                     .help("Stake pool keypair [default: new keypair]"),
+             )
+             .arg(
+                 Arg::with_name("validator_list_keypair")
+                     .long("validator-list-keypair")
+                     .validator(is_keypair_or_ask_keyword)
+                     .value_name("PATH")
+                     .takes_value(true)
+                     .help("Validator list keypair [default: new keypair]"),
+             )
+             .arg(
+                 Arg::with_name("mint_keypair")
+                     .long("mint-keypair")
+                     .validator(is_keypair_or_ask_keyword)
+                     .value_name("PATH")
+                     .takes_value(true)
+                     .help("Stake pool mint keypair [default: new keypair]"),
+             )
+             .arg(
+                 Arg::with_name("reserve_keypair")
+                     .long("reserve-keypair")
+                     .validator(is_keypair_or_ask_keyword)
+                     .value_name("PATH")
+                     .takes_value(true)
+                     .help("Stake pool reserve keypair [default: new keypair]"),
+             )
+             .arg(
+                 Arg::with_name("unsafe_fees")
+                     .long("unsafe-fees")
+                     .takes_value(false)
+                     .help("Bypass fee checks, allowing pool to be created with unsafe fees"),
+             )
+         )
+         .subcommand(SubCommand::with_name("create-token-metadata")
+         .about("Creates stake pool token metadata")
+         .arg(
+             Arg::with_name("pool")
+                 .index(1)
+                 .validator(is_pubkey)
+                 .value_name("POOL_ADDRESS")
+                 .takes_value(true)
+                 .required(true)
+                 .help("Stake pool address"),
+         )
+         .arg(
+             Arg::with_name("name")
+                 .index(2)
+                 .value_name("TOKEN_NAME")
+                 .takes_value(true)
+                 .required(true)
+                 .help("Name of the token"),
+         )
+         .arg(
+             Arg::with_name("symbol")
+                 .index(3)
+                 .value_name("TOKEN_SYMBOL")
+                 .takes_value(true)
+                 .required(true)
+                 .help("Symbol of the token"),
+         )
+         .arg(
+             Arg::with_name("uri")
+                 .index(4)
+                 .value_name("TOKEN_URI")
+                 .takes_value(true)
+                 .required(true)
+                 .help("URI of the token metadata json"),
+         )
+     )
+     .subcommand(SubCommand::with_name("update-token-metadata")
+     .about("Updates stake pool token metadata")
+     .arg(
+         Arg::with_name("pool")
+             .index(1)
+             .validator(is_pubkey)
+             .value_name("POOL_ADDRESS")
+             .takes_value(true)
+             .required(true)
+             .help("Stake pool address"),
+     )
+     .arg(
+         Arg::with_name("name")
+             .index(2)
+             .value_name("TOKEN_NAME")
+             .takes_value(true)
+             .required(true)
+             .help("Name of the token"),
+     )
+     .arg(
+         Arg::with_name("symbol")
+             .index(3)
+             .value_name("TOKEN_SYMBOL")
+             .takes_value(true)
+             .required(true)
+             .help("Symbol of the token"),
+     )
+     .arg(
+         Arg::with_name("uri")
+             .index(4)
+             .value_name("TOKEN_URI")
+             .takes_value(true)
+             .required(true)
+             .help("URI of the token metadata json"),
+         )
+     )
+         .subcommand(SubCommand::with_name("add-validator")
+             .about("Add validator account to the stake pool. Must be signed by the pool staker.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("vote_account")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("VOTE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("The validator vote account that the stake is delegated to"),
+             )
+         )
+         .subcommand(SubCommand::with_name("remove-validator")
+             .about("Remove validator account from the stake pool. Must be signed by the pool staker.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("vote_account")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("VOTE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Vote account for the validator to remove from the pool"),
+             )
+         )
+         .subcommand(SubCommand::with_name("increase-validator-stake")
+             .about("Increase stake to a validator, drawing from the stake pool reserve. Must be signed by the pool staker.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("vote_account")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("VOTE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Vote account for the validator to increase stake to"),
+             )
+             .arg(
+                 Arg::with_name("amount")
+                     .index(3)
+                     .validator(is_amount)
+                     .value_name("AMOUNT")
+                     .takes_value(true)
+                     .help("Amount in SOL to add to the validator stake account. Must be at least the rent-exempt amount for a stake plus 1 SOL for merging."),
+             )
+         )
+         .subcommand(SubCommand::with_name("decrease-validator-stake")
+             .about("Decrease stake to a validator, splitting from the active stake. Must be signed by the pool staker.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("vote_account")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("VOTE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Vote account for the validator to decrease stake from"),
+             )
+             .arg(
+                 Arg::with_name("amount")
+                     .index(3)
+                     .validator(is_amount)
+                     .value_name("AMOUNT")
+                     .takes_value(true)
+                     .help("Amount in SOL to remove from the validator stake account. Must be at least the rent-exempt amount for a stake."),
+             )
+         )
+         .subcommand(SubCommand::with_name("set-preferred-validator")
+             .about("Set the preferred validator for deposits or withdrawals. Must be signed by the pool staker.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("preferred_type")
+                     .index(2)
+                     .value_name("OPERATION")
+                     .possible_values(&["deposit", "withdraw"]) // PreferredValidatorType enum
+                     .takes_value(true)
+                     .required(true)
+                     .help("Operation for which to restrict the validator"),
+             )
+             .arg(
+                 Arg::with_name("vote_account")
+                     .long("vote-account")
+                     .validator(is_pubkey)
+                     .value_name("VOTE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .help("Vote account for the validator that users must deposit into."),
+             )
+             .arg(
+                 Arg::with_name("unset")
+                     .long("unset")
+                     .takes_value(false)
+                     .help("Unset the preferred validator."),
+             )
+             .group(ArgGroup::with_name("validator")
+                 .arg("vote_account")
+                 .arg("unset")
+                 .required(true)
+             )
+         )
+         .subcommand(SubCommand::with_name("deposit-stake")
+             .about("Deposit active stake account into the stake pool in exchange for pool tokens")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("stake_account")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("STAKE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake address to join the pool"),
+             )
+             .arg(
+                 Arg::with_name("withdraw_authority")
+                     .long("withdraw-authority")
+                     .validator(is_valid_signer)
+                     .value_name("KEYPAIR")
+                     .takes_value(true)
+                     .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
+             )
+             .arg(
+                 Arg::with_name("token_receiver")
+                     .long("token-receiver")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Account to receive the minted pool tokens. \
+                           Defaults to the token-owner's associated pool token account. \
+                           Creates the account if it does not exist."),
+             )
+             .arg(
+                 Arg::with_name("referrer")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Pool token account to receive the referral fees for deposits. \
+                           Defaults to the token receiver."),
+             )
+         )
+         .subcommand(SubCommand::with_name("deposit-all-stake")
+             .about("Deposit all active stake accounts into the stake pool in exchange for pool tokens")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             )
+             .arg(
+                 Arg::with_name("stake_authority")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake authority address to search for stake accounts"),
+             )
+             .arg(
+                 Arg::with_name("withdraw_authority")
+                     .long("withdraw-authority")
+                     .validator(is_valid_signer)
+                     .value_name("KEYPAIR")
+                     .takes_value(true)
+                     .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
+             )
+             .arg(
+                 Arg::with_name("token_receiver")
+                     .long("token-receiver")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Account to receive the minted pool tokens. \
+                           Defaults to the token-owner's associated pool token account. \
+                           Creates the account if it does not exist."),
+             )
+             .arg(
+                 Arg::with_name("referrer")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Pool token account to receive the referral fees for deposits. \
+                           Defaults to the token receiver."),
+             )
+         )
+         .subcommand(SubCommand::with_name("deposit-sol")
+             .about("Deposit SOL into the stake pool in exchange for pool tokens")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address"),
+             ).arg(
+                 Arg::with_name("amount")
+                     .index(2)
+                     .validator(is_amount)
+                     .value_name("AMOUNT")
+                     .takes_value(true)
+                     .help("Amount in SOL to deposit into the stake pool reserve account."),
+             )
+             .arg(
+                 Arg::with_name("from")
+                     .long("from")
+                     .validator(is_valid_signer)
+                     .value_name("KEYPAIR")
+                     .takes_value(true)
+                     .help("Source account of funds. [default: cli config keypair]"),
+             )
+             .arg(
+                 Arg::with_name("token_receiver")
+                     .long("token-receiver")
+                     .validator(is_pubkey)
+                     .value_name("POOL_TOKEN_RECEIVER_ADDRESS")
+                     .takes_value(true)
+                     .help("Account to receive the minted pool tokens. \
+                           Defaults to the token-owner's associated pool token account. \
+                           Creates the account if it does not exist."),
+             )
+             .arg(
+                 Arg::with_name("referrer")
+                     .long("referrer")
+                     .validator(is_pubkey)
+                     .value_name("REFERRER_TOKEN_ADDRESS")
+                     .takes_value(true)
+                     .help("Account to receive the referral fees for deposits. \
+                           Defaults to the token receiver."),
+             )
+         )
+         .subcommand(SubCommand::with_name("list")
+             .about("List stake accounts managed by this pool")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+         )
+         .subcommand(SubCommand::with_name("update")
+             .about("Updates all balances in the pool after validator stake accounts receive rewards.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("force")
+                     .long("force")
+                     .takes_value(false)
+                     .help("Update balances, even if it has already been performed this epoch."),
+             )
+             .arg(
+                 Arg::with_name("no_merge")
+                     .long("no-merge")
+                     .takes_value(false)
+                     .help("Do not automatically merge transient stakes. Useful if the stake pool is in an expected state, but the balances still need to be updated."),
+             )
+             .arg(
+                 Arg::with_name("stale_only")
+                     .long("stale-only")
+                     .takes_value(false)
+                     .help("If set, only updates validator list balances that have not been updated for this epoch. Otherwise, updates all validator balances on the validator list."),
+             )
+         )
+         .subcommand(SubCommand::with_name("withdraw-stake")
+             .about("Withdraw active stake from the stake pool in exchange for pool tokens")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("amount")
+                     .index(2)
+                     .validator(is_amount)
+                     .value_name("AMOUNT")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Amount of pool tokens to withdraw for activated stake."),
+             )
+             .arg(
+                 Arg::with_name("pool_account")
+                     .long("pool-account")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Pool token account to withdraw tokens from. Defaults to the token-owner's associated token account."),
+             )
+             .arg(
+                 Arg::with_name("stake_receiver")
+                     .long("stake-receiver")
+                     .validator(is_pubkey)
+                     .value_name("STAKE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .requires("withdraw_from")
+                     .help("Stake account from which to receive a stake from the stake pool. Defaults to a new stake account."),
+             )
+             .arg(
+                 Arg::with_name("vote_account")
+                     .long("vote-account")
+                     .validator(is_pubkey)
+                     .value_name("VOTE_ACCOUNT_ADDRESS")
+                     .takes_value(true)
+                     .help("Validator to withdraw from. Defaults to the largest validator stakes in the pool."),
+             )
+             .arg(
+                 Arg::with_name("use_reserve")
+                     .long("use-reserve")
+                     .takes_value(false)
+                     .help("Withdraw from the stake pool's reserve. Only possible if all validator stakes are at the minimum possible amount."),
+             )
+             .group(ArgGroup::with_name("withdraw_from")
+                 .arg("use_reserve")
+                 .arg("vote_account")
+             )
+         )
+         .subcommand(SubCommand::with_name("withdraw-sol")
+             .about("Withdraw SOL from the stake pool's reserve in exchange for pool tokens")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("sol_receiver")
+                     .index(2)
+                     .validator(is_valid_pubkey)
+                     .value_name("SYSTEM_ACCOUNT_ADDRESS_OR_KEYPAIR")
+                     .takes_value(true)
+                     .required(true)
+                     .help("System account to receive SOL from the stake pool. Defaults to the payer."),
+             )
+             .arg(
+                 Arg::with_name("amount")
+                     .index(3)
+                     .validator(is_amount)
+                     .value_name("AMOUNT")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Amount of pool tokens to withdraw for SOL."),
+             )
+             .arg(
+                 Arg::with_name("pool_account")
+                     .long("pool-account")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Pool token account to withdraw tokens from. Defaults to the token-owner's associated token account."),
+             )
+         )
+         .subcommand(SubCommand::with_name("set-manager")
+             .about("Change manager or fee receiver account for the stake pool. Must be signed by the current manager.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("new_manager")
+                     .long("new-manager")
+                     .validator(is_valid_signer)
+                     .value_name("KEYPAIR")
+                     .takes_value(true)
+                     .help("Keypair for the new stake pool manager."),
+             )
+             .arg(
+                 Arg::with_name("new_fee_receiver")
+                     .long("new-fee-receiver")
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Public key for the new account to set as the stake pool fee receiver."),
+             )
+             .group(ArgGroup::with_name("new_accounts")
+                 .arg("new_manager")
+                 .arg("new_fee_receiver")
+                 .required(true)
+                 .multiple(true)
+             )
+         )
+         .subcommand(SubCommand::with_name("set-staker")
+             .about("Change staker account for the stake pool. Must be signed by the manager or current staker.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("new_staker")
+                     .index(2)
+                     .validator(is_pubkey)
+                     .value_name("ADDRESS")
+                     .takes_value(true)
+                     .help("Public key for the new stake pool staker."),
+             )
+         )
+         .subcommand(SubCommand::with_name("set-funding-authority")
+             .about("Change one of the funding authorities for the stake pool. Must be signed by the manager.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("funding_type")
+                     .index(2)
+                     .value_name("FUNDING_TYPE")
+                     .possible_values(&["stake-deposit", "sol-deposit", "sol-withdraw"]) // FundingType enum
+                     .takes_value(true)
+                     .required(true)
+                     .help("Funding type to be updated."),
+             )
+             .arg(
+                 Arg::with_name("new_authority")
+                     .index(3)
+                     .validator(is_pubkey)
+                     .value_name("AUTHORITY_ADDRESS")
+                     .takes_value(true)
+                     .help("Public key for the new stake pool funding authority."),
+             )
+             .arg(
+                 Arg::with_name("unset")
+                     .long("unset")
+                     .takes_value(false)
+                     .help("Unset the stake deposit authority. The program will use a program derived address.")
+             )
+             .group(ArgGroup::with_name("validator")
+                 .arg("new_authority")
+                 .arg("unset")
+                 .required(true)
+             )
+         )
+         .subcommand(SubCommand::with_name("set-funding-authority-ix-serialized")
+             .about("Print a serialized instruction for changing one of the funding authorities for the stake pool. Must be signed by the manager.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(
+                 Arg::with_name("funding_type")
+                     .index(2)
+                     .value_name("FUNDING_TYPE")
+                     .possible_values(&["stake-deposit", "sol-deposit", "sol-withdraw"]) // FundingType enum
+                     .takes_value(true)
+                     .required(true)
+                     .help("Funding type to be updated."),
+             )
+             .arg(
+                 Arg::with_name("new_authority")
+                     .index(3)
+                     .validator(is_pubkey)
+                     .value_name("AUTHORITY_ADDRESS")
+                     .takes_value(true)
+                     .help("Public key for the new stake pool funding authority."),
+             )
+             .arg(
+                 Arg::with_name("manager_address")
+                     .index(4)
+                     .validator(is_pubkey)
+                     .value_name("MANAGER_ADDRESS")
+                     .takes_value(true)
+                     // Note the manager here is not required to sign as part of the CLI allowing
+                     // this command to work for externally governed stake pools.
+                     .help("Pubic key for the stake pool's manager (that is not required to sign)"),
+             )
+             .arg(
+                 Arg::with_name("unset")
+                     .long("unset")
+                     .takes_value(false)
+                     .help("Unset the stake deposit authority. The program will use a program derived address.")
+             )
+             .group(ArgGroup::with_name("validator")
+                 .arg("new_authority")
+                 .arg("unset")
+                 .required(true)
+             )
+         )
+         .subcommand(SubCommand::with_name("set-fee")
+             .about("Change the [epoch/withdraw/stake deposit/sol deposit] fee assessed by the stake pool. Must be signed by the manager.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(Arg::with_name("fee_type")
+                 .index(2)
+                 .value_name("FEE_TYPE")
+                 .possible_values(&["epoch", "stake-deposit", "sol-deposit", "stake-withdrawal", "sol-withdrawal"]) // FeeType enum
+                 .takes_value(true)
+                 .required(true)
+                 .help("Fee type to be updated."),
+             )
+             .arg(
+                 Arg::with_name("fee_numerator")
+                     .index(3)
+                     .validator(is_parsable::<u64>)
+                     .value_name("NUMERATOR")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Fee numerator, fee amount is numerator divided by denominator."),
+             )
+             .arg(
+                 Arg::with_name("fee_denominator")
+                     .index(4)
+                     .validator(is_parsable::<u64>)
+                     .value_name("DENOMINATOR")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Fee denominator, fee amount is numerator divided by denominator."),
+             )
+         )
+         .subcommand(SubCommand::with_name("set-referral-fee")
+             .about("Change the referral fee assessed by the stake pool for stake deposits. Must be signed by the manager.")
+             .arg(
+                 Arg::with_name("pool")
+                     .index(1)
+                     .validator(is_pubkey)
+                     .value_name("POOL_ADDRESS")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Stake pool address."),
+             )
+             .arg(Arg::with_name("fee_type")
+                 .index(2)
+                 .value_name("FEE_TYPE")
+                 .possible_values(&["stake", "sol"]) // FeeType enum, kind of
+                 .takes_value(true)
+                 .required(true)
+                 .help("Fee type to be updated."),
+             )
+             .arg(
+                 Arg::with_name("fee")
+                     .index(3)
+                     .validator(is_valid_percentage)
+                     .value_name("FEE_PERCENTAGE")
+                     .takes_value(true)
+                     .required(true)
+                     .help("Fee percentage, maximum 100"),
+             )
+         )
+         .subcommand(SubCommand::with_name("list-all")
+             .about("List information about all stake pools")
+         )
+         .subcommand(SubCommand::with_name("interceptor")
+             .about("Interceptor related commands")
+             .subcommand(SubCommand::with_name("create-stake-deposit-authority")
+                 .about("Create a stake deposit authority for a specific stake pool")
+                 .arg(
+                     Arg::with_name("pool")
+                         .long("pool")
+                         .short("p")
+                         .validator(is_pubkey)
+                         .value_name("POOL_ADDRESS")
+                         .takes_value(true)
+                         .required(true)
+                         .help("Stake pool address"),
+                 )
+                 .arg(
+                     Arg::with_name("fee_wallet")
+                         .long("fee-wallet")
+                         .validator(is_pubkey)
+                         .value_name("FEE_WALLET")
+                         .takes_value(true)
+                         .required(true)
+                         .help("Fee wallet that will own the token account(s) to collect any fees from the interceptor"),
+                 )
+                 .arg(
+                     Arg::with_name("cool_down_seconds")
+                         .long("cool-down-seconds")
+                         .validator(is_parsable::<u64>)
+                         .value_name("COOL_DOWN_SECONDS")
+                         .takes_value(true)
+                         .required(true)
+                         .help("Duration for which fees are applied by the interceptor"),
+                 )
+                 .arg(
+                     Arg::with_name("initial_fee_bps")
+                         .long("initial-fee-bps")
+                         .validator(is_parsable::<u32>)
+                         .value_name("INITIAL_FEE_BPS")
+                         .takes_value(true)
+                         .required(true)
+                         .help("The fee rate (in basis points) that will be charged at time 0 and linearly decay until cool_down_seconds has elapsed"),
+                 )
+                 .arg(
+                     Arg::with_name("authority")
+                         .long("authority")
+                         .validator(is_pubkey)
+                         .value_name("AUTHORITY")
+                         .takes_value(true)
+                         .required(true)
+                         .help("The authority address that has permissions to adjust authority, cool_down_seconds, and initial_fee_bps"),
+                 )
+             )
+             .subcommand(SubCommand::with_name("deposit-stake")
+                 .about("Deposit active stake account into the stake pool and receive a receipt to claim pool tokens later")
+                 .arg(
+                     Arg::with_name("stake_deposit_authority")
+                         .index(1)
+                         .validator(is_pubkey)
+                         .value_name("STAKE_DEPOSIT_AUTHORITY")
+                         .takes_value(true)
+                         .required(true)
+                         .help("stake_deposit_authority of the stake pool that will be deposited to"),
+                 )
+                 .arg(
+                     Arg::with_name("stake_account")
+                         .index(2)
+                         .validator(is_pubkey)
+                         .value_name("STAKE_ACCOUNT_ADDRESS")
+                         .takes_value(true)
+                         .required(true)
+                         .help("Stake address to join the pool"),
+                 )
+                 .arg(
+                     Arg::with_name("withdraw_authority")
+                         .long("withdraw-authority")
+                         .validator(is_valid_signer)
+                         .value_name("KEYPAIR")
+                         .takes_value(true)
+                         .help("Withdraw authority for the stake account to be deposited. [default: cli config keypair]"),
+                 )
+                 .arg(
+                     Arg::with_name("referrer")
+                         .validator(is_pubkey)
+                         .value_name("ADDRESS")
+                         .takes_value(true)
+                         .help("Pool token account to receive the referral fees for deposits. \
+                             Defaults to the token receiver."),
+                 )
+             )
+             .subcommand(SubCommand::with_name("list-receipts")
+                 .about("List all deposit receipts with their status (active/expired)")
+                 .arg(
+                     Arg::with_name("program_id")
+                         .long("program-id")
+                         .validator(is_pubkey)
+                         .value_name("PROGRAM_ID")
+                         .takes_value(true)
+                         .help("Stake deposit interceptor program ID [default: known program ID]"),
+                 )
+                 .arg(
+                     Arg::with_name("stake_pool")
+                         .long("stake-pool")
+                         .validator(is_pubkey)
+                         .value_name("STAKE_POOL")
+                         .takes_value(true)
+                         .help("Filter by specific stake pool address"),
+                 )
+                 .arg(
+                     Arg::with_name("show_expired_only")
+                         .long("expired-only")
+                         .help("Only show expired receipts"),
+                 )
+                 .arg(
+                     Arg::with_name("show_active_only")
+                         .long("active-only")
+                         .help("Only show active receipts"),
+                 )
+             )
+             .subcommand(SubCommand::with_name("claim-tokens")
+                 .about("Claim pool tokens for a specific deposit receipt")
+                 .arg(
+                     Arg::with_name("receipt_address")
+                         .index(1)
+                         .validator(is_pubkey)
+                         .value_name("RECEIPT_ADDRESS")
+                         .takes_value(true)
+                         .required(true)
+                         .help("The deposit receipt PDA address"),
+                 )
+                 .arg(
+                     Arg::with_name("destination")
+                         .long("destination")
+                         .validator(is_pubkey)
+                         .value_name("DESTINATION")
+                         .takes_value(true)
+                         .help("Destination token account [default: owner's ATA]"),
+                 )
+                 .arg(
+                     Arg::with_name("after_cooldown")
+                         .long("after-cooldown")
+                         .help("Skip fee calculation if claiming after cooldown period"),
+                 )
+                 .arg(
+                     Arg::with_name("create_ata")
+                         .long("create-ata")
+                         .help("Create the destination ATA if it doesn't exist"),
+                 )
+             )
+             .subcommand(SubCommand::with_name("get-stake-deposit-authority")
+                 .about("Get a stake deposit authority for a specific stake pool")
+                 .arg(
+                     Arg::with_name("stake_deposit_authority")
+                         .index(1)
+                         .validator(is_pubkey)
+                         .value_name("STAKE_DEPOSIT_AUTHORITY")
+                         .takes_value(true)
+                         .required(true)
+                         .help("stake_deposit_authority of the stake pool that will be deposited to"),
+                 )
+             )
+         )
+         .get_matches();
 
     let mut wallet_manager = None;
     let cli_config = if let Some(config_file) = matches.value_of("config_file") {
@@ -3452,24 +3427,24 @@ fn main() {
             let _unset = arg_matches.is_present("unset");
             command_set_funding_authority(&config, &stake_pool_address, new_authority, funding_type)
         }
-        ("set-funding-authority-ix-serialized", Some(arg_matches)) => {
-            let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
-            let manager_address = pubkey_of(arg_matches, "manager_address").unwrap();
-            let new_authority = pubkey_of(arg_matches, "new_authority");
-            let funding_type = match arg_matches.value_of("funding_type").unwrap() {
-                "sol-deposit" => FundingType::SolDeposit,
-                "stake-deposit" => FundingType::StakeDeposit,
-                "sol-withdraw" => FundingType::SolWithdraw,
-                _ => unreachable!(),
-            };
-            let _unset = arg_matches.is_present("unset");
-            command_get_set_funding_authority_ix_serialized(
-                &manager_address,
-                &stake_pool_address,
-                new_authority,
-                funding_type,
-            )
-        }
+        // ("set-funding-authority-ix-serialized", Some(arg_matches)) => {
+        //     let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
+        //     let manager_address = pubkey_of(arg_matches, "manager_address").unwrap();
+        //     let new_authority = pubkey_of(arg_matches, "new_authority");
+        //     let funding_type = match arg_matches.value_of("funding_type").unwrap() {
+        //         "sol-deposit" => FundingType::SolDeposit,
+        //         "stake-deposit" => FundingType::StakeDeposit,
+        //         "sol-withdraw" => FundingType::SolWithdraw,
+        //         _ => unreachable!(),
+        //     };
+        //     let _unset = arg_matches.is_present("unset");
+        //     command_get_set_funding_authority_ix_serialized(
+        //         &manager_address,
+        //         &stake_pool_address,
+        //         new_authority,
+        //         funding_type,
+        //     )
+        // }
         ("set-fee", Some(arg_matches)) => {
             let stake_pool_address = pubkey_of(arg_matches, "pool").unwrap();
             let numerator = value_t_or_exit!(arg_matches, "fee_numerator", u64);
@@ -3504,8 +3479,7 @@ fn main() {
             let fee = value_t_or_exit!(arg_matches, "fee", u8);
             assert!(
                 fee <= 100u8,
-                "Invalid fee {}%. Fee needs to be in range [0-100]",
-                fee
+                "Invalid fee {fee}%. Fee needs to be in range [0-100]"
             );
             let fee_type = match arg_matches.value_of("fee_type").unwrap() {
                 "sol" => FeeType::SolReferral(fee),
@@ -3613,7 +3587,7 @@ fn main() {
         _ => unreachable!(),
     }
     .map_err(|err| {
-        eprintln!("{}", err);
+        eprintln!("{err}");
         exit(1);
     });
 }

@@ -1,7 +1,7 @@
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::datapoint_info;
 use solana_sdk::clock::DEFAULT_SLOTS_PER_EPOCH;
-use stake_deposit_interceptor::state::DepositReceipt;
+use stake_deposit_interceptor_program::state::DepositReceipt;
 use std::sync::Arc;
 use tracing::error;
 
@@ -63,7 +63,7 @@ pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt, cluster_name: &str
         .stake_pool_deposit_stake_authority
         .to_string();
 
-    let account_string = format!("{:?}", deposit_receipt);
+    let account_string = format!("{deposit_receipt:?}");
     datapoint_info!(
         "sdi-deposit-receipt",
         ("base", base, String),
