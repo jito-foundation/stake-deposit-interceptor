@@ -18,6 +18,7 @@ use solana_program::{
     sysvar::Sysvar,
 };
 use spl_associated_token_account_interface::address::get_associated_token_address;
+use spl_token_2022_interface::state::Account;
 
 use crate::{
     deposit_receipt_signer_seeds, deposit_stake_authority_signer_seeds,
@@ -316,9 +317,7 @@ impl Processor {
             return Err(StakeDepositInterceptorError::InvalidStakePool.into());
         }
 
-        let vault_token_account_before = spl_token_2022_interface::state::Account::unpack(
-            &pool_tokens_vault_info.data.borrow(),
-        )?;
+        let vault_token_account_before = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
 
         // CPI to SPL stake-pool program to invoke DepositStake with the `StakePoolDepositStakeAuthority` as the
         // `stake_deposit_authority`.
@@ -343,9 +342,7 @@ impl Processor {
             minimum_pool_tokens_out,
         )?;
 
-        let vault_token_account_after = spl_token_2022_interface::state::Account::unpack(
-            &pool_tokens_vault_info.data.borrow(),
-        )?;
+        let vault_token_account_after = Account::unpack(&pool_tokens_vault_info.data.borrow())?;
         let pool_tokens_minted = vault_token_account_after
             .amount
             .checked_sub(vault_token_account_before.amount)
@@ -534,18 +531,15 @@ impl Processor {
                 return Err(StakeDepositInterceptorError::InvalidPoolMint.into());
             }
 
-            let fee_token_account = spl_token_2022_interface::state::Account::unpack(
-                &fee_token_account_info.data.borrow(),
-            )?;
+            let fee_token_account = Account::unpack(&fee_token_account_info.data.borrow())?;
 
             // Validate: Fee token account must be owned by `fee_wallet`
             if fee_token_account.owner != deposit_stake_authority.fee_wallet {
                 return Err(StakeDepositInterceptorError::InvalidFeeTokenAccount.into());
             }
 
-            let destination_token_account = spl_token_2022_interface::state::Account::unpack(
-                &destination_token_account_info.data.borrow(),
-            )?;
+            let destination_token_account =
+                Account::unpack(&destination_token_account_info.data.borrow())?;
 
             // Validate: Destination token account must be owned by DepositRecipt `owner`
             if destination_token_account.owner != deposit_receipt.owner {

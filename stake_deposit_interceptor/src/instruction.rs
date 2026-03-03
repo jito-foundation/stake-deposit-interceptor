@@ -362,12 +362,12 @@ pub enum StakeDepositInterceptorInstruction {
         signer,
         writable,
         name = "whitelisted_signer",
-        desc = "Must be present in the WHitelist.whitelist array"
+        desc = "Must be present in the Whitelist.whitelist array"
     )]
     #[account(
         1,
         name = "whitelist",
-        desc = "Whitelist account from WHitelistManagementProgram"
+        desc = "Whitelist account from WhitelistManagementProgram"
     )]
     #[account(2, writable, name = "stake_pool", desc = "Stake pool account")]
     #[account(3, writable, name = "validator_list", desc = "Validator List")]
