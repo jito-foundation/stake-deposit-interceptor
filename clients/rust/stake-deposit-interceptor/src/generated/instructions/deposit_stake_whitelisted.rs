@@ -13,9 +13,9 @@ pub const DEPOSIT_STAKE_WHITELISTED_DISCRIMINATOR: u8 = 6;
 /// Accounts.
 #[derive(Debug)]
 pub struct DepositStakeWhitelisted {
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: solana_pubkey::Pubkey,
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     pub whitelist: solana_pubkey::Pubkey,
     /// Stake pool account
     pub stake_pool: solana_pubkey::Pubkey,
@@ -49,6 +49,8 @@ pub struct DepositStakeWhitelisted {
     pub stake_program: solana_pubkey::Pubkey,
     /// SPL Stake Pool Program
     pub spl_stake_pool_program: solana_pubkey::Pubkey,
+    /// System program
+    pub system_program: solana_pubkey::Pubkey,
 }
 
 impl DepositStakeWhitelisted {
@@ -61,7 +63,7 @@ impl DepositStakeWhitelisted {
         &self,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(18 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(19 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new(
             self.whitelisted_signer,
             true,
@@ -127,6 +129,10 @@ impl DepositStakeWhitelisted {
             self.spl_stake_pool_program,
             false,
         ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.system_program,
+            false,
+        ));
         accounts.extend_from_slice(remaining_accounts);
         let data = DepositStakeWhitelistedInstructionData::new()
             .try_to_vec()
@@ -184,6 +190,7 @@ impl Default for DepositStakeWhitelistedInstructionData {
 ///   15. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
 ///   16. `[]` stake_program
 ///   17. `[]` spl_stake_pool_program
+///   18. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct DepositStakeWhitelistedBuilder {
     whitelisted_signer: Option<solana_pubkey::Pubkey>,
@@ -204,6 +211,7 @@ pub struct DepositStakeWhitelistedBuilder {
     token_program: Option<solana_pubkey::Pubkey>,
     stake_program: Option<solana_pubkey::Pubkey>,
     spl_stake_pool_program: Option<solana_pubkey::Pubkey>,
+    system_program: Option<solana_pubkey::Pubkey>,
     __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -211,13 +219,13 @@ impl DepositStakeWhitelistedBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     #[inline(always)]
     pub fn whitelisted_signer(&mut self, whitelisted_signer: solana_pubkey::Pubkey) -> &mut Self {
         self.whitelisted_signer = Some(whitelisted_signer);
         self
     }
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     #[inline(always)]
     pub fn whitelist(&mut self, whitelist: solana_pubkey::Pubkey) -> &mut Self {
         self.whitelist = Some(whitelist);
@@ -329,6 +337,13 @@ impl DepositStakeWhitelistedBuilder {
         self.spl_stake_pool_program = Some(spl_stake_pool_program);
         self
     }
+    /// `[optional account, default to '11111111111111111111111111111111']`
+    /// System program
+    #[inline(always)]
+    pub fn system_program(&mut self, system_program: solana_pubkey::Pubkey) -> &mut Self {
+        self.system_program = Some(system_program);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
@@ -379,6 +394,9 @@ impl DepositStakeWhitelistedBuilder {
             spl_stake_pool_program: self
                 .spl_stake_pool_program
                 .expect("spl_stake_pool_program is not set"),
+            system_program: self
+                .system_program
+                .unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
         };
 
         accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
@@ -387,9 +405,9 @@ impl DepositStakeWhitelistedBuilder {
 
 /// `deposit_stake_whitelisted` CPI accounts.
 pub struct DepositStakeWhitelistedCpiAccounts<'a, 'b> {
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     pub whitelist: &'b solana_account_info::AccountInfo<'a>,
     /// Stake pool account
     pub stake_pool: &'b solana_account_info::AccountInfo<'a>,
@@ -423,15 +441,17 @@ pub struct DepositStakeWhitelistedCpiAccounts<'a, 'b> {
     pub stake_program: &'b solana_account_info::AccountInfo<'a>,
     /// SPL Stake Pool Program
     pub spl_stake_pool_program: &'b solana_account_info::AccountInfo<'a>,
+    /// System program
+    pub system_program: &'b solana_account_info::AccountInfo<'a>,
 }
 
 /// `deposit_stake_whitelisted` CPI instruction.
 pub struct DepositStakeWhitelistedCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_account_info::AccountInfo<'a>,
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     pub whitelist: &'b solana_account_info::AccountInfo<'a>,
     /// Stake pool account
     pub stake_pool: &'b solana_account_info::AccountInfo<'a>,
@@ -465,6 +485,8 @@ pub struct DepositStakeWhitelistedCpi<'a, 'b> {
     pub stake_program: &'b solana_account_info::AccountInfo<'a>,
     /// SPL Stake Pool Program
     pub spl_stake_pool_program: &'b solana_account_info::AccountInfo<'a>,
+    /// System program
+    pub system_program: &'b solana_account_info::AccountInfo<'a>,
 }
 
 impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
@@ -492,6 +514,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
             token_program: accounts.token_program,
             stake_program: accounts.stake_program,
             spl_stake_pool_program: accounts.spl_stake_pool_program,
+            system_program: accounts.system_program,
         }
     }
     #[inline(always)]
@@ -517,7 +540,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(18 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(19 + remaining_accounts.len());
         accounts.push(solana_instruction::AccountMeta::new(
             *self.whitelisted_signer.key,
             true,
@@ -590,6 +613,10 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
             *self.spl_stake_pool_program.key,
             false,
         ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.system_program.key,
+            false,
+        ));
         remaining_accounts.iter().for_each(|remaining_account| {
             accounts.push(solana_instruction::AccountMeta {
                 pubkey: *remaining_account.0.key,
@@ -606,7 +633,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(19 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(20 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
         account_infos.push(self.whitelisted_signer.clone());
         account_infos.push(self.whitelist.clone());
@@ -626,6 +653,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
         account_infos.push(self.token_program.clone());
         account_infos.push(self.stake_program.clone());
         account_infos.push(self.spl_stake_pool_program.clone());
+        account_infos.push(self.system_program.clone());
         remaining_accounts
             .iter()
             .for_each(|remaining_account| account_infos.push(remaining_account.0.clone()));
@@ -660,6 +688,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
 ///   15. `[]` token_program
 ///   16. `[]` stake_program
 ///   17. `[]` spl_stake_pool_program
+///   18. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct DepositStakeWhitelistedCpiBuilder<'a, 'b> {
     instruction: Box<DepositStakeWhitelistedCpiBuilderInstruction<'a, 'b>>,
@@ -687,11 +716,12 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
             token_program: None,
             stake_program: None,
             spl_stake_pool_program: None,
+            system_program: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
     }
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     #[inline(always)]
     pub fn whitelisted_signer(
         &mut self,
@@ -700,7 +730,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.whitelisted_signer = Some(whitelisted_signer);
         self
     }
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     #[inline(always)]
     pub fn whitelist(&mut self, whitelist: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.whitelist = Some(whitelist);
@@ -844,6 +874,15 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.spl_stake_pool_program = Some(spl_stake_pool_program);
         self
     }
+    /// System program
+    #[inline(always)]
+    pub fn system_program(
+        &mut self,
+        system_program: &'b solana_account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.system_program = Some(system_program);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -958,6 +997,11 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
                 .instruction
                 .spl_stake_pool_program
                 .expect("spl_stake_pool_program is not set"),
+
+            system_program: self
+                .instruction
+                .system_program
+                .expect("system_program is not set"),
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -987,6 +1031,7 @@ struct DepositStakeWhitelistedCpiBuilderInstruction<'a, 'b> {
     token_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     stake_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     spl_stake_pool_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+    system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
