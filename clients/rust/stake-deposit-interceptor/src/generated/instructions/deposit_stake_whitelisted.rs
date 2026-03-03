@@ -13,9 +13,9 @@ pub const DEPOSIT_STAKE_WHITELISTED_DISCRIMINATOR: u8 = 6;
 /// Accounts.
 #[derive(Debug)]
 pub struct DepositStakeWhitelisted {
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: solana_pubkey::Pubkey,
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     pub whitelist: solana_pubkey::Pubkey,
     /// Stake pool account
     pub stake_pool: solana_pubkey::Pubkey,
@@ -219,13 +219,13 @@ impl DepositStakeWhitelistedBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     #[inline(always)]
     pub fn whitelisted_signer(&mut self, whitelisted_signer: solana_pubkey::Pubkey) -> &mut Self {
         self.whitelisted_signer = Some(whitelisted_signer);
         self
     }
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     #[inline(always)]
     pub fn whitelist(&mut self, whitelist: solana_pubkey::Pubkey) -> &mut Self {
         self.whitelist = Some(whitelist);
@@ -405,9 +405,9 @@ impl DepositStakeWhitelistedBuilder {
 
 /// `deposit_stake_whitelisted` CPI accounts.
 pub struct DepositStakeWhitelistedCpiAccounts<'a, 'b> {
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     pub whitelist: &'b solana_account_info::AccountInfo<'a>,
     /// Stake pool account
     pub stake_pool: &'b solana_account_info::AccountInfo<'a>,
@@ -449,9 +449,9 @@ pub struct DepositStakeWhitelistedCpiAccounts<'a, 'b> {
 pub struct DepositStakeWhitelistedCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_account_info::AccountInfo<'a>,
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     pub whitelist: &'b solana_account_info::AccountInfo<'a>,
     /// Stake pool account
     pub stake_pool: &'b solana_account_info::AccountInfo<'a>,
@@ -721,7 +721,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
         });
         Self { instruction }
     }
-    /// Must be present in the WHitelist.whitelist array
+    /// Must be present in the Whitelist.whitelist array
     #[inline(always)]
     pub fn whitelisted_signer(
         &mut self,
@@ -730,7 +730,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.whitelisted_signer = Some(whitelisted_signer);
         self
     }
-    /// Whitelist account from WHitelistManagementProgram
+    /// Whitelist account from WhitelistManagementProgram
     #[inline(always)]
     pub fn whitelist(&mut self, whitelist: &'b solana_account_info::AccountInfo<'a>) -> &mut Self {
         self.instruction.whitelist = Some(whitelist);

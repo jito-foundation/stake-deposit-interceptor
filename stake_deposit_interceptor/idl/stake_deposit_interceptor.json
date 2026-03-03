@@ -624,7 +624,7 @@
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "Must be present in the WHitelist.whitelist array"
+            "Must be present in the Whitelist.whitelist array"
           ]
         },
         {
@@ -632,7 +632,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Whitelist account from WHitelistManagementProgram"
+            "Whitelist account from WhitelistManagementProgram"
           ]
         },
         {
