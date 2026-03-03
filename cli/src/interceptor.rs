@@ -552,7 +552,7 @@ pub fn command_fund_hopper(
             println!("Successfully transferring",);
             Ok(())
         }
-        Err(e) => Err(format!("Failed to claim pool tokens: {e}").into()),
+        Err(e) => Err(format!("Failed to fund hopper: {e}").into()),
     }
 }
 
