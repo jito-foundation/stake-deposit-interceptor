@@ -735,13 +735,11 @@ impl Processor {
                 .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
                 .map(|n| n as u64)
                 .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
-            let fee_lamports = (pool_tokens_fee as u128)
+            (pool_tokens_fee as u128)
                 .checked_mul(conversion_rate_bps as u128)
                 .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
                 .map(|n| n as u64)
-                .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
-
-            fee_lamports
+                .ok_or(StakeDepositInterceptorError::ArithmeticError)?
         };
 
         invoke(
