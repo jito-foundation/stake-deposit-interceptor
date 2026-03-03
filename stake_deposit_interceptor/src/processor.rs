@@ -720,19 +720,29 @@ impl Processor {
         }
 
         let stake_pool: StakePool = try_from_slice_unchecked(&stake_pool_info.data.borrow())?;
-        let pool_tokens_fee = stake_pool
-            .calc_pool_tokens_stake_withdrawal_fee(amount)
-            .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
-        let conversion_rate_bps = (stake_pool.total_lamports as u128)
-            .checked_mul(BASIS_POINTS_MAX as u128)
-            .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
-            .map(|n| n as u64)
-            .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
-        let fee_lamports = (pool_tokens_fee as u128)
-            .checked_mul(conversion_rate_bps as u128)
-            .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
-            .map(|n| n as u64)
-            .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
+
+        // To prevent a faulty manager fee account from preventing withdrawals
+        // if the token program does not own the account, or if the account is not
+        // initialized
+        let fee_lamports = if stake_pool.manager_fee_account == *user_pool_token_account_info.key {
+            0
+        } else {
+            let pool_tokens_fee = stake_pool
+                .calc_pool_tokens_stake_withdrawal_fee(amount)
+                .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
+            let conversion_rate_bps = (stake_pool.total_lamports as u128)
+                .checked_mul(BASIS_POINTS_MAX as u128)
+                .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
+                .map(|n| n as u64)
+                .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
+            let fee_lamports = (pool_tokens_fee as u128)
+                .checked_mul(conversion_rate_bps as u128)
+                .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
+                .map(|n| n as u64)
+                .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
+
+            fee_lamports
+        };
 
         invoke(
             &spl_stake_pool::instruction::withdraw_stake(
@@ -767,28 +777,30 @@ impl Processor {
             ],
         )?;
 
-        Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
-        let (_, hopper_bump, mut hopper_seeds) =
-            Hopper::find_program_address(program_id, whitelist_info.key);
-        hopper_seeds.push(vec![hopper_bump]);
+        if fee_lamports > 0 {
+            Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
+            let (_, hopper_bump, mut hopper_seeds) =
+                Hopper::find_program_address(program_id, whitelist_info.key);
+            hopper_seeds.push(vec![hopper_bump]);
 
-        invoke_signed(
-            &transfer(
-                fee_rebate_hopper_info.key,
-                fee_rebate_recipient_info.key,
-                fee_lamports,
-            ),
-            &[
-                fee_rebate_hopper_info.clone(),
-                fee_rebate_recipient_info.clone(),
-                system_program_info.clone(),
-            ],
-            &[hopper_seeds
-                .iter()
-                .map(|seed| seed.as_slice())
-                .collect::<Vec<&[u8]>>()
-                .as_slice()],
-        )?;
+            invoke_signed(
+                &transfer(
+                    fee_rebate_hopper_info.key,
+                    fee_rebate_recipient_info.key,
+                    fee_lamports,
+                ),
+                &[
+                    fee_rebate_hopper_info.clone(),
+                    fee_rebate_recipient_info.clone(),
+                    system_program_info.clone(),
+                ],
+                &[hopper_seeds
+                    .iter()
+                    .map(|seed| seed.as_slice())
+                    .collect::<Vec<&[u8]>>()
+                    .as_slice()],
+            )?;
+        }
 
         Ok(())
     }
