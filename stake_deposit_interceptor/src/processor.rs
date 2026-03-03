@@ -779,27 +779,36 @@ impl Processor {
 
         if fee_lamports > 0 {
             Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
-            let (_, hopper_bump, mut hopper_seeds) =
-                Hopper::find_program_address(program_id, whitelist_info.key);
-            hopper_seeds.push(vec![hopper_bump]);
 
-            invoke_signed(
-                &transfer(
-                    fee_rebate_hopper_info.key,
-                    fee_rebate_recipient_info.key,
-                    fee_lamports,
-                ),
-                &[
-                    fee_rebate_hopper_info.clone(),
-                    fee_rebate_recipient_info.clone(),
-                    system_program_info.clone(),
-                ],
-                &[hopper_seeds
-                    .iter()
-                    .map(|seed| seed.as_slice())
-                    .collect::<Vec<&[u8]>>()
-                    .as_slice()],
-            )?;
+            let hopper_balance = fee_rebate_hopper_info.lamports();
+            let rent = Rent::get()?;
+            let min_balance = rent.minimum_balance(fee_rebate_hopper_info.data_len());
+            let available = hopper_balance.saturating_sub(min_balance);
+            let rebate_lamports = fee_lamports.min(available);
+
+            if rebate_lamports > 0 {
+                let (_, hopper_bump, mut hopper_seeds) =
+                    Hopper::find_program_address(program_id, whitelist_info.key);
+                hopper_seeds.push(vec![hopper_bump]);
+
+                invoke_signed(
+                    &transfer(
+                        fee_rebate_hopper_info.key,
+                        fee_rebate_recipient_info.key,
+                        rebate_lamports,
+                    ),
+                    &[
+                        fee_rebate_hopper_info.clone(),
+                        fee_rebate_recipient_info.clone(),
+                        system_program_info.clone(),
+                    ],
+                    &[hopper_seeds
+                        .iter()
+                        .map(|seed| seed.as_slice())
+                        .collect::<Vec<&[u8]>>()
+                        .as_slice()],
+                )?;
+            }
         }
 
         Ok(())
