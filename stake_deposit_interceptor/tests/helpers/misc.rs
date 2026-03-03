@@ -20,6 +20,7 @@ pub fn program_test_with_stake_pool_program() -> ProgramTest {
         JITO_WHITELIST_MANAGEMENT_ID,
         None,
     );
+    program_test.add_program("spl_stake_pool", spl_stake_pool::id(), None);
     program_test
 }
 
