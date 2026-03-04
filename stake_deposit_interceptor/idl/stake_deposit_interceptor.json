@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "name": "stake_deposit_interceptor",
   "instructions": [
     {
@@ -794,7 +794,7 @@
           "isMut": true,
           "isSigner": true,
           "docs": [
-            "Must be present in the WHitelist.whitelist array"
+            "Must be present in the Whitelist.whitelist array"
           ]
         },
         {
@@ -802,7 +802,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "Whitelist account from WHitelistManagementProgram"
+            "Whitelist account from WhitelistManagementProgram"
           ]
         },
         {
