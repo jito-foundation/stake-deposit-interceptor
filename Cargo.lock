@@ -3281,7 +3281,7 @@ dependencies = [
 
 [[package]]
 name = "jito-whitelist-management-client"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anchor-lang",
  "borsh 1.6.0",
@@ -3303,7 +3303,7 @@ dependencies = [
 
 [[package]]
 name = "jito-whitelist-management-core"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "bytemuck",
  "jito-bytemuck",
@@ -10826,7 +10826,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "stake-deposit-interceptor"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "borsh 1.6.0",
  "bytemuck",
@@ -10865,7 +10865,7 @@ dependencies = [
 
 [[package]]
 name = "stake-deposit-interceptor-api"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -10889,7 +10889,7 @@ dependencies = [
 
 [[package]]
 name = "stake-deposit-interceptor-cli"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "base64 0.22.1",
  "bincode",
@@ -10922,7 +10922,7 @@ dependencies = [
 
 [[package]]
 name = "stake-deposit-interceptor-client"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "anchor-lang",
  "borsh 1.6.0",
@@ -10944,7 +10944,7 @@ dependencies = [
 
 [[package]]
 name = "stake-deposit-interceptor-cranker"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "bytemuck",
  "clap 4.5.47",
