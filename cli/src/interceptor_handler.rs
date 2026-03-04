@@ -17,6 +17,7 @@ use solana_rpc_client_api::{
     filter::{Memcmp, RpcFilterType},
 };
 use solana_signer::Signer;
+use solana_system_interface::instruction::transfer;
 use solana_transaction::{Instruction, Signers, Transaction};
 use spl_associated_token_account_interface::address::get_associated_token_address;
 use spl_stake_pool::{
@@ -347,6 +348,16 @@ impl StakeDepositInterceptorCliHandler {
                 )
                 .await
             }
+            StakeDepositInterceptorCommands::Interceptor {
+                action:
+                    StakeDepositInterceptorActions::FundHopper {
+                        whitelist,
+                        lamports,
+                    },
+            } => self.fund_hopper(whitelist, lamports).await,
+            StakeDepositInterceptorCommands::Interceptor {
+                action: StakeDepositInterceptorActions::HopperBalance { whitelist },
+            } => self.hopper_balance(whitelist).await,
         }
     }
 
@@ -976,6 +987,39 @@ impl StakeDepositInterceptorCliHandler {
             ],
         )
         .await?;
+
+        Ok(())
+    }
+
+    pub async fn fund_hopper(&self, whitelist_pda: Pubkey, lamports: u64) -> anyhow::Result<()> {
+        let hopper_pda = Hopper::find_program_address(
+            &self.stake_deposit_interceptor_program_id,
+            &whitelist_pda,
+        )
+        .0;
+
+        let ix = transfer(&self.cli_config.signer.pubkey(), &hopper_pda, lamports);
+
+        self.process_transaction(
+            &[ix],
+            &self.cli_config.signer.pubkey(),
+            &[self.cli_config.signer.clone()],
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn hopper_balance(&self, whitelist_pda: Pubkey) -> anyhow::Result<()> {
+        let rpc_client = self.get_rpc_client();
+        let hopper_pda = Hopper::find_program_address(
+            &self.stake_deposit_interceptor_program_id,
+            &whitelist_pda,
+        )
+        .0;
+        let hopper_acc = rpc_client.get_account(&hopper_pda).await?;
+
+        println!("Hopper Balance: {}", hopper_acc.lamports);
 
         Ok(())
     }

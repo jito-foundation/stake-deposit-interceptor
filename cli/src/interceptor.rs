@@ -185,4 +185,22 @@ pub enum StakeDepositInterceptorActions {
         #[arg(long)]
         amount: u64,
     },
+
+    /// Fund hopper
+    FundHopper {
+        /// Whitelist address
+        #[arg(long)]
+        whitelist: Pubkey,
+
+        /// Lamports
+        #[arg(long)]
+        lamports: u64,
+    },
+
+    /// Hopper Balance
+    HopperBalance {
+        /// Whitelist address
+        #[arg(long)]
+        whitelist: Pubkey,
+    },
 }
