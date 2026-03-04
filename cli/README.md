@@ -168,3 +168,32 @@ cargo r -p stake-deposit-interceptor-cli -- \
     --commitment confirmed \
     --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
 ```
+
+#### Fund Hopper
+
+```bash
+cargo r -p stake-deposit-interceptor-cli -- \
+    stake-deposit-interceptor \
+    interceptor \
+    fund-hopper \
+    --whitelist 7Qh3p1FpSAAeZer9kLXMyT8dS5PZatLgF9dxBd1BEoKV \
+    --lamports 1 \
+    --rpc-url https://api.devnet.solana.com \
+    --signer ~/.config/solana/id.json \
+    --commitment confirmed \
+    --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
+```
+
+#### Hopper Balance
+
+```bash
+cargo r -p stake-deposit-interceptor-cli -- \
+    stake-deposit-interceptor \
+    interceptor \
+    hopper-balance \
+    --whitelist 7Qh3p1FpSAAeZer9kLXMyT8dS5PZatLgF9dxBd1BEoKV \
+    --rpc-url https://api.devnet.solana.com \
+    --signer ~/.config/solana/id.json \
+    --commitment confirmed \
+    --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
+```
