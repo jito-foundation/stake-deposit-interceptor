@@ -696,7 +696,7 @@
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "Destination for minted JitoSOL - goes directly to depositor, no Ticket"
+            "Destination for minted pool token - goes directly to depositor, no Ticket"
           ]
         },
         {

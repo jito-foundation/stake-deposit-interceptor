@@ -31,7 +31,7 @@ pub struct DepositStakeWhitelisted {
     pub validator_stake: solana_pubkey::Pubkey,
     /// Reserve stake account
     pub reserve_stake: solana_pubkey::Pubkey,
-    /// Destination for minted JitoSOL - goes directly to depositor, no Ticket
+    /// Destination for minted pool token - goes directly to depositor, no Ticket
     pub pool_tokens_to: solana_pubkey::Pubkey,
     /// Manager fee account
     pub manager_fee_account: solana_pubkey::Pubkey,
@@ -276,7 +276,7 @@ impl DepositStakeWhitelistedBuilder {
         self.reserve_stake = Some(reserve_stake);
         self
     }
-    /// Destination for minted JitoSOL - goes directly to depositor, no Ticket
+    /// Destination for minted pool token - goes directly to depositor, no Ticket
     #[inline(always)]
     pub fn pool_tokens_to(&mut self, pool_tokens_to: solana_pubkey::Pubkey) -> &mut Self {
         self.pool_tokens_to = Some(pool_tokens_to);
@@ -423,7 +423,7 @@ pub struct DepositStakeWhitelistedCpiAccounts<'a, 'b> {
     pub validator_stake: &'b solana_account_info::AccountInfo<'a>,
     /// Reserve stake account
     pub reserve_stake: &'b solana_account_info::AccountInfo<'a>,
-    /// Destination for minted JitoSOL - goes directly to depositor, no Ticket
+    /// Destination for minted pool token - goes directly to depositor, no Ticket
     pub pool_tokens_to: &'b solana_account_info::AccountInfo<'a>,
     /// Manager fee account
     pub manager_fee_account: &'b solana_account_info::AccountInfo<'a>,
@@ -467,7 +467,7 @@ pub struct DepositStakeWhitelistedCpi<'a, 'b> {
     pub validator_stake: &'b solana_account_info::AccountInfo<'a>,
     /// Reserve stake account
     pub reserve_stake: &'b solana_account_info::AccountInfo<'a>,
-    /// Destination for minted JitoSOL - goes directly to depositor, no Ticket
+    /// Destination for minted pool token - goes directly to depositor, no Ticket
     pub pool_tokens_to: &'b solana_account_info::AccountInfo<'a>,
     /// Manager fee account
     pub manager_fee_account: &'b solana_account_info::AccountInfo<'a>,
@@ -799,7 +799,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.reserve_stake = Some(reserve_stake);
         self
     }
-    /// Destination for minted JitoSOL - goes directly to depositor, no Ticket
+    /// Destination for minted pool token - goes directly to depositor, no Ticket
     #[inline(always)]
     pub fn pool_tokens_to(
         &mut self,

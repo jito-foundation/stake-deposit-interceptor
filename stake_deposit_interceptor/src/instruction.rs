@@ -336,9 +336,6 @@ pub enum StakeDepositInterceptorInstruction {
 
     /// Deposits stake directly into the spl-stake-pool — bypassing the Ticket/cooldown mechanism.
     ///
-    /// JitoSOL is minted straight to the depositor.
-    /// Requires a whitelisted signer from the Whitelist account on the WhitelistManagementProgram.
-    ///
     ///   0. `[w,s]` Whitelisted Signer
     ///   1. `[]` Whitelist PDA
     ///   2. `[w]` Stake pool account
@@ -348,7 +345,7 @@ pub enum StakeDepositInterceptorInstruction {
     ///   6. `[w]` Deposit stake account
     ///   7. `[w]` Validator stake account
     ///   8. `[w]` Reserve stake account
-    ///   9. `[w]` Destination for minted JitoSOL
+    ///   9. `[w]` Destination for minted pool token
     ///   10. `[w]` Manager fee account
     ///   11. `[w]` Referral fee account
     ///   12. `[w]` Pool mint account
@@ -394,7 +391,7 @@ pub enum StakeDepositInterceptorInstruction {
         9,
         writable,
         name = "pool_tokens_to",
-        desc = "Destination for minted JitoSOL - goes directly to depositor, no Ticket"
+        desc = "Destination for minted pool token - goes directly to depositor, no Ticket"
     )]
     #[account(
         10,
@@ -428,8 +425,8 @@ pub enum StakeDepositInterceptorInstruction {
     ///   6. `[w]` Validator stake account to split from
     ///   7. `[w]` The new stake account
     ///   8. `[w]` Set as authority on the new stake account
-    ///   9. `[w,s]` Authority over the JitoSOL token account
-    ///   10. `[w]` JitoSOL token account (burned from)
+    ///   9. `[w,s]` Authority over the pool token account
+    ///   10. `[w]` Pool token account (burned from)
     ///   11. `[w]` Manager fee account
     ///   12. `[w]` Pool mint account
     ///   13. '[]' Pre-funded SOL account that covers the withdrawal fee rebate account

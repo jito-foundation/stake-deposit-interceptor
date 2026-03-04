@@ -11,7 +11,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Jito Network <team@jito.network>"]
 repository = "https://github.com/jito-foundation/stake-deposit-interceptor"
 homepage = "https://jito.network"
