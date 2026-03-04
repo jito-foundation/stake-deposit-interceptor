@@ -13,6 +13,8 @@ pub const WITHDRAW_STAKE_WHITELISTED_DISCRIMINATOR: u8 = 7;
 /// Accounts.
 #[derive(Debug)]
 pub struct WithdrawStakeWhitelisted {
+    /// Interceptor PDA - the stake deposit authority on the pool
+    pub stake_deposit_authority: solana_pubkey::Pubkey,
     /// Must be present in the WHitelist.whitelist array
     pub whitelisted_signer: solana_pubkey::Pubkey,
     /// Whitelist account from WHitelistManagementProgram
@@ -23,21 +25,21 @@ pub struct WithdrawStakeWhitelisted {
     pub validator_list: solana_pubkey::Pubkey,
     /// Pool withdraw authority
     pub withdraw_authority: solana_pubkey::Pubkey,
-    /// The new stake account Coinbase receives
+    /// The new stake account
     pub stake_split_from: solana_pubkey::Pubkey,
-    /// The new stake account Coinbase receives
+    /// The new stake account
     pub stake_split_to: solana_pubkey::Pubkey,
-    /// Coinbase signer — set as authority on the new stake account
+    /// Signer — set as authority on the new stake account
     pub user_stake_authority: solana_pubkey::Pubkey,
-    /// Authority over the JitoSOL token account
+    /// Authority over the Pool token account
     pub user_transfer_authority: solana_pubkey::Pubkey,
-    /// Coinbase's JitoSOL token account (burned from)
+    /// Pool token account (burned from)
     pub user_pool_token_account: solana_pubkey::Pubkey,
     /// Manager fee account
     pub manager_fee_account: solana_pubkey::Pubkey,
     /// Pool token mint account
     pub pool_mint: solana_pubkey::Pubkey,
-    /// Pre-funded SOL account that covers the 0.1% withdrawal fee rebate
+    /// Pre-funded SOL account that covers the withdrawal fee rebate
     pub fee_rebate_hopper: solana_pubkey::Pubkey,
     /// Recipient of the fee rebate (the withdrawer)
     pub fee_rebate_recipient: solana_pubkey::Pubkey,
@@ -67,7 +69,11 @@ impl WithdrawStakeWhitelisted {
         args: WithdrawStakeWhitelistedInstructionArgs,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
-        let mut accounts = Vec::with_capacity(19 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(20 + remaining_accounts.len());
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.stake_deposit_authority,
+            false,
+        ));
         accounts.push(solana_instruction::AccountMeta::new(
             self.whitelisted_signer,
             true,
@@ -190,27 +196,29 @@ impl WithdrawStakeWhitelistedInstructionArgs {
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` whitelisted_signer
-///   1. `[]` whitelist
-///   2. `[writable]` stake_pool
-///   3. `[writable]` validator_list
-///   4. `[]` withdraw_authority
-///   5. `[writable]` stake_split_from
-///   6. `[writable]` stake_split_to
-///   7. `[writable]` user_stake_authority
-///   8. `[writable, signer]` user_transfer_authority
-///   9. `[writable]` user_pool_token_account
-///   10. `[writable]` manager_fee_account
-///   11. `[writable]` pool_mint
-///   12. `[writable]` fee_rebate_hopper
-///   13. `[writable]` fee_rebate_recipient
-///   14. `[]` clock
-///   15. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
-///   16. `[]` stake_program
-///   17. `[]` spl_stake_pool_program
-///   18. `[optional]` system_program (default to `11111111111111111111111111111111`)
+///   0. `[]` stake_deposit_authority
+///   1. `[writable, signer]` whitelisted_signer
+///   2. `[]` whitelist
+///   3. `[writable]` stake_pool
+///   4. `[writable]` validator_list
+///   5. `[]` withdraw_authority
+///   6. `[writable]` stake_split_from
+///   7. `[writable]` stake_split_to
+///   8. `[writable]` user_stake_authority
+///   9. `[writable, signer]` user_transfer_authority
+///   10. `[writable]` user_pool_token_account
+///   11. `[writable]` manager_fee_account
+///   12. `[writable]` pool_mint
+///   13. `[writable]` fee_rebate_hopper
+///   14. `[writable]` fee_rebate_recipient
+///   15. `[]` clock
+///   16. `[optional]` token_program (default to `TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA`)
+///   17. `[]` stake_program
+///   18. `[]` spl_stake_pool_program
+///   19. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct WithdrawStakeWhitelistedBuilder {
+    stake_deposit_authority: Option<solana_pubkey::Pubkey>,
     whitelisted_signer: Option<solana_pubkey::Pubkey>,
     whitelist: Option<solana_pubkey::Pubkey>,
     stake_pool: Option<solana_pubkey::Pubkey>,
@@ -237,6 +245,15 @@ pub struct WithdrawStakeWhitelistedBuilder {
 impl WithdrawStakeWhitelistedBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+    /// Interceptor PDA - the stake deposit authority on the pool
+    #[inline(always)]
+    pub fn stake_deposit_authority(
+        &mut self,
+        stake_deposit_authority: solana_pubkey::Pubkey,
+    ) -> &mut Self {
+        self.stake_deposit_authority = Some(stake_deposit_authority);
+        self
     }
     /// Must be present in the WHitelist.whitelist array
     #[inline(always)]
@@ -268,19 +285,19 @@ impl WithdrawStakeWhitelistedBuilder {
         self.withdraw_authority = Some(withdraw_authority);
         self
     }
-    /// The new stake account Coinbase receives
+    /// The new stake account
     #[inline(always)]
     pub fn stake_split_from(&mut self, stake_split_from: solana_pubkey::Pubkey) -> &mut Self {
         self.stake_split_from = Some(stake_split_from);
         self
     }
-    /// The new stake account Coinbase receives
+    /// The new stake account
     #[inline(always)]
     pub fn stake_split_to(&mut self, stake_split_to: solana_pubkey::Pubkey) -> &mut Self {
         self.stake_split_to = Some(stake_split_to);
         self
     }
-    /// Coinbase signer — set as authority on the new stake account
+    /// Signer — set as authority on the new stake account
     #[inline(always)]
     pub fn user_stake_authority(
         &mut self,
@@ -289,7 +306,7 @@ impl WithdrawStakeWhitelistedBuilder {
         self.user_stake_authority = Some(user_stake_authority);
         self
     }
-    /// Authority over the JitoSOL token account
+    /// Authority over the Pool token account
     #[inline(always)]
     pub fn user_transfer_authority(
         &mut self,
@@ -298,7 +315,7 @@ impl WithdrawStakeWhitelistedBuilder {
         self.user_transfer_authority = Some(user_transfer_authority);
         self
     }
-    /// Coinbase's JitoSOL token account (burned from)
+    /// Pool token account (burned from)
     #[inline(always)]
     pub fn user_pool_token_account(
         &mut self,
@@ -319,7 +336,7 @@ impl WithdrawStakeWhitelistedBuilder {
         self.pool_mint = Some(pool_mint);
         self
     }
-    /// Pre-funded SOL account that covers the 0.1% withdrawal fee rebate
+    /// Pre-funded SOL account that covers the withdrawal fee rebate
     #[inline(always)]
     pub fn fee_rebate_hopper(&mut self, fee_rebate_hopper: solana_pubkey::Pubkey) -> &mut Self {
         self.fee_rebate_hopper = Some(fee_rebate_hopper);
@@ -392,6 +409,9 @@ impl WithdrawStakeWhitelistedBuilder {
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_instruction::Instruction {
         let accounts = WithdrawStakeWhitelisted {
+            stake_deposit_authority: self
+                .stake_deposit_authority
+                .expect("stake_deposit_authority is not set"),
             whitelisted_signer: self
                 .whitelisted_signer
                 .expect("whitelisted_signer is not set"),
@@ -444,6 +464,8 @@ impl WithdrawStakeWhitelistedBuilder {
 
 /// `withdraw_stake_whitelisted` CPI accounts.
 pub struct WithdrawStakeWhitelistedCpiAccounts<'a, 'b> {
+    /// Interceptor PDA - the stake deposit authority on the pool
+    pub stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
     /// Must be present in the WHitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
     /// Whitelist account from WHitelistManagementProgram
@@ -454,21 +476,21 @@ pub struct WithdrawStakeWhitelistedCpiAccounts<'a, 'b> {
     pub validator_list: &'b solana_account_info::AccountInfo<'a>,
     /// Pool withdraw authority
     pub withdraw_authority: &'b solana_account_info::AccountInfo<'a>,
-    /// The new stake account Coinbase receives
+    /// The new stake account
     pub stake_split_from: &'b solana_account_info::AccountInfo<'a>,
-    /// The new stake account Coinbase receives
+    /// The new stake account
     pub stake_split_to: &'b solana_account_info::AccountInfo<'a>,
-    /// Coinbase signer — set as authority on the new stake account
+    /// Signer — set as authority on the new stake account
     pub user_stake_authority: &'b solana_account_info::AccountInfo<'a>,
-    /// Authority over the JitoSOL token account
+    /// Authority over the Pool token account
     pub user_transfer_authority: &'b solana_account_info::AccountInfo<'a>,
-    /// Coinbase's JitoSOL token account (burned from)
+    /// Pool token account (burned from)
     pub user_pool_token_account: &'b solana_account_info::AccountInfo<'a>,
     /// Manager fee account
     pub manager_fee_account: &'b solana_account_info::AccountInfo<'a>,
     /// Pool token mint account
     pub pool_mint: &'b solana_account_info::AccountInfo<'a>,
-    /// Pre-funded SOL account that covers the 0.1% withdrawal fee rebate
+    /// Pre-funded SOL account that covers the withdrawal fee rebate
     pub fee_rebate_hopper: &'b solana_account_info::AccountInfo<'a>,
     /// Recipient of the fee rebate (the withdrawer)
     pub fee_rebate_recipient: &'b solana_account_info::AccountInfo<'a>,
@@ -488,6 +510,8 @@ pub struct WithdrawStakeWhitelistedCpiAccounts<'a, 'b> {
 pub struct WithdrawStakeWhitelistedCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_account_info::AccountInfo<'a>,
+    /// Interceptor PDA - the stake deposit authority on the pool
+    pub stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
     /// Must be present in the WHitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
     /// Whitelist account from WHitelistManagementProgram
@@ -498,21 +522,21 @@ pub struct WithdrawStakeWhitelistedCpi<'a, 'b> {
     pub validator_list: &'b solana_account_info::AccountInfo<'a>,
     /// Pool withdraw authority
     pub withdraw_authority: &'b solana_account_info::AccountInfo<'a>,
-    /// The new stake account Coinbase receives
+    /// The new stake account
     pub stake_split_from: &'b solana_account_info::AccountInfo<'a>,
-    /// The new stake account Coinbase receives
+    /// The new stake account
     pub stake_split_to: &'b solana_account_info::AccountInfo<'a>,
-    /// Coinbase signer — set as authority on the new stake account
+    /// Signer — set as authority on the new stake account
     pub user_stake_authority: &'b solana_account_info::AccountInfo<'a>,
-    /// Authority over the JitoSOL token account
+    /// Authority over the Pool token account
     pub user_transfer_authority: &'b solana_account_info::AccountInfo<'a>,
-    /// Coinbase's JitoSOL token account (burned from)
+    /// Pool token account (burned from)
     pub user_pool_token_account: &'b solana_account_info::AccountInfo<'a>,
     /// Manager fee account
     pub manager_fee_account: &'b solana_account_info::AccountInfo<'a>,
     /// Pool token mint account
     pub pool_mint: &'b solana_account_info::AccountInfo<'a>,
-    /// Pre-funded SOL account that covers the 0.1% withdrawal fee rebate
+    /// Pre-funded SOL account that covers the withdrawal fee rebate
     pub fee_rebate_hopper: &'b solana_account_info::AccountInfo<'a>,
     /// Recipient of the fee rebate (the withdrawer)
     pub fee_rebate_recipient: &'b solana_account_info::AccountInfo<'a>,
@@ -538,6 +562,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
     ) -> Self {
         Self {
             __program: program,
+            stake_deposit_authority: accounts.stake_deposit_authority,
             whitelisted_signer: accounts.whitelisted_signer,
             whitelist: accounts.whitelist,
             stake_pool: accounts.stake_pool,
@@ -583,7 +608,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
         signers_seeds: &[&[&[u8]]],
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
-        let mut accounts = Vec::with_capacity(19 + remaining_accounts.len());
+        let mut accounts = Vec::with_capacity(20 + remaining_accounts.len());
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.stake_deposit_authority.key,
+            false,
+        ));
         accounts.push(solana_instruction::AccountMeta::new(
             *self.whitelisted_signer.key,
             true,
@@ -678,8 +707,9 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
             accounts,
             data,
         };
-        let mut account_infos = Vec::with_capacity(20 + remaining_accounts.len());
+        let mut account_infos = Vec::with_capacity(21 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
+        account_infos.push(self.stake_deposit_authority.clone());
         account_infos.push(self.whitelisted_signer.clone());
         account_infos.push(self.whitelist.clone());
         account_infos.push(self.stake_pool.clone());
@@ -715,25 +745,26 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[writable, signer]` whitelisted_signer
-///   1. `[]` whitelist
-///   2. `[writable]` stake_pool
-///   3. `[writable]` validator_list
-///   4. `[]` withdraw_authority
-///   5. `[writable]` stake_split_from
-///   6. `[writable]` stake_split_to
-///   7. `[writable]` user_stake_authority
-///   8. `[writable, signer]` user_transfer_authority
-///   9. `[writable]` user_pool_token_account
-///   10. `[writable]` manager_fee_account
-///   11. `[writable]` pool_mint
-///   12. `[writable]` fee_rebate_hopper
-///   13. `[writable]` fee_rebate_recipient
-///   14. `[]` clock
-///   15. `[]` token_program
-///   16. `[]` stake_program
-///   17. `[]` spl_stake_pool_program
-///   18. `[]` system_program
+///   0. `[]` stake_deposit_authority
+///   1. `[writable, signer]` whitelisted_signer
+///   2. `[]` whitelist
+///   3. `[writable]` stake_pool
+///   4. `[writable]` validator_list
+///   5. `[]` withdraw_authority
+///   6. `[writable]` stake_split_from
+///   7. `[writable]` stake_split_to
+///   8. `[writable]` user_stake_authority
+///   9. `[writable, signer]` user_transfer_authority
+///   10. `[writable]` user_pool_token_account
+///   11. `[writable]` manager_fee_account
+///   12. `[writable]` pool_mint
+///   13. `[writable]` fee_rebate_hopper
+///   14. `[writable]` fee_rebate_recipient
+///   15. `[]` clock
+///   16. `[]` token_program
+///   17. `[]` stake_program
+///   18. `[]` spl_stake_pool_program
+///   19. `[]` system_program
 #[derive(Clone, Debug)]
 pub struct WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
     instruction: Box<WithdrawStakeWhitelistedCpiBuilderInstruction<'a, 'b>>,
@@ -743,6 +774,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(WithdrawStakeWhitelistedCpiBuilderInstruction {
             __program: program,
+            stake_deposit_authority: None,
             whitelisted_signer: None,
             whitelist: None,
             stake_pool: None,
@@ -766,6 +798,15 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
+    }
+    /// Interceptor PDA - the stake deposit authority on the pool
+    #[inline(always)]
+    pub fn stake_deposit_authority(
+        &mut self,
+        stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.stake_deposit_authority = Some(stake_deposit_authority);
+        self
     }
     /// Must be present in the WHitelist.whitelist array
     #[inline(always)]
@@ -809,7 +850,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.withdraw_authority = Some(withdraw_authority);
         self
     }
-    /// The new stake account Coinbase receives
+    /// The new stake account
     #[inline(always)]
     pub fn stake_split_from(
         &mut self,
@@ -818,7 +859,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.stake_split_from = Some(stake_split_from);
         self
     }
-    /// The new stake account Coinbase receives
+    /// The new stake account
     #[inline(always)]
     pub fn stake_split_to(
         &mut self,
@@ -827,7 +868,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.stake_split_to = Some(stake_split_to);
         self
     }
-    /// Coinbase signer — set as authority on the new stake account
+    /// Signer — set as authority on the new stake account
     #[inline(always)]
     pub fn user_stake_authority(
         &mut self,
@@ -836,7 +877,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.user_stake_authority = Some(user_stake_authority);
         self
     }
-    /// Authority over the JitoSOL token account
+    /// Authority over the Pool token account
     #[inline(always)]
     pub fn user_transfer_authority(
         &mut self,
@@ -845,7 +886,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.user_transfer_authority = Some(user_transfer_authority);
         self
     }
-    /// Coinbase's JitoSOL token account (burned from)
+    /// Pool token account (burned from)
     #[inline(always)]
     pub fn user_pool_token_account(
         &mut self,
@@ -869,7 +910,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.pool_mint = Some(pool_mint);
         self
     }
-    /// Pre-funded SOL account that covers the 0.1% withdrawal fee rebate
+    /// Pre-funded SOL account that covers the withdrawal fee rebate
     #[inline(always)]
     pub fn fee_rebate_hopper(
         &mut self,
@@ -974,6 +1015,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         let instruction = WithdrawStakeWhitelistedCpi {
             __program: self.instruction.__program,
 
+            stake_deposit_authority: self
+                .instruction
+                .stake_deposit_authority
+                .expect("stake_deposit_authority is not set"),
+
             whitelisted_signer: self
                 .instruction
                 .whitelisted_signer
@@ -1068,6 +1114,7 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
 #[derive(Clone, Debug)]
 struct WithdrawStakeWhitelistedCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_account_info::AccountInfo<'a>,
+    stake_deposit_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
     whitelisted_signer: Option<&'b solana_account_info::AccountInfo<'a>>,
     whitelist: Option<&'b solana_account_info::AccountInfo<'a>>,
     stake_pool: Option<&'b solana_account_info::AccountInfo<'a>>,

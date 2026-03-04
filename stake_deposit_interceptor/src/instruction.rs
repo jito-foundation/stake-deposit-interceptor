@@ -419,21 +419,20 @@ pub enum StakeDepositInterceptorInstruction {
 
     /// Wraps spl-stake-pool WithdrawStake with whitelist verification.
     ///
-    /// Enables on-chain accounting of Coinbase withdrawals and potentially atomic withdrawal fee rebates.
-    ///
-    ///   0. `[w,s]` Whitelisted Signer
-    ///   1. `[]` Whitelist PDA
-    ///   2. `[w]` Stake pool account
-    ///   3. `[w]` Validator list account
-    ///   4. `[]` Pool withdraw authority
-    ///   5. `[w]` Validator stake account to split from
-    ///   6. `[w]` The new stake account Coinbase receives
-    ///   7. `[w]` Set as authority on the new stake account
+    ///   0. `[]` StakePoolDepositStakeAuthority PDA
+    ///   1. `[w,s]` Whitelisted Signer
+    ///   2. `[]` Whitelist PDA
+    ///   3. `[w]` Stake pool account
+    ///   4. `[w]` Validator list account
+    ///   5. `[]` Pool withdraw authority
+    ///   6. `[w]` Validator stake account to split from
+    ///   7. `[w]` The new stake account
+    ///   8. `[w]` Set as authority on the new stake account
     ///   9. `[w,s]` Authority over the JitoSOL token account
     ///   10. `[w]` JitoSOL token account (burned from)
     ///   11. `[w]` Manager fee account
     ///   12. `[w]` Pool mint account
-    ///   13. '[]' Pre-funded SOL account that covers the 0.1% withdrawal fee rebate account
+    ///   13. '[]' Pre-funded SOL account that covers the withdrawal fee rebate account
     ///   14. '[]' Recipient of the fee rebate (the withdrawer)
     ///   15. `[]` Clock
     ///   16. `[]` Pool token program id
@@ -442,74 +441,69 @@ pub enum StakeDepositInterceptorInstruction {
     ///   19. `[]` System program id
     #[account(
         0,
+        name = "stake_deposit_authority",
+        desc = "Interceptor PDA - the stake deposit authority on the pool"
+    )]
+    #[account(
+        1,
         signer,
         writable,
         name = "whitelisted_signer",
         desc = "Must be present in the WHitelist.whitelist array"
     )]
     #[account(
-        1,
+        2,
         name = "whitelist",
         desc = "Whitelist account from WHitelistManagementProgram"
     )]
-    #[account(2, writable, name = "stake_pool", desc = "Stake pool account")]
-    #[account(3, writable, name = "validator_list", desc = "Validator List")]
-    #[account(4, name = "withdraw_authority", desc = "Pool withdraw authority")]
-    #[account(
-        5,
-        writable,
-        name = "stake_split_from",
-        desc = "The new stake account Coinbase receives"
-    )]
-    #[account(
-        6,
-        writable,
-        name = "stake_split_to",
-        desc = "The new stake account Coinbase receives"
-    )]
-    #[account(
-        7,
-        writable,
-        name = "user_stake_authority",
-        desc = "Coinbase signer — set as authority on the new stake account"
-    )]
+    #[account(3, writable, name = "stake_pool", desc = "Stake pool account")]
+    #[account(4, writable, name = "validator_list", desc = "Validator List")]
+    #[account(5, name = "withdraw_authority", desc = "Pool withdraw authority")]
+    #[account(6, writable, name = "stake_split_from", desc = "The new stake account")]
+    #[account(7, writable, name = "stake_split_to", desc = "The new stake account")]
     #[account(
         8,
-        signer,
         writable,
-        name = "user_transfer_authority",
-        desc = "Authority over the JitoSOL token account"
+        name = "user_stake_authority",
+        desc = "Signer — set as authority on the new stake account"
     )]
     #[account(
         9,
+        signer,
         writable,
-        name = "user_pool_token_account",
-        desc = "Coinbase's JitoSOL token account (burned from)"
+        name = "user_transfer_authority",
+        desc = "Authority over the Pool token account"
     )]
     #[account(
         10,
         writable,
+        name = "user_pool_token_account",
+        desc = "Pool token account (burned from)"
+    )]
+    #[account(
+        11,
+        writable,
         name = "manager_fee_account",
         desc = "Manager fee account"
     )]
-    #[account(11, writable, name = "pool_mint", desc = "Pool token mint account")]
-    #[account(
-        12,
-        writable,
-        name = "fee_rebate_hopper",
-        desc = "Pre-funded SOL account that covers the 0.1% withdrawal fee rebate"
-    )]
+    #[account(12, writable, name = "pool_mint", desc = "Pool token mint account")]
     #[account(
         13,
+        writable,
+        name = "fee_rebate_hopper",
+        desc = "Pre-funded SOL account that covers the withdrawal fee rebate"
+    )]
+    #[account(
+        14,
         writable,
         name = "fee_rebate_recipient",
         desc = "Recipient of the fee rebate (the withdrawer)"
     )]
-    #[account(14, name = "clock", desc = "Sysvar clock account")]
-    #[account(15, name = "token_program", desc = "Pool token program id")]
-    #[account(16, name = "stake_program", desc = "Stake program id")]
-    #[account(17, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
-    #[account(18, name = "system_program", desc = "System program")]
+    #[account(15, name = "clock", desc = "Sysvar clock account")]
+    #[account(16, name = "token_program", desc = "Pool token program id")]
+    #[account(17, name = "stake_program", desc = "Stake program id")]
+    #[account(18, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
+    #[account(19, name = "system_program", desc = "System program")]
     WithdrawStakeWhitelisted { amount: u64 },
 }
 

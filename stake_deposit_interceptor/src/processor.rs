@@ -628,8 +628,14 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+        if deposit_stake_authority
+            .stake_pool_program_id
+            .ne(spl_stake_pool_program_info.key)
+        {
+            return Err(StakeDepositInterceptorError::InvalidStakePoolProgram.into());
+        }
 
-        // Validate `StakePoolDepositStakeAuthority` is owned by current program.
+        // Validate `Whitelist` is owned by jito whitelist management program
         check_account_owner(
             whitelist_info,
             &deposit_stake_authority.jito_whitelist_management_program_id,
@@ -674,6 +680,7 @@ impl Processor {
         amount: u64,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
+        let stake_deposit_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
         let whitelisted_signer_info = next_account_info(account_info_iter)?;
         let whitelist_info = next_account_info(account_info_iter)?;
         let stake_pool_info = next_account_info(account_info_iter)?;
@@ -697,6 +704,20 @@ impl Processor {
         // Validate: System program is correct native program
         check_system_program(system_program_info.key)?;
 
+        // Validate `StakePoolDepositStakeAuthority` is owned by current program.
+        check_account_owner(stake_deposit_authority_info, program_id)?;
+
+        let deposit_stake_authority_data = stake_deposit_authority_info.try_borrow_data()?;
+        let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
+            &deposit_stake_authority_data,
+        )?;
+
+        // Validate `Whitelist` is owned by jito whitelist management program
+        check_account_owner(
+            whitelist_info,
+            &deposit_stake_authority.jito_whitelist_management_program_id,
+        )?;
+
         // Validate: base signed the TX
         if !whitelisted_signer_info.is_signer {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
@@ -711,6 +732,13 @@ impl Processor {
 
         if !whitelist.whitelist.contains(whitelisted_signer_info.key) {
             return Err(StakeDepositInterceptorError::InvalidWhitelistedSigner.into());
+        }
+
+        if deposit_stake_authority
+            .stake_pool_program_id
+            .ne(spl_stake_pool_program_info.key)
+        {
+            return Err(StakeDepositInterceptorError::InvalidStakePoolProgram.into());
         }
 
         let stake_pool: StakePool = try_from_slice_unchecked(&stake_pool_info.data.borrow())?;
@@ -834,6 +862,7 @@ impl Processor {
                 Self::process_claim_pool_tokens(program_id, accounts)?;
             }
             StakeDepositInterceptorInstruction::DepositStakeWhitelisted => {
+                msg!("Instruction: DepositStakeWhitelisted");
                 Self::process_deposit_stake_whitelisted(program_id, accounts)?;
             }
             StakeDepositInterceptorInstruction::WithdrawStakeWhitelisted { amount } => {
