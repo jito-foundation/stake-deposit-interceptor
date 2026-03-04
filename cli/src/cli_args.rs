@@ -6,7 +6,7 @@ use solana_pubkey::Pubkey;
 use crate::interceptor::StakeDepositInterceptorCommands;
 
 #[derive(Parser)]
-#[command(author, version, about = "A CLI for managing BAM Boost operations", long_about = None)]
+#[command(author, version, about = "A CLI for Interceptor operations", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<ProgramCommand>,

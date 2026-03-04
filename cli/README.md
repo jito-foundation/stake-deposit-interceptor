@@ -1,4 +1,4 @@
-# Stake Depsit Interceptor CLI
+# Stake Deposit Interceptor CLI
 
 ## Stake
 

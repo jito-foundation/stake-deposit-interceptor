@@ -8,7 +8,7 @@ pub enum NetworkArg {
     Testnet,
 }
 
-/// The CLI handler for the bam_boost program
+/// The CLI handler for the stake deposit interceptor program
 #[derive(Subcommand)]
 pub enum StakeDepositInterceptorCommands {
     /// Initialize, get, and set the whitelist management struct
@@ -18,7 +18,6 @@ pub enum StakeDepositInterceptorCommands {
     },
 }
 
-/// The actions that can be performed on the bam_boost config
 #[derive(Subcommand)]
 pub enum StakeDepositInterceptorActions {
     /// Create a stake deposit authority for a specific stake pool

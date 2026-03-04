@@ -525,7 +525,11 @@ impl StakeDepositInterceptorCliHandler {
             )
             .0;
 
-        println!("Created DepositReceipt {}", deposit_receipt_base.pubkey());
+        println!(
+            "Created DepositReceipt PDA {} (base {})",
+            deposit_receipt,
+            deposit_receipt_base.pubkey()
+        );
 
         let mut ix_builder = DepositStakeBuilder::new();
         ix_builder
@@ -551,7 +555,7 @@ impl StakeDepositInterceptorCliHandler {
         let mut ix = ix_builder.instruction();
         ix.program_id = self.stake_deposit_interceptor_program_id;
 
-        log::info!("Depositting Stake parameters: {ix_builder:?}",);
+        log::info!("Depositing Stake parameters: {ix_builder:?}",);
 
         self.process_transaction(
             &[ix],
