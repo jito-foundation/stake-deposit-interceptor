@@ -820,7 +820,7 @@ impl StakeDepositInterceptorCliHandler {
 
         instructions.push(ix);
 
-        log::info!("Depositting Stake parameters: {ix_builder:?}",);
+        log::info!("Depositing Stake parameters: {ix_builder:?}",);
 
         self.process_transaction(
             &instructions,
@@ -893,7 +893,7 @@ impl StakeDepositInterceptorCliHandler {
         let mut ix = ix_builder.instruction();
         ix.program_id = self.stake_deposit_interceptor_program_id;
 
-        log::info!("Depositting Stake Whitelisted parameters: {ix_builder:?}",);
+        log::info!("Depositing Stake Whitelisted parameters: {ix_builder:?}",);
 
         self.process_transaction(
             &[authorize_staker_ix, authorize_withdrawer_ix, ix],
@@ -949,6 +949,7 @@ impl StakeDepositInterceptorCliHandler {
 
         let mut ix_builder = WithdrawStakeWhitelistedBuilder::new();
         ix_builder
+            .stake_deposit_authority(stake_deposit_authority_address)
             .whitelisted_signer(self.cli_config.signer.pubkey())
             .whitelist(whitelist)
             .stake_pool(stake_deposit_authority.stake_pool)

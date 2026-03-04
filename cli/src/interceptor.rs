@@ -1,12 +1,5 @@
-use clap::{Subcommand, ValueEnum};
+use clap::Subcommand;
 use solana_pubkey::Pubkey;
-
-/// Network type for subsidy schedule
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum NetworkArg {
-    Mainnet,
-    Testnet,
-}
 
 /// The CLI handler for the stake deposit interceptor program
 #[derive(Subcommand)]
