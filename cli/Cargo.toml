@@ -36,4 +36,4 @@ spl-stake-pool.workspace = true
 spl-token.workspace = true
 spl-token-interface.workspace = true
 # Added deps from fork
-stake-deposit-interceptor = { version = "0.2.0", path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }
+stake-deposit-interceptor = { version = "0.3.0", path = "../stake_deposit_interceptor", features = ["no-entrypoint"] }

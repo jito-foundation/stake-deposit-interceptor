@@ -1,3 +1,4 @@
+use jito_whitelist_management_client::programs::JITO_WHITELIST_MANAGEMENT_ID;
 use solana_account::AccountSharedData;
 use solana_program::{instruction::InstructionError, pubkey::Pubkey};
 use solana_program_test::{BanksClientError, ProgramTest, ProgramTestContext};
@@ -11,6 +12,12 @@ pub fn program_test_with_stake_pool_program() -> ProgramTest {
     program_test.add_program(
         "stake_deposit_interceptor_program",
         stake_deposit_interceptor_program::id(),
+        None,
+    );
+    program_test.add_program("spl_stake_pool", spl_stake_pool::id(), None);
+    program_test.add_program(
+        "jito_whitelist_management_program",
+        JITO_WHITELIST_MANAGEMENT_ID,
         None,
     );
     program_test.add_program("spl_stake_pool", spl_stake_pool::id(), None);
@@ -49,6 +56,7 @@ pub async fn clone_account_to_new_address(
 
 /// Given a transaction and an error, assert the exact error is thrown during transaction
 /// execution in the ProgramTestContext.
+#[allow(dead_code)]
 pub async fn assert_transaction_err(
     ctx: &mut ProgramTestContext,
     tx: Transaction,

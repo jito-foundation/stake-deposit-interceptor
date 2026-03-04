@@ -20,6 +20,7 @@ pub struct UpdateStakePoolDepositStakeAuthorityArgs {
     pub fee_wallet: Option<Pubkey>,
     pub cool_down_seconds: Option<u64>,
     pub initial_fee_bps: Option<u32>,
+    pub jito_whitelist_management_program_id: Option<Pubkey>,
 }
 
 /// Arguments for DepositStake.
@@ -332,6 +333,175 @@ pub enum StakeDepositInterceptorInstruction {
     #[account(7, name = "token_program", desc = "Token program")]
     #[account(8, name = "system_program", desc = "System program")]
     ClaimPoolTokens,
+
+    /// Deposits stake directly into the spl-stake-pool — bypassing the Ticket/cooldown mechanism.
+    ///
+    ///   0. `[w,s]` Whitelisted Signer
+    ///   1. `[]` Whitelist PDA
+    ///   2. `[w]` Stake pool account
+    ///   3. `[w]` Validator list account
+    ///   4. `[]` StakePoolDepositStakeAuthority PDA
+    ///   5. `[]` Pool withdraw authority
+    ///   6. `[w]` Deposit stake account
+    ///   7. `[w]` Validator stake account
+    ///   8. `[w]` Reserve stake account
+    ///   9. `[w]` Destination for minted pool token
+    ///   10. `[w]` Manager fee account
+    ///   11. `[w]` Referral fee account
+    ///   12. `[w]` Pool mint account
+    ///   13. '[]' Sysvar clock account
+    ///   14. '[]' Sysvar stake history account
+    ///   15. `[]` Pool token program id
+    ///   16. `[]` Stake program id
+    ///   17. `[]` System program id
+    #[account(
+        0,
+        signer,
+        writable,
+        name = "whitelisted_signer",
+        desc = "Must be present in the Whitelist.whitelist array"
+    )]
+    #[account(
+        1,
+        name = "whitelist",
+        desc = "Whitelist account from WhitelistManagementProgram"
+    )]
+    #[account(2, writable, name = "stake_pool", desc = "Stake pool account")]
+    #[account(3, writable, name = "validator_list", desc = "Validator List")]
+    #[account(
+        4,
+        name = "stake_deposit_authority",
+        desc = "Interceptor PDA - the stake deposit authority on the pool"
+    )]
+    #[account(5, name = "withdraw_authority", desc = "Pool withdraw authority")]
+    #[account(
+        6,
+        writable,
+        name = "deposit_stake",
+        desc = "The stake account being deposited into the pool"
+    )]
+    #[account(
+        7,
+        writable,
+        name = "validator_stake",
+        desc = "Validator stake account in the pool"
+    )]
+    #[account(8, writable, name = "reserve_stake", desc = "Reserve stake account")]
+    #[account(
+        9,
+        writable,
+        name = "pool_tokens_to",
+        desc = "Destination for minted pool token - goes directly to depositor, no Ticket"
+    )]
+    #[account(
+        10,
+        writable,
+        name = "manager_fee_account",
+        desc = "Manager fee account"
+    )]
+    #[account(
+        11,
+        writable,
+        name = "referral_fee_account",
+        desc = "Referral fee account"
+    )]
+    #[account(12, writable, name = "pool_mint", desc = "Pool token mint account")]
+    #[account(13, name = "clock", desc = "Sysvar clock account")]
+    #[account(14, name = "stake_history", desc = "Sysvar stake history account")]
+    #[account(15, name = "token_program", desc = "Pool token program id")]
+    #[account(16, name = "stake_program", desc = "Stake program id")]
+    #[account(17, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
+    #[account(18, name = "system_program", desc = "System program")]
+    DepositStakeWhitelisted,
+
+    /// Wraps spl-stake-pool WithdrawStake with whitelist verification.
+    ///
+    ///   0. `[]` StakePoolDepositStakeAuthority PDA
+    ///   1. `[w,s]` Whitelisted Signer
+    ///   2. `[]` Whitelist PDA
+    ///   3. `[w]` Stake pool account
+    ///   4. `[w]` Validator list account
+    ///   5. `[]` Pool withdraw authority
+    ///   6. `[w]` Validator stake account to split from
+    ///   7. `[w]` The new stake account
+    ///   8. `[w]` Set as authority on the new stake account
+    ///   9. `[w,s]` Authority over the pool token account
+    ///   10. `[w]` Pool token account (burned from)
+    ///   11. `[w]` Manager fee account
+    ///   12. `[w]` Pool mint account
+    ///   13. '[]' Pre-funded SOL account that covers the withdrawal fee rebate account
+    ///   14. '[]' Recipient of the fee rebate (the withdrawer)
+    ///   15. `[]` Clock
+    ///   16. `[]` Pool token program id
+    ///   17. `[]` Stake program id
+    ///   18. `[]` SPL stake pool program id
+    ///   19. `[]` System program id
+    #[account(
+        0,
+        name = "stake_deposit_authority",
+        desc = "Interceptor PDA - the stake deposit authority on the pool"
+    )]
+    #[account(
+        1,
+        signer,
+        writable,
+        name = "whitelisted_signer",
+        desc = "Must be present in the Whitelist.whitelist array"
+    )]
+    #[account(
+        2,
+        name = "whitelist",
+        desc = "Whitelist account from WhitelistManagementProgram"
+    )]
+    #[account(3, writable, name = "stake_pool", desc = "Stake pool account")]
+    #[account(4, writable, name = "validator_list", desc = "Validator List")]
+    #[account(5, name = "withdraw_authority", desc = "Pool withdraw authority")]
+    #[account(6, writable, name = "stake_split_from", desc = "The new stake account")]
+    #[account(7, writable, name = "stake_split_to", desc = "The new stake account")]
+    #[account(
+        8,
+        writable,
+        name = "user_stake_authority",
+        desc = "Signer — set as authority on the new stake account"
+    )]
+    #[account(
+        9,
+        signer,
+        writable,
+        name = "user_transfer_authority",
+        desc = "Authority over the Pool token account"
+    )]
+    #[account(
+        10,
+        writable,
+        name = "user_pool_token_account",
+        desc = "Pool token account (burned from)"
+    )]
+    #[account(
+        11,
+        writable,
+        name = "manager_fee_account",
+        desc = "Manager fee account"
+    )]
+    #[account(12, writable, name = "pool_mint", desc = "Pool token mint account")]
+    #[account(
+        13,
+        writable,
+        name = "fee_rebate_hopper",
+        desc = "Pre-funded SOL account that covers the withdrawal fee rebate"
+    )]
+    #[account(
+        14,
+        writable,
+        name = "fee_rebate_recipient",
+        desc = "Recipient of the fee rebate (the withdrawer)"
+    )]
+    #[account(15, name = "clock", desc = "Sysvar clock account")]
+    #[account(16, name = "token_program", desc = "Pool token program id")]
+    #[account(17, name = "stake_program", desc = "Stake program id")]
+    #[account(18, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
+    #[account(19, name = "system_program", desc = "System program")]
+    WithdrawStakeWhitelisted { amount: u64 },
 }
 
 pub const STAKE_POOL_DEPOSIT_STAKE_AUTHORITY: &[u8] = b"deposit_stake_authority";
@@ -421,6 +591,7 @@ pub fn create_update_deposit_stake_authority_instruction(
     fee_wallet: Option<Pubkey>,
     cool_down_seconds: Option<u64>,
     initial_fee_bps: Option<u32>,
+    jito_whitelist_management_program_id: Option<Pubkey>,
 ) -> Instruction {
     let (deposit_stake_authority_pubkey, _bump_seed) =
         derive_stake_pool_deposit_stake_authority(program_id, stake_pool, base);
@@ -428,6 +599,7 @@ pub fn create_update_deposit_stake_authority_instruction(
         fee_wallet,
         initial_fee_bps,
         cool_down_seconds,
+        jito_whitelist_management_program_id,
     };
     let mut accounts = vec![
         AccountMeta::new(deposit_stake_authority_pubkey, false),

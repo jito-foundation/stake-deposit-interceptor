@@ -22,14 +22,18 @@ localhost = []
 
 [dependencies]
 borsh.workspace = true
-bytemuck = "1.19.0"
+bytemuck.workspace = true
 jito-bytemuck.workspace = true
+jito-whitelist-management-core.workspace = true
 num-derive = "0.4.2"
 num-traits = "0.2.19"
-shank = "0.3.0"
+shank.workspace = true
+solana-account-info.workspace = true
 solana-clock.workspace = true
 solana-program.workspace = true
 solana-program-error.workspace = true
+solana-program-log.workspace = true
+solana-pubkey.workspace = true
 solana-security-txt = "1.1.1"
 solana-stake-interface.workspace = true
 solana-system-interface.workspace = true
@@ -38,14 +42,18 @@ spl-pod = { version = "0.4.0", features = ["borsh"] }
 spl-stake-pool.workspace = true
 spl-token-2022-interface.workspace = true
 spl-token-interface.workspace = true
-thiserror = "1.0.65"
+thiserror.workspace = true
 
 [dev-dependencies]
+jito-whitelist-management-client.workspace = true
 solana-account.workspace = true
+solana-commitment-config.workspace = true
 solana-hash.workspace = true
 solana-keypair.workspace = true
+solana-native-token.workspace = true
 solana-program-test.workspace = true
 solana-pubkey.workspace = true
 solana-transaction.workspace = true
 solana-vote-interface.workspace = true
+stake-deposit-interceptor-client.workspace = true
 tokio.workspace = true

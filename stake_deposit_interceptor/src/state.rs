@@ -3,6 +3,9 @@ use bytemuck::{Pod, Zeroable};
 use jito_bytemuck::{AccountDeserialize, Discriminator};
 use solana_program::pubkey::Pubkey;
 use spl_pod::primitives::{PodU32, PodU64};
+
+pub mod hopper;
+
 /// Discriminators for accounts
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StakeDepositInterceptorDiscriminators {
@@ -35,8 +38,12 @@ pub struct StakePoolDepositStakeAuthority {
     pub fee_wallet: Pubkey,
     /// Bump seed for derivation
     pub bump_seed: u8,
+
+    /// Program ID for Jito Whitelist Management
+    pub jito_whitelist_management_program_id: Pubkey,
+
     // reserved bytes
-    reserved: [u8; 256],
+    reserved: [u8; 224],
 }
 
 impl Discriminator for StakePoolDepositStakeAuthority {

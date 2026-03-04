@@ -48,6 +48,7 @@ async fn test_update_deposit_stake_authority() {
     let new_authority = Keypair::new();
     let cool_down_seconds = 78;
     let initial_fee_bps = 20;
+    let jito_whitelist_management_program_id = Pubkey::new_unique();
 
     let update_ix =
         stake_deposit_interceptor_program::instruction::create_update_deposit_stake_authority_instruction(
@@ -59,6 +60,7 @@ async fn test_update_deposit_stake_authority() {
             Some(fee_wallet.pubkey()),
             Some(cool_down_seconds),
             Some(initial_fee_bps),
+            Some(jito_whitelist_management_program_id)
         );
 
     let tx = Transaction::new_signed_with_payer(
@@ -92,6 +94,10 @@ async fn test_update_deposit_stake_authority() {
     assert_eq!(actual_initial_fee_bps, initial_fee_bps);
     assert_eq!(deposit_stake_authority.fee_wallet, fee_wallet.pubkey());
     assert_eq!(deposit_stake_authority.authority, new_authority.pubkey());
+    assert_eq!(
+        deposit_stake_authority.jito_whitelist_management_program_id,
+        jito_whitelist_management_program_id
+    );
 }
 
 async fn setup_with_ix() -> (
@@ -129,6 +135,7 @@ async fn setup_with_ix() -> (
     let new_authority = Keypair::new();
     let cool_down_seconds = 78;
     let initial_fee_bps = 20;
+    let jito_whitelist_management_program_id = Pubkey::new_unique();
 
     let update_ix =
         stake_deposit_interceptor_program::instruction::create_update_deposit_stake_authority_instruction(
@@ -140,6 +147,7 @@ async fn setup_with_ix() -> (
             Some(fee_wallet.pubkey()),
             Some(cool_down_seconds),
             Some(initial_fee_bps),
+            Some(jito_whitelist_management_program_id)
         );
 
     let (deposit_stake_authority_pubkey, _bump) = derive_stake_pool_deposit_stake_authority(
@@ -279,6 +287,7 @@ async fn test_fail_initial_fee_bps_cannot_exceed_10000() {
         fee_wallet: None,
         initial_fee_bps: Some(10_001),
         cool_down_seconds: None,
+        jito_whitelist_management_program_id: None,
     };
     ix.data = borsh::to_vec(
         &StakeDepositInterceptorInstruction::UpdateStakePoolDepositStakeAuthority(args),
