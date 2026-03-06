@@ -212,17 +212,15 @@ mod tests {
         let admin = Keypair::new();
         airdrop_lamports(&mut ctx, &admin.pubkey(), LAMPORTS_PER_SOL).await;
 
-        let base = Keypair::new();
-
         whitelist_management_program_client
-            .do_initialize_whitelist(&base, admin.pubkey())
+            .do_initialize_whitelist(admin.pubkey())
             .await;
 
         let whitelisted_signer = Keypair::new();
         airdrop_lamports(&mut ctx, &whitelisted_signer.pubkey(), LAMPORTS_PER_SOL).await;
 
         whitelist_management_program_client
-            .do_add_to_whitelist(&admin, &base, whitelisted_signer.pubkey())
+            .do_add_to_whitelist(&admin, whitelisted_signer.pubkey())
             .await;
 
         let (deposit_stake_authority_pubkey, _bump_seed) =
@@ -286,7 +284,7 @@ mod tests {
         stake_deposit_interceptor_program_client
             .deposit_stake_whitelisted(
                 &whitelisted_signer,
-                whitelist_management_program_client.get_whitelist_pda(&base.pubkey()),
+                whitelist_management_program_client.get_whitelist_pda(),
                 stake_pool_accounts.stake_pool,
                 stake_pool_accounts.validator_list,
                 deposit_stake_authority_pubkey,
@@ -351,17 +349,15 @@ mod tests {
         let admin = Keypair::new();
         airdrop_lamports(&mut ctx, &admin.pubkey(), LAMPORTS_PER_SOL).await;
 
-        let base = Keypair::new();
-
         whitelist_management_program_client
-            .do_initialize_whitelist(&base, admin.pubkey())
+            .do_initialize_whitelist(admin.pubkey())
             .await;
 
         let whitelisted_signer = Keypair::new();
         airdrop_lamports(&mut ctx, &whitelisted_signer.pubkey(), LAMPORTS_PER_SOL).await;
 
         whitelist_management_program_client
-            .do_add_to_whitelist(&admin, &base, whitelisted_signer.pubkey())
+            .do_add_to_whitelist(&admin, whitelisted_signer.pubkey())
             .await;
 
         let (deposit_stake_authority_pubkey, _bump_seed) =
@@ -433,7 +429,7 @@ mod tests {
         let test_error = stake_deposit_interceptor_program_client
             .deposit_stake_whitelisted(
                 &invalid_whitelisted_signer,
-                whitelist_management_program_client.get_whitelist_pda(&base.pubkey()),
+                whitelist_management_program_client.get_whitelist_pda(),
                 stake_pool_accounts.stake_pool,
                 stake_pool_accounts.validator_list,
                 deposit_stake_authority_pubkey,
@@ -484,17 +480,15 @@ mod tests {
         let admin = Keypair::new();
         airdrop_lamports(&mut ctx, &admin.pubkey(), LAMPORTS_PER_SOL).await;
 
-        let base = Keypair::new();
-
         whitelist_management_program_client
-            .do_initialize_whitelist(&base, admin.pubkey())
+            .do_initialize_whitelist(admin.pubkey())
             .await;
 
         let whitelisted_signer = Keypair::new();
         airdrop_lamports(&mut ctx, &whitelisted_signer.pubkey(), LAMPORTS_PER_SOL).await;
 
         whitelist_management_program_client
-            .do_add_to_whitelist(&admin, &base, whitelisted_signer.pubkey())
+            .do_add_to_whitelist(&admin, whitelisted_signer.pubkey())
             .await;
 
         let (deposit_stake_authority_pubkey, _bump_seed) =
@@ -560,7 +554,7 @@ mod tests {
         let test_error = stake_deposit_interceptor_program_client
             .deposit_stake_whitelisted(
                 &whitelisted_signer,
-                whitelist_management_program_client.get_whitelist_pda(&base.pubkey()),
+                whitelist_management_program_client.get_whitelist_pda(),
                 stake_pool_accounts.stake_pool,
                 stake_pool_accounts.validator_list,
                 deposit_stake_authority_pubkey,

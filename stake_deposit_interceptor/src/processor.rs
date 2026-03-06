@@ -628,6 +628,14 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+
+        // Validate: StakePoolDepositStakeAuthority PDA is correct
+        check_deposit_stake_authority_address(
+            program_id,
+            stake_deposit_authority_info.key,
+            deposit_stake_authority,
+        )?;
+
         if deposit_stake_authority
             .stake_pool_program_id
             .ne(spl_stake_pool_program_info.key)
@@ -635,12 +643,11 @@ impl Processor {
             return Err(StakeDepositInterceptorError::InvalidStakePoolProgram.into());
         }
 
-        // Validate `Whitelist` is owned by jito whitelist management program
-        check_account_owner(
-            whitelist_info,
+        Whitelist::load(
             &deposit_stake_authority.jito_whitelist_management_program_id,
+            whitelist_info,
+            false,
         )?;
-
         let whitelist_data = whitelist_info.try_borrow_data()?;
         let whitelist = Whitelist::try_from_slice_unchecked(&whitelist_data)?;
 
@@ -712,10 +719,11 @@ impl Processor {
             &deposit_stake_authority_data,
         )?;
 
-        // Validate `Whitelist` is owned by jito whitelist management program
-        check_account_owner(
-            whitelist_info,
-            &deposit_stake_authority.jito_whitelist_management_program_id,
+        // Validate: StakePoolDepositStakeAuthority PDA is correct
+        check_deposit_stake_authority_address(
+            program_id,
+            stake_deposit_authority_info.key,
+            deposit_stake_authority,
         )?;
 
         // Validate: base signed the TX
@@ -727,6 +735,11 @@ impl Processor {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
         }
 
+        Whitelist::load(
+            &deposit_stake_authority.jito_whitelist_management_program_id,
+            whitelist_info,
+            false,
+        )?;
         let whitelist_data = whitelist_info.try_borrow_data()?;
         let whitelist = Whitelist::try_from_slice_unchecked(&whitelist_data)?;
 
@@ -742,6 +755,13 @@ impl Processor {
         }
 
         let stake_pool: StakePool = try_from_slice_unchecked(&stake_pool_info.data.borrow())?;
+
+        if stake_pool
+            .stake_deposit_authority
+            .ne(stake_deposit_authority_info.key)
+        {
+            return Err(StakeDepositInterceptorError::InvalidStakePoolDepositStakeAuthority.into());
+        }
 
         // To prevent a faulty manager fee account from preventing withdrawals
         // if the token program does not own the account, or if the account is not
@@ -806,6 +826,7 @@ impl Processor {
             let available = hopper_balance.saturating_sub(min_balance);
             let rebate_lamports = fee_lamports.min(available);
 
+            // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
             if rebate_lamports > 0 {
                 let (_, hopper_bump, mut hopper_seeds) =
                     Hopper::find_program_address(program_id, whitelist_info.key);
