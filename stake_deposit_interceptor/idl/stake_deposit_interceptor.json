@@ -1,5 +1,5 @@
 {
-  "version": "0.2.1",
+  "version": "0.3.0",
   "name": "stake_deposit_interceptor",
   "instructions": [
     {
@@ -782,14 +782,6 @@
       "name": "WithdrawStakeWhitelisted",
       "accounts": [
         {
-          "name": "stakeDepositAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Interceptor PDA - the stake deposit authority on the pool"
-          ]
-        },
-        {
           "name": "whitelistedSigner",
           "isMut": true,
           "isSigner": true,
@@ -819,6 +811,14 @@
           "isSigner": false,
           "docs": [
             "Validator List"
+          ]
+        },
+        {
+          "name": "stakeDepositAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Interceptor PDA - the stake deposit authority on the pool"
           ]
         },
         {
