@@ -416,11 +416,11 @@ pub enum StakeDepositInterceptorInstruction {
 
     /// Wraps spl-stake-pool WithdrawStake with whitelist verification.
     ///
-    ///   0. `[]` StakePoolDepositStakeAuthority PDA
-    ///   1. `[w,s]` Whitelisted Signer
-    ///   2. `[]` Whitelist PDA
-    ///   3. `[w]` Stake pool account
-    ///   4. `[w]` Validator list account
+    ///   0. `[w,s]` Whitelisted Signer
+    ///   1. `[]` Whitelist PDA
+    ///   2. `[w]` Stake pool account
+    ///   3. `[w]` Validator list account
+    ///   4. `[]` StakePoolDepositStakeAuthority PDA
     ///   5. `[]` Pool withdraw authority
     ///   6. `[w]` Validator stake account to split from
     ///   7. `[w]` The new stake account
@@ -438,23 +438,23 @@ pub enum StakeDepositInterceptorInstruction {
     ///   19. `[]` System program id
     #[account(
         0,
-        name = "stake_deposit_authority",
-        desc = "Interceptor PDA - the stake deposit authority on the pool"
-    )]
-    #[account(
-        1,
         signer,
         writable,
         name = "whitelisted_signer",
         desc = "Must be present in the Whitelist.whitelist array"
     )]
     #[account(
-        2,
+        1,
         name = "whitelist",
         desc = "Whitelist account from WhitelistManagementProgram"
     )]
-    #[account(3, writable, name = "stake_pool", desc = "Stake pool account")]
-    #[account(4, writable, name = "validator_list", desc = "Validator List")]
+    #[account(2, writable, name = "stake_pool", desc = "Stake pool account")]
+    #[account(3, writable, name = "validator_list", desc = "Validator List")]
+    #[account(
+        4,
+        name = "stake_deposit_authority",
+        desc = "Interceptor PDA - the stake deposit authority on the pool"
+    )]
     #[account(5, name = "withdraw_authority", desc = "Pool withdraw authority")]
     #[account(6, writable, name = "stake_split_from", desc = "The new stake account")]
     #[account(7, writable, name = "stake_split_to", desc = "The new stake account")]

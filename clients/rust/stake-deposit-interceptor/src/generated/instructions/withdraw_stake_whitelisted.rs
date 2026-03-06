@@ -13,8 +13,6 @@ pub const WITHDRAW_STAKE_WHITELISTED_DISCRIMINATOR: u8 = 7;
 /// Accounts.
 #[derive(Debug)]
 pub struct WithdrawStakeWhitelisted {
-    /// Interceptor PDA - the stake deposit authority on the pool
-    pub stake_deposit_authority: solana_pubkey::Pubkey,
     /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: solana_pubkey::Pubkey,
     /// Whitelist account from WhitelistManagementProgram
@@ -23,6 +21,8 @@ pub struct WithdrawStakeWhitelisted {
     pub stake_pool: solana_pubkey::Pubkey,
     /// Validator List
     pub validator_list: solana_pubkey::Pubkey,
+    /// Interceptor PDA - the stake deposit authority on the pool
+    pub stake_deposit_authority: solana_pubkey::Pubkey,
     /// Pool withdraw authority
     pub withdraw_authority: solana_pubkey::Pubkey,
     /// The new stake account
@@ -70,10 +70,6 @@ impl WithdrawStakeWhitelisted {
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
         let mut accounts = Vec::with_capacity(20 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            self.stake_deposit_authority,
-            false,
-        ));
         accounts.push(solana_instruction::AccountMeta::new(
             self.whitelisted_signer,
             true,
@@ -85,6 +81,10 @@ impl WithdrawStakeWhitelisted {
         accounts.push(solana_instruction::AccountMeta::new(self.stake_pool, false));
         accounts.push(solana_instruction::AccountMeta::new(
             self.validator_list,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            self.stake_deposit_authority,
             false,
         ));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -196,11 +196,11 @@ impl WithdrawStakeWhitelistedInstructionArgs {
 ///
 /// ### Accounts:
 ///
-///   0. `[]` stake_deposit_authority
-///   1. `[writable, signer]` whitelisted_signer
-///   2. `[]` whitelist
-///   3. `[writable]` stake_pool
-///   4. `[writable]` validator_list
+///   0. `[writable, signer]` whitelisted_signer
+///   1. `[]` whitelist
+///   2. `[writable]` stake_pool
+///   3. `[writable]` validator_list
+///   4. `[]` stake_deposit_authority
 ///   5. `[]` withdraw_authority
 ///   6. `[writable]` stake_split_from
 ///   7. `[writable]` stake_split_to
@@ -218,11 +218,11 @@ impl WithdrawStakeWhitelistedInstructionArgs {
 ///   19. `[optional]` system_program (default to `11111111111111111111111111111111`)
 #[derive(Clone, Debug, Default)]
 pub struct WithdrawStakeWhitelistedBuilder {
-    stake_deposit_authority: Option<solana_pubkey::Pubkey>,
     whitelisted_signer: Option<solana_pubkey::Pubkey>,
     whitelist: Option<solana_pubkey::Pubkey>,
     stake_pool: Option<solana_pubkey::Pubkey>,
     validator_list: Option<solana_pubkey::Pubkey>,
+    stake_deposit_authority: Option<solana_pubkey::Pubkey>,
     withdraw_authority: Option<solana_pubkey::Pubkey>,
     stake_split_from: Option<solana_pubkey::Pubkey>,
     stake_split_to: Option<solana_pubkey::Pubkey>,
@@ -246,15 +246,6 @@ impl WithdrawStakeWhitelistedBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    /// Interceptor PDA - the stake deposit authority on the pool
-    #[inline(always)]
-    pub fn stake_deposit_authority(
-        &mut self,
-        stake_deposit_authority: solana_pubkey::Pubkey,
-    ) -> &mut Self {
-        self.stake_deposit_authority = Some(stake_deposit_authority);
-        self
-    }
     /// Must be present in the Whitelist.whitelist array
     #[inline(always)]
     pub fn whitelisted_signer(&mut self, whitelisted_signer: solana_pubkey::Pubkey) -> &mut Self {
@@ -277,6 +268,15 @@ impl WithdrawStakeWhitelistedBuilder {
     #[inline(always)]
     pub fn validator_list(&mut self, validator_list: solana_pubkey::Pubkey) -> &mut Self {
         self.validator_list = Some(validator_list);
+        self
+    }
+    /// Interceptor PDA - the stake deposit authority on the pool
+    #[inline(always)]
+    pub fn stake_deposit_authority(
+        &mut self,
+        stake_deposit_authority: solana_pubkey::Pubkey,
+    ) -> &mut Self {
+        self.stake_deposit_authority = Some(stake_deposit_authority);
         self
     }
     /// Pool withdraw authority
@@ -409,15 +409,15 @@ impl WithdrawStakeWhitelistedBuilder {
     #[allow(clippy::clone_on_copy)]
     pub fn instruction(&self) -> solana_instruction::Instruction {
         let accounts = WithdrawStakeWhitelisted {
-            stake_deposit_authority: self
-                .stake_deposit_authority
-                .expect("stake_deposit_authority is not set"),
             whitelisted_signer: self
                 .whitelisted_signer
                 .expect("whitelisted_signer is not set"),
             whitelist: self.whitelist.expect("whitelist is not set"),
             stake_pool: self.stake_pool.expect("stake_pool is not set"),
             validator_list: self.validator_list.expect("validator_list is not set"),
+            stake_deposit_authority: self
+                .stake_deposit_authority
+                .expect("stake_deposit_authority is not set"),
             withdraw_authority: self
                 .withdraw_authority
                 .expect("withdraw_authority is not set"),
@@ -464,8 +464,6 @@ impl WithdrawStakeWhitelistedBuilder {
 
 /// `withdraw_stake_whitelisted` CPI accounts.
 pub struct WithdrawStakeWhitelistedCpiAccounts<'a, 'b> {
-    /// Interceptor PDA - the stake deposit authority on the pool
-    pub stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
     /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
     /// Whitelist account from WhitelistManagementProgram
@@ -474,6 +472,8 @@ pub struct WithdrawStakeWhitelistedCpiAccounts<'a, 'b> {
     pub stake_pool: &'b solana_account_info::AccountInfo<'a>,
     /// Validator List
     pub validator_list: &'b solana_account_info::AccountInfo<'a>,
+    /// Interceptor PDA - the stake deposit authority on the pool
+    pub stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
     /// Pool withdraw authority
     pub withdraw_authority: &'b solana_account_info::AccountInfo<'a>,
     /// The new stake account
@@ -510,8 +510,6 @@ pub struct WithdrawStakeWhitelistedCpiAccounts<'a, 'b> {
 pub struct WithdrawStakeWhitelistedCpi<'a, 'b> {
     /// The program to invoke.
     pub __program: &'b solana_account_info::AccountInfo<'a>,
-    /// Interceptor PDA - the stake deposit authority on the pool
-    pub stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
     /// Must be present in the Whitelist.whitelist array
     pub whitelisted_signer: &'b solana_account_info::AccountInfo<'a>,
     /// Whitelist account from WhitelistManagementProgram
@@ -520,6 +518,8 @@ pub struct WithdrawStakeWhitelistedCpi<'a, 'b> {
     pub stake_pool: &'b solana_account_info::AccountInfo<'a>,
     /// Validator List
     pub validator_list: &'b solana_account_info::AccountInfo<'a>,
+    /// Interceptor PDA - the stake deposit authority on the pool
+    pub stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
     /// Pool withdraw authority
     pub withdraw_authority: &'b solana_account_info::AccountInfo<'a>,
     /// The new stake account
@@ -562,11 +562,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
     ) -> Self {
         Self {
             __program: program,
-            stake_deposit_authority: accounts.stake_deposit_authority,
             whitelisted_signer: accounts.whitelisted_signer,
             whitelist: accounts.whitelist,
             stake_pool: accounts.stake_pool,
             validator_list: accounts.validator_list,
+            stake_deposit_authority: accounts.stake_deposit_authority,
             withdraw_authority: accounts.withdraw_authority,
             stake_split_from: accounts.stake_split_from,
             stake_split_to: accounts.stake_split_to,
@@ -609,10 +609,6 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
         remaining_accounts: &[(&'b solana_account_info::AccountInfo<'a>, bool, bool)],
     ) -> solana_program_error::ProgramResult {
         let mut accounts = Vec::with_capacity(20 + remaining_accounts.len());
-        accounts.push(solana_instruction::AccountMeta::new_readonly(
-            *self.stake_deposit_authority.key,
-            false,
-        ));
         accounts.push(solana_instruction::AccountMeta::new(
             *self.whitelisted_signer.key,
             true,
@@ -627,6 +623,10 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
         ));
         accounts.push(solana_instruction::AccountMeta::new(
             *self.validator_list.key,
+            false,
+        ));
+        accounts.push(solana_instruction::AccountMeta::new_readonly(
+            *self.stake_deposit_authority.key,
             false,
         ));
         accounts.push(solana_instruction::AccountMeta::new_readonly(
@@ -709,11 +709,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
         };
         let mut account_infos = Vec::with_capacity(21 + remaining_accounts.len());
         account_infos.push(self.__program.clone());
-        account_infos.push(self.stake_deposit_authority.clone());
         account_infos.push(self.whitelisted_signer.clone());
         account_infos.push(self.whitelist.clone());
         account_infos.push(self.stake_pool.clone());
         account_infos.push(self.validator_list.clone());
+        account_infos.push(self.stake_deposit_authority.clone());
         account_infos.push(self.withdraw_authority.clone());
         account_infos.push(self.stake_split_from.clone());
         account_infos.push(self.stake_split_to.clone());
@@ -745,11 +745,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpi<'a, 'b> {
 ///
 /// ### Accounts:
 ///
-///   0. `[]` stake_deposit_authority
-///   1. `[writable, signer]` whitelisted_signer
-///   2. `[]` whitelist
-///   3. `[writable]` stake_pool
-///   4. `[writable]` validator_list
+///   0. `[writable, signer]` whitelisted_signer
+///   1. `[]` whitelist
+///   2. `[writable]` stake_pool
+///   3. `[writable]` validator_list
+///   4. `[]` stake_deposit_authority
 ///   5. `[]` withdraw_authority
 ///   6. `[writable]` stake_split_from
 ///   7. `[writable]` stake_split_to
@@ -774,11 +774,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
     pub fn new(program: &'b solana_account_info::AccountInfo<'a>) -> Self {
         let instruction = Box::new(WithdrawStakeWhitelistedCpiBuilderInstruction {
             __program: program,
-            stake_deposit_authority: None,
             whitelisted_signer: None,
             whitelist: None,
             stake_pool: None,
             validator_list: None,
+            stake_deposit_authority: None,
             withdraw_authority: None,
             stake_split_from: None,
             stake_split_to: None,
@@ -798,15 +798,6 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
-    }
-    /// Interceptor PDA - the stake deposit authority on the pool
-    #[inline(always)]
-    pub fn stake_deposit_authority(
-        &mut self,
-        stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
-    ) -> &mut Self {
-        self.instruction.stake_deposit_authority = Some(stake_deposit_authority);
-        self
     }
     /// Must be present in the Whitelist.whitelist array
     #[inline(always)]
@@ -839,6 +830,15 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         validator_list: &'b solana_account_info::AccountInfo<'a>,
     ) -> &mut Self {
         self.instruction.validator_list = Some(validator_list);
+        self
+    }
+    /// Interceptor PDA - the stake deposit authority on the pool
+    #[inline(always)]
+    pub fn stake_deposit_authority(
+        &mut self,
+        stake_deposit_authority: &'b solana_account_info::AccountInfo<'a>,
+    ) -> &mut Self {
+        self.instruction.stake_deposit_authority = Some(stake_deposit_authority);
         self
     }
     /// Pool withdraw authority
@@ -1015,11 +1015,6 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         let instruction = WithdrawStakeWhitelistedCpi {
             __program: self.instruction.__program,
 
-            stake_deposit_authority: self
-                .instruction
-                .stake_deposit_authority
-                .expect("stake_deposit_authority is not set"),
-
             whitelisted_signer: self
                 .instruction
                 .whitelisted_signer
@@ -1033,6 +1028,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
                 .instruction
                 .validator_list
                 .expect("validator_list is not set"),
+
+            stake_deposit_authority: self
+                .instruction
+                .stake_deposit_authority
+                .expect("stake_deposit_authority is not set"),
 
             withdraw_authority: self
                 .instruction
@@ -1114,11 +1114,11 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
 #[derive(Clone, Debug)]
 struct WithdrawStakeWhitelistedCpiBuilderInstruction<'a, 'b> {
     __program: &'b solana_account_info::AccountInfo<'a>,
-    stake_deposit_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
     whitelisted_signer: Option<&'b solana_account_info::AccountInfo<'a>>,
     whitelist: Option<&'b solana_account_info::AccountInfo<'a>>,
     stake_pool: Option<&'b solana_account_info::AccountInfo<'a>>,
     validator_list: Option<&'b solana_account_info::AccountInfo<'a>>,
+    stake_deposit_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
     withdraw_authority: Option<&'b solana_account_info::AccountInfo<'a>>,
     stake_split_from: Option<&'b solana_account_info::AccountInfo<'a>>,
     stake_split_to: Option<&'b solana_account_info::AccountInfo<'a>>,

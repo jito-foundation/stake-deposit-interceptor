@@ -680,11 +680,11 @@ impl Processor {
         amount: u64,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
-        let stake_deposit_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
         let whitelisted_signer_info = next_account_info(account_info_iter)?;
         let whitelist_info = next_account_info(account_info_iter)?;
         let stake_pool_info = next_account_info(account_info_iter)?;
         let validator_list_info = next_account_info(account_info_iter)?;
+        let stake_deposit_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
         let withdraw_authority_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
         let stake_split_from_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
         let stake_split_to_info: &AccountInfo<'_> = next_account_info(account_info_iter)?;
