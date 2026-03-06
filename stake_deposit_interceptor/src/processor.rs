@@ -806,6 +806,7 @@ impl Processor {
             let available = hopper_balance.saturating_sub(min_balance);
             let rebate_lamports = fee_lamports.min(available);
 
+            // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
             if rebate_lamports > 0 {
                 let (_, hopper_bump, mut hopper_seeds) =
                     Hopper::find_program_address(program_id, whitelist_info.key);
