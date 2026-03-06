@@ -628,6 +628,14 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+
+        // Validate: StakePoolDepositStakeAuthority PDA is correct
+        check_deposit_stake_authority_address(
+            program_id,
+            stake_deposit_authority_info.key,
+            deposit_stake_authority,
+        )?;
+
         if deposit_stake_authority
             .stake_pool_program_id
             .ne(spl_stake_pool_program_info.key)
@@ -712,6 +720,13 @@ impl Processor {
             &deposit_stake_authority_data,
         )?;
 
+        // Validate: StakePoolDepositStakeAuthority PDA is correct
+        check_deposit_stake_authority_address(
+            program_id,
+            stake_deposit_authority_info.key,
+            deposit_stake_authority,
+        )?;
+
         // Validate `Whitelist` is owned by jito whitelist management program
         check_account_owner(
             whitelist_info,
@@ -742,6 +757,13 @@ impl Processor {
         }
 
         let stake_pool: StakePool = try_from_slice_unchecked(&stake_pool_info.data.borrow())?;
+
+        if stake_pool
+            .stake_deposit_authority
+            .ne(stake_deposit_authority_info.key)
+        {
+            return Err(StakeDepositInterceptorError::InvalidStakePoolDepositStakeAuthority.into());
+        }
 
         // To prevent a faulty manager fee account from preventing withdrawals
         // if the token program does not own the account, or if the account is not
