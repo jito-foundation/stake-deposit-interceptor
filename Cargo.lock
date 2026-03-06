@@ -1182,7 +1182,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115e54d64eb62cdebad391c19efc9dce4981c690c85a33a12199d99bb9546fee"
 dependencies = [
  "borsh-derive 0.10.4",
- "hashbrown 0.13.2",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -3281,7 +3281,8 @@ dependencies = [
 
 [[package]]
 name = "jito-whitelist-management-client"
-version = "0.3.0"
+version = "0.1.0"
+source = "git+https://github.com/jito-foundation/jito-whitelist-management.git#ac8fc6785077d8a91814807a9773f35c2cf72bd3"
 dependencies = [
  "anchor-lang",
  "borsh 1.6.0",
@@ -3290,25 +3291,25 @@ dependencies = [
  "serde",
  "serde-big-array",
  "serde_with",
- "solana-account 3.4.0",
  "solana-account-info 3.1.0",
- "solana-client",
  "solana-cpi 3.1.0",
  "solana-instruction 3.2.0",
  "solana-program 3.0.0",
  "solana-program-error 3.0.0",
  "solana-pubkey 3.0.0",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "jito-whitelist-management-core"
-version = "0.3.0"
+version = "0.1.0"
+source = "git+https://github.com/jito-foundation/jito-whitelist-management.git#ac8fc6785077d8a91814807a9773f35c2cf72bd3"
 dependencies = [
  "bytemuck",
  "jito-bytemuck",
- "shank",
+ "shank 0.4.8",
  "solana-account-info 3.1.0",
+ "solana-address 2.2.0",
  "solana-program-error 3.0.0",
  "solana-program-log",
  "solana-pubkey 3.0.0",
@@ -5262,7 +5263,16 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c9395612d493b69a522725eef78a095f199d43eeb847f4a4b77ec0cacab535"
 dependencies = [
- "shank_macro",
+ "shank_macro 0.3.0",
+]
+
+[[package]]
+name = "shank"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a1dc1d3af4ba5f02190110598b2abac0d13ce9dc58408aba4549e1c0f91a24c"
+dependencies = [
+ "shank_macro 0.4.8",
 ]
 
 [[package]]
@@ -5273,8 +5283,21 @@ checksum = "8abef069c02e15f62233679b1e71f3152fac10f90b3ff89ebbad6a25b7497754"
 dependencies = [
  "proc-macro2",
  "quote",
- "shank_macro_impl",
- "shank_render",
+ "shank_macro_impl 0.3.0",
+ "shank_render 0.3.0",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "shank_macro"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63dbf105335507ad339dccacf3b1ea20e4c0b70d992b4de7cc11d5c0b91b0747"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "shank_macro_impl 0.4.8",
+ "shank_render 0.4.8",
  "syn 1.0.109",
 ]
 
@@ -5292,6 +5315,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "shank_macro_impl"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "346563412da6d1a53bc53c81f9d8b102f177952b95fd8de00e5d2203a4685635"
+dependencies = [
+ "anyhow",
+ "proc-macro2",
+ "quote",
+ "serde",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "shank_render"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5299,7 +5335,18 @@ checksum = "5a2ea9c6dd95ea311b3b81e63cf4e9c808ed04b098819e6d2c4b1a467d587203"
 dependencies = [
  "proc-macro2",
  "quote",
- "shank_macro_impl",
+ "shank_macro_impl 0.3.0",
+]
+
+[[package]]
+name = "shank_render"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8358067ec1787814d2577e76d9ddcc980559ad821e6bd04584f4847f4d1d955c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "shank_macro_impl 0.4.8",
 ]
 
 [[package]]
@@ -10835,7 +10882,7 @@ dependencies = [
  "jito-whitelist-management-core",
  "num-derive",
  "num-traits",
- "shank",
+ "shank 0.3.0",
  "solana-account 3.4.0",
  "solana-account-info 3.1.0",
  "solana-clock 3.0.1",
