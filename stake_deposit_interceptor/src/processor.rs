@@ -635,12 +635,11 @@ impl Processor {
             return Err(StakeDepositInterceptorError::InvalidStakePoolProgram.into());
         }
 
-        // Validate `Whitelist` is owned by jito whitelist management program
-        check_account_owner(
-            whitelist_info,
+        Whitelist::load(
             &deposit_stake_authority.jito_whitelist_management_program_id,
+            whitelist_info,
+            false,
         )?;
-
         let whitelist_data = whitelist_info.try_borrow_data()?;
         let whitelist = Whitelist::try_from_slice_unchecked(&whitelist_data)?;
 
@@ -712,12 +711,6 @@ impl Processor {
             &deposit_stake_authority_data,
         )?;
 
-        // Validate `Whitelist` is owned by jito whitelist management program
-        check_account_owner(
-            whitelist_info,
-            &deposit_stake_authority.jito_whitelist_management_program_id,
-        )?;
-
         // Validate: base signed the TX
         if !whitelisted_signer_info.is_signer {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
@@ -727,6 +720,11 @@ impl Processor {
             return Err(StakeDepositInterceptorError::SignatureMissing.into());
         }
 
+        Whitelist::load(
+            &deposit_stake_authority.jito_whitelist_management_program_id,
+            whitelist_info,
+            false,
+        )?;
         let whitelist_data = whitelist_info.try_borrow_data()?;
         let whitelist = Whitelist::try_from_slice_unchecked(&whitelist_data)?;
 
