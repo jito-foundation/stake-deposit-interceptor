@@ -636,6 +636,11 @@ impl Processor {
             deposit_stake_authority,
         )?;
 
+        // Validate: StakePool must match the `StakePoolDepositStakeAuthority` StakePool
+        if &deposit_stake_authority.stake_pool != stake_pool_info.key {
+            return Err(StakeDepositInterceptorError::InvalidStakePool.into());
+        }
+
         if deposit_stake_authority
             .stake_pool_program_id
             .ne(spl_stake_pool_program_info.key)
@@ -745,6 +750,11 @@ impl Processor {
 
         if !whitelist.whitelist.contains(whitelisted_signer_info.key) {
             return Err(StakeDepositInterceptorError::InvalidWhitelistedSigner.into());
+        }
+
+        // Validate: StakePool must match the `StakePoolDepositStakeAuthority` StakePool
+        if &deposit_stake_authority.stake_pool != stake_pool_info.key {
+            return Err(StakeDepositInterceptorError::InvalidStakePool.into());
         }
 
         if deposit_stake_authority
