@@ -628,6 +628,7 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+        deposit_stake_authority.check_stake_pool(*stake_pool_info.key)?;
 
         // Validate: StakePoolDepositStakeAuthority PDA is correct
         check_deposit_stake_authority_address(
@@ -635,11 +636,6 @@ impl Processor {
             stake_deposit_authority_info.key,
             deposit_stake_authority,
         )?;
-
-        // Validate: StakePool must match the `StakePoolDepositStakeAuthority` StakePool
-        if &deposit_stake_authority.stake_pool != stake_pool_info.key {
-            return Err(StakeDepositInterceptorError::InvalidStakePool.into());
-        }
 
         if deposit_stake_authority
             .stake_pool_program_id
@@ -723,6 +719,7 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+        deposit_stake_authority.check_stake_pool(*stake_pool_info.key)?;
 
         // Validate: StakePoolDepositStakeAuthority PDA is correct
         check_deposit_stake_authority_address(
@@ -750,11 +747,6 @@ impl Processor {
 
         if !whitelist.whitelist.contains(whitelisted_signer_info.key) {
             return Err(StakeDepositInterceptorError::InvalidWhitelistedSigner.into());
-        }
-
-        // Validate: StakePool must match the `StakePoolDepositStakeAuthority` StakePool
-        if &deposit_stake_authority.stake_pool != stake_pool_info.key {
-            return Err(StakeDepositInterceptorError::InvalidStakePool.into());
         }
 
         if deposit_stake_authority
