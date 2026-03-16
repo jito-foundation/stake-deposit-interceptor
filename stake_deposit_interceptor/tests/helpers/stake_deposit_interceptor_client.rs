@@ -72,10 +72,6 @@ impl StakeDepositInterceptorProgramClient {
             .stake_history(solana_stake_interface::stake_history::StakeHistory::id())
             .stake_program(solana_stake_interface::program::id())
             .spl_stake_pool_program(spl_stake_pool_program)
-            .add_remaining_account(solana_program::instruction::AccountMeta::new_readonly(
-                solana_system_interface::program::id(),
-                false,
-            ))
             .instruction();
         self.process_transaction(&Transaction::new_signed_with_payer(
             &[ix],

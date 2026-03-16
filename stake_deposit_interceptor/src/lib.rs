@@ -13,7 +13,7 @@ pub const BASIS_POINTS_MAX: u16 = 10_000;
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;
 
-declare_id!("2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu");
+declare_id!("5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV");
 
 #[cfg(not(feature = "no-entrypoint"))]
 security_txt! {
