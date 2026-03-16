@@ -188,6 +188,10 @@ pub enum StakeDepositInterceptorActions {
         /// Lamports
         #[arg(long)]
         lamports: u64,
+
+        /// Stake Pool address
+        #[arg(long)]
+        stake_pool: Pubkey,
     },
 
     /// Hopper Balance
@@ -195,5 +199,9 @@ pub enum StakeDepositInterceptorActions {
         /// Whitelist address
         #[arg(long)]
         whitelist: Pubkey,
+
+        /// Stake Pool address
+        #[arg(long)]
+        stake_pool: Pubkey,
     },
 }

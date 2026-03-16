@@ -7,8 +7,12 @@ pub struct Hopper;
 
 impl Hopper {
     /// Returns the seeds for the PDA
-    pub fn seeds(whitelist: &Pubkey) -> Vec<Vec<u8>> {
-        vec![b"hopper".to_vec(), whitelist.to_bytes().to_vec()]
+    pub fn seeds(whitelist: &Pubkey, stake_pool: &Pubkey) -> Vec<Vec<u8>> {
+        vec![
+            b"hopper".to_vec(),
+            whitelist.to_bytes().to_vec(),
+            stake_pool.to_bytes().to_vec(),
+        ]
     }
 
     /// Find the program address for the hopper account
@@ -24,8 +28,9 @@ impl Hopper {
     pub fn find_program_address(
         program_id: &Pubkey,
         whitelist: &Pubkey,
+        stake_pool: &Pubkey,
     ) -> (Pubkey, u8, Vec<Vec<u8>>) {
-        let seeds = Self::seeds(whitelist);
+        let seeds = Self::seeds(whitelist, stake_pool);
         let (address, bump) = Pubkey::find_program_address(
             &seeds.iter().map(|s| s.as_slice()).collect::<Vec<_>>(),
             program_id,
@@ -47,6 +52,7 @@ impl Hopper {
         program_id: &Pubkey,
         account: &AccountInfo,
         whitelist: &Pubkey,
+        stake_pool: &Pubkey,
         expect_writable: bool,
     ) -> Result<(), ProgramError> {
         if account.owner.ne(&solana_system_interface::program::id()) {
@@ -54,7 +60,7 @@ impl Hopper {
             return Err(ProgramError::InvalidAccountOwner);
         }
 
-        let expected_pda = Self::find_program_address(program_id, whitelist).0;
+        let expected_pda = Self::find_program_address(program_id, whitelist, stake_pool).0;
 
         if account.key.ne(&expected_pda) {
             msg!("Hopper account is not at the correct PDA");
