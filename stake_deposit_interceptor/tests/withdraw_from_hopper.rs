@@ -29,8 +29,8 @@ mod tests {
     async fn setup() -> (
         ProgramTestContext,
         StakePoolAccounts,
-        Keypair,         // authority
-        Keypair,         // deposit_authority_base
+        Keypair, // authority
+        Keypair, // deposit_authority_base
         StakePoolDepositStakeAuthority,
     ) {
         let (mut ctx, stake_pool_accounts) = program_test_context_with_stake_pool_state().await;
@@ -112,8 +112,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_withdraw_from_hopper_ok() {
-        let (mut ctx, _stake_pool_accounts, authority, deposit_authority_base, deposit_stake_authority) =
-            setup().await;
+        let (
+            mut ctx,
+            _stake_pool_accounts,
+            authority,
+            deposit_authority_base,
+            deposit_stake_authority,
+        ) = setup().await;
 
         // Initialize whitelist
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
@@ -143,7 +148,11 @@ mod tests {
 
         // Create recipient
         let recipient = Keypair::new();
-        let recipient_before = ctx.banks_client.get_account(recipient.pubkey()).await.unwrap();
+        let recipient_before = ctx
+            .banks_client
+            .get_account(recipient.pubkey())
+            .await
+            .unwrap();
         assert!(recipient_before.is_none());
 
         // Derive deposit stake authority PDA
@@ -181,8 +190,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_withdraw_from_hopper_invalid_authority_fails() {
-        let (mut ctx, _stake_pool_accounts, _authority, deposit_authority_base, deposit_stake_authority) =
-            setup().await;
+        let (
+            mut ctx,
+            _stake_pool_accounts,
+            _authority,
+            deposit_authority_base,
+            deposit_stake_authority,
+        ) = setup().await;
 
         // Initialize whitelist
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
@@ -235,8 +249,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_withdraw_from_hopper_insufficient_funds_fails() {
-        let (mut ctx, _stake_pool_accounts, authority, deposit_authority_base, deposit_stake_authority) =
-            setup().await;
+        let (
+            mut ctx,
+            _stake_pool_accounts,
+            authority,
+            deposit_authority_base,
+            deposit_stake_authority,
+        ) = setup().await;
 
         // Initialize whitelist
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(

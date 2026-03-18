@@ -7,8 +7,7 @@ use solana_transaction::{InstructionError, Transaction, TransactionError};
 use stake_deposit_interceptor_client::{
     errors::StakeDepositInterceptorError,
     instructions::{
-        DepositStakeWhitelistedBuilder, WithdrawFromHopperBuilder,
-        WithdrawStakeWhitelistedBuilder,
+        DepositStakeWhitelistedBuilder, WithdrawFromHopperBuilder, WithdrawStakeWhitelistedBuilder,
     },
     programs::STAKE_DEPOSIT_INTERCEPTOR_ID,
 };
