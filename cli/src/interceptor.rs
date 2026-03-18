@@ -196,4 +196,23 @@ pub enum StakeDepositInterceptorActions {
         #[arg(long)]
         whitelist: Pubkey,
     },
+
+    /// Withdraw From Hopper
+    WithdrawFromHopper {
+        /// Whitelist address
+        #[arg(long)]
+        whitelist: Pubkey,
+
+        /// Stake deposit authority address for the stake pool
+        #[arg(long)]
+        stake_deposit_authority: Pubkey,
+
+        /// Recipient address
+        #[arg(long)]
+        recipient: Pubkey,
+
+        /// Amount in lamports
+        #[arg(long)]
+        amount: u64,
+    },
 }

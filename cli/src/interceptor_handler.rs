@@ -27,7 +27,7 @@ use spl_stake_pool::{
 use stake_deposit_interceptor_client::instructions::{
     ClaimPoolTokensBuilder, DepositStakeBuilder, DepositStakeWhitelistedBuilder,
     InitStakePoolDepositStakeAuthorityBuilder, UpdateStakePoolDepositStakeAuthorityBuilder,
-    WithdrawStakeWhitelistedBuilder,
+    WithdrawFromHopperBuilder, WithdrawStakeWhitelistedBuilder,
 };
 use stake_deposit_interceptor_program::state::{
     hopper::Hopper, StakeDepositInterceptorDiscriminators,
@@ -358,6 +358,18 @@ impl StakeDepositInterceptorCliHandler {
             StakeDepositInterceptorCommands::Interceptor {
                 action: StakeDepositInterceptorActions::HopperBalance { whitelist },
             } => self.hopper_balance(whitelist).await,
+            StakeDepositInterceptorCommands::Interceptor {
+                action:
+                    StakeDepositInterceptorActions::WithdrawFromHopper {
+                        whitelist,
+                        stake_deposit_authority,
+                        recipient,
+                        amount,
+                    },
+            } => {
+                self.withdraw_from_hopper(whitelist, stake_deposit_authority, recipient, amount)
+                    .await
+            }
         }
     }
 
@@ -1021,6 +1033,42 @@ impl StakeDepositInterceptorCliHandler {
         let hopper_acc = rpc_client.get_account(&hopper_pda).await?;
 
         println!("Hopper Balance: {}", hopper_acc.lamports);
+
+        Ok(())
+    }
+
+    pub async fn withdraw_from_hopper(
+        &self,
+        whitelist_pda: Pubkey,
+        stake_deposit_authority_address: Pubkey,
+        recipient: Pubkey,
+        amount: u64,
+    ) -> anyhow::Result<()> {
+        let hopper_pda = Hopper::find_program_address(
+            &self.stake_deposit_interceptor_program_id,
+            &whitelist_pda,
+        )
+        .0;
+
+        let mut ix_builder = WithdrawFromHopperBuilder::new();
+        ix_builder
+            .stake_deposit_authority(stake_deposit_authority_address)
+            .authority(self.cli_config.signer.pubkey())
+            .whitelist(whitelist_pda)
+            .hopper(hopper_pda)
+            .recipient(recipient)
+            .amount(amount);
+        let mut ix = ix_builder.instruction();
+        ix.program_id = self.stake_deposit_interceptor_program_id;
+
+        log::info!("Withdrawing From Hopper parameters: {ix_builder:?}",);
+
+        self.process_transaction(
+            &[ix],
+            &self.cli_config.signer.pubkey(),
+            &[self.cli_config.signer.clone()],
+        )
+        .await?;
 
         Ok(())
     }
