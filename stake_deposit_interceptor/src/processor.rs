@@ -855,6 +855,72 @@ impl Processor {
         Ok(())
     }
 
+    pub fn process_withdraw_from_hopper(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        amount: u64,
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let authority_info = next_account_info(account_info_iter)?;
+        let stake_deposit_authority_info = next_account_info(account_info_iter)?;
+        let whitelist_info = next_account_info(account_info_iter)?;
+        let hopper_info = next_account_info(account_info_iter)?;
+        let recipient_info = next_account_info(account_info_iter)?;
+        let system_program_info = next_account_info(account_info_iter)?;
+
+        // Validate: System program
+        check_system_program(system_program_info.key)?;
+
+        // Validate: Authority signed the TX
+        if !authority_info.is_signer {
+            return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
+        // Validate: StakePoolDepositStakeAuthority is owned by this program
+        check_account_owner(stake_deposit_authority_info, program_id)?;
+
+        let deposit_stake_authority_data = stake_deposit_authority_info.try_borrow_data()?;
+        let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
+            &deposit_stake_authority_data,
+        )?;
+
+        // Validate: StakePoolDepositStakeAuthority PDA is correct
+        check_deposit_stake_authority_address(
+            program_id,
+            stake_deposit_authority_info.key,
+            deposit_stake_authority,
+        )?;
+
+        // Validate: Authority matches the deposit stake authority's authority
+        if deposit_stake_authority.authority != *authority_info.key {
+            return Err(StakeDepositInterceptorError::InvalidAuthority.into());
+        }
+
+        // Validate: Hopper PDA
+        Hopper::load(program_id, hopper_info, whitelist_info.key, true)?;
+
+        // Transfer SOL from hopper to recipient
+        let (_, hopper_bump, mut hopper_seeds) =
+            Hopper::find_program_address(program_id, whitelist_info.key);
+        hopper_seeds.push(vec![hopper_bump]);
+
+        invoke_signed(
+            &transfer(hopper_info.key, recipient_info.key, amount),
+            &[
+                hopper_info.clone(),
+                recipient_info.clone(),
+                system_program_info.clone(),
+            ],
+            &[hopper_seeds
+                .iter()
+                .map(|seed| seed.as_slice())
+                .collect::<Vec<&[u8]>>()
+                .as_slice()],
+        )?;
+
+        Ok(())
+    }
+
     pub fn process(program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
         let instruction = StakeDepositInterceptorInstruction::try_from_slice(input)?;
         match instruction {
@@ -889,6 +955,10 @@ impl Processor {
             StakeDepositInterceptorInstruction::WithdrawStakeWhitelisted { amount } => {
                 msg!("Instruction: WithdrawStakeWhitelisted");
                 Self::process_withdraw_stake_whitelisted(program_id, accounts, amount)?;
+            }
+            StakeDepositInterceptorInstruction::WithdrawFromHopper { amount } => {
+                msg!("Instruction: WithdrawFromHopper");
+                Self::process_withdraw_from_hopper(program_id, accounts, amount)?;
             }
         }
         Ok(())

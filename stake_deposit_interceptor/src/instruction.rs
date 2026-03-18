@@ -502,6 +502,45 @@ pub enum StakeDepositInterceptorInstruction {
     #[account(18, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
     #[account(19, name = "system_program", desc = "System program")]
     WithdrawStakeWhitelisted { amount: u64 },
+
+    /// Withdraw SOL from a hopper account. Requires the deposit stake authority's authority.
+    ///
+    ///   0. `[s]` Authority (must match StakePoolDepositStakeAuthority.authority)
+    ///   1. `[]` StakePoolDepositStakeAuthority PDA
+    ///   2. `[]` Whitelist PDA (used for hopper PDA derivation)
+    ///   3. `[w]` Hopper account (SOL source)
+    ///   4. `[w]` Recipient account (SOL destination)
+    ///   5. `[]` System program
+    #[account(
+        0,
+        signer,
+        name = "authority",
+        desc = "Must match StakePoolDepositStakeAuthority.authority"
+    )]
+    #[account(
+        1,
+        name = "stake_deposit_authority",
+        desc = "Interceptor PDA - the stake deposit authority on the pool"
+    )]
+    #[account(
+        2,
+        name = "whitelist",
+        desc = "Whitelist PDA used for hopper PDA derivation"
+    )]
+    #[account(
+        3,
+        writable,
+        name = "hopper",
+        desc = "Hopper PDA holding SOL for fee rebates"
+    )]
+    #[account(
+        4,
+        writable,
+        name = "recipient",
+        desc = "Recipient of the withdrawn SOL"
+    )]
+    #[account(5, name = "system_program", desc = "System program")]
+    WithdrawFromHopper { amount: u64 },
 }
 
 pub const STAKE_POOL_DEPOSIT_STAKE_AUTHORITY: &[u8] = b"deposit_stake_authority";
@@ -861,5 +900,31 @@ pub fn create_claim_pool_tokens_instruction(
         program_id: *program_id,
         accounts,
         data: borsh::to_vec(&StakeDepositInterceptorInstruction::ClaimPoolTokens).unwrap(),
+    }
+}
+
+/// Creates a WithdrawFromHopper instruction to withdraw SOL from a hopper account.
+pub fn create_withdraw_from_hopper_instruction(
+    program_id: &Pubkey,
+    authority: &Pubkey,
+    stake_deposit_authority: &Pubkey,
+    whitelist: &Pubkey,
+    recipient: &Pubkey,
+    amount: u64,
+) -> Instruction {
+    let (hopper, _, _) = crate::state::hopper::Hopper::find_program_address(program_id, whitelist);
+    let accounts = vec![
+        AccountMeta::new_readonly(*authority, true),
+        AccountMeta::new_readonly(*stake_deposit_authority, false),
+        AccountMeta::new_readonly(*whitelist, false),
+        AccountMeta::new(hopper, false),
+        AccountMeta::new(*recipient, false),
+        AccountMeta::new_readonly(solana_system_interface::program::id(), false),
+    ];
+    Instruction {
+        program_id: *program_id,
+        accounts,
+        data: borsh::to_vec(&StakeDepositInterceptorInstruction::WithdrawFromHopper { amount })
+            .unwrap(),
     }
 }
