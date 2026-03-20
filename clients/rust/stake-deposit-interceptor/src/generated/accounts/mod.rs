@@ -5,10 +5,8 @@
 //! <https://github.com/codama-idl/codama>
 //!
 
-pub mod accounts;
-pub mod errors;
-pub mod instructions;
-pub mod programs;
-pub mod shared;
+pub(crate) mod r#deposit_receipt;
+pub(crate) mod r#stake_pool_deposit_stake_authority;
 
-pub(crate) use programs::*;
+pub use self::r#deposit_receipt::*;
+pub use self::r#stake_pool_deposit_stake_authority::*;
