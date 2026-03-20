@@ -159,8 +159,8 @@ impl anchor_lang::AccountSerialize for StakePoolDepositStakeAuthority {}
 
 #[cfg(feature = "anchor")]
 impl anchor_lang::Owner for StakePoolDepositStakeAuthority {
-    fn owner() -> Pubkey {
-        crate::STAKE_DEPOSIT_INTERCEPTOR_ID
+    fn owner() -> anchor_lang::prelude::Pubkey {
+        anchor_lang::prelude::Pubkey::new_from_array(crate::STAKE_DEPOSIT_INTERCEPTOR_ID.to_bytes())
     }
 }
 
