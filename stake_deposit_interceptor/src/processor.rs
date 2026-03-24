@@ -32,7 +32,6 @@ use crate::{
         STAKE_POOL_DEPOSIT_STAKE_AUTHORITY,
     },
     state::{hopper::Hopper, DepositReceipt, StakePoolDepositStakeAuthority},
-    BASIS_POINTS_MAX,
 };
 
 pub struct Processor;
@@ -766,22 +765,21 @@ impl Processor {
         // To prevent a faulty manager fee account from preventing withdrawals
         // if the token program does not own the account, or if the account is not
         // initialized
-        let fee_lamports = if stake_pool.manager_fee_account == *user_pool_token_account_info.key {
-            0
+        let fee_lamports_opt = if stake_pool.manager_fee_account
+            == *user_pool_token_account_info.key
+        {
+            Some(0)
         } else {
             let pool_tokens_fee = stake_pool
                 .calc_pool_tokens_stake_withdrawal_fee(amount)
                 .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
-            let conversion_rate_bps = (stake_pool.total_lamports as u128)
-                .checked_mul(BASIS_POINTS_MAX as u128)
-                .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
-                .map(|n| n as u64)
-                .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
-            (pool_tokens_fee as u128)
-                .checked_mul(conversion_rate_bps as u128)
-                .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
-                .map(|n| n as u64)
-                .ok_or(StakeDepositInterceptorError::ArithmeticError)?
+            match stake_pool.calc_lamports_withdraw_amount(pool_tokens_fee) {
+                Some(lamports) => Some(lamports),
+                None => {
+                    msg!("Failed to calculate lamports withdraw amount from pool tokens fee; treating manager fee as 0");
+                    Some(0)
+                }
+            }
         };
 
         invoke(
@@ -817,38 +815,40 @@ impl Processor {
             ],
         )?;
 
-        if fee_lamports > 0 {
-            Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
+        if let Some(fee_lamports) = fee_lamports_opt {
+            if fee_lamports > 0 {
+                Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
 
-            let hopper_balance = fee_rebate_hopper_info.lamports();
-            let rent = Rent::get()?;
-            let min_balance = rent.minimum_balance(fee_rebate_hopper_info.data_len());
-            let available = hopper_balance.saturating_sub(min_balance);
-            let rebate_lamports = fee_lamports.min(available);
+                let hopper_balance = fee_rebate_hopper_info.lamports();
+                let rent = Rent::get()?;
+                let min_balance = rent.minimum_balance(fee_rebate_hopper_info.data_len());
+                let available = hopper_balance.saturating_sub(min_balance);
+                let rebate_lamports = fee_lamports.min(available);
 
-            // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
-            if rebate_lamports > 0 {
-                let (_, hopper_bump, mut hopper_seeds) =
-                    Hopper::find_program_address(program_id, whitelist_info.key);
-                hopper_seeds.push(vec![hopper_bump]);
+                // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
+                if rebate_lamports > 0 {
+                    let (_, hopper_bump, mut hopper_seeds) =
+                        Hopper::find_program_address(program_id, whitelist_info.key);
+                    hopper_seeds.push(vec![hopper_bump]);
 
-                invoke_signed(
-                    &transfer(
-                        fee_rebate_hopper_info.key,
-                        fee_rebate_recipient_info.key,
-                        rebate_lamports,
-                    ),
-                    &[
-                        fee_rebate_hopper_info.clone(),
-                        fee_rebate_recipient_info.clone(),
-                        system_program_info.clone(),
-                    ],
-                    &[hopper_seeds
-                        .iter()
-                        .map(|seed| seed.as_slice())
-                        .collect::<Vec<&[u8]>>()
-                        .as_slice()],
-                )?;
+                    invoke_signed(
+                        &transfer(
+                            fee_rebate_hopper_info.key,
+                            fee_rebate_recipient_info.key,
+                            rebate_lamports,
+                        ),
+                        &[
+                            fee_rebate_hopper_info.clone(),
+                            fee_rebate_recipient_info.clone(),
+                            system_program_info.clone(),
+                        ],
+                        &[hopper_seeds
+                            .iter()
+                            .map(|seed| seed.as_slice())
+                            .collect::<Vec<&[u8]>>()
+                            .as_slice()],
+                    )?;
+                }
             }
         }
 
