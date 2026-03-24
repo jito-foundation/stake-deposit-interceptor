@@ -332,7 +332,8 @@ mod tests {
         let user_transfer_authority = whitelisted_signer.insecure_clone();
         let fee_rebate_receiver = Pubkey::new_unique();
 
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
 
         stake_deposit_interceptor_program_client
@@ -550,7 +551,8 @@ mod tests {
             .await
             .unwrap();
 
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
 
         // Withdraw should succeed even with a non-system-owned fee_rebate_receiver
@@ -742,7 +744,8 @@ mod tests {
         let user_transfer_authority = whitelisted_signer.insecure_clone();
         let fee_rebate_receiver = Pubkey::new_unique();
 
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
 
         let test_error = stake_deposit_interceptor_program_client
@@ -920,7 +923,8 @@ mod tests {
         let user_transfer_authority = whitelisted_signer.insecure_clone();
         let fee_rebate_receiver = Pubkey::new_unique();
 
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
 
         // Change the stake pool's stake_deposit_authority to a different address
@@ -1112,7 +1116,8 @@ mod tests {
         let user_transfer_authority = whitelisted_signer.insecure_clone();
         let fee_rebate_receiver = Pubkey::new_unique();
 
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
 
         let invalid_spl_stake_pool_program_id = Pubkey::new_unique();
