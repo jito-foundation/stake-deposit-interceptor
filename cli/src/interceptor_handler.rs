@@ -353,16 +353,22 @@ impl StakeDepositInterceptorCliHandler {
                     StakeDepositInterceptorActions::FundHopper {
                         whitelist,
                         lamports,
-                        deposit_authority,
+                        stake_deposit_authority,
                     },
-            } => self.fund_hopper(whitelist, deposit_authority, lamports).await,
+            } => {
+                self.fund_hopper(whitelist, stake_deposit_authority, lamports)
+                    .await
+            }
             StakeDepositInterceptorCommands::Interceptor {
                 action:
                     StakeDepositInterceptorActions::HopperBalance {
                         whitelist,
-                        deposit_authority,
+                        stake_deposit_authority,
                     },
-            } => self.hopper_balance(whitelist, deposit_authority).await,
+            } => {
+                self.hopper_balance(whitelist, stake_deposit_authority)
+                    .await
+            }
         }
     }
 
@@ -1001,13 +1007,13 @@ impl StakeDepositInterceptorCliHandler {
     pub async fn fund_hopper(
         &self,
         whitelist_pda: Pubkey,
-        deposit_authority: Pubkey,
+        stake_deposit_authority: Pubkey,
         lamports: u64,
     ) -> anyhow::Result<()> {
         let hopper_pda = Hopper::find_program_address(
             &self.stake_deposit_interceptor_program_id,
             &whitelist_pda,
-            &deposit_authority,
+            &stake_deposit_authority,
         )
         .0;
 
@@ -1026,13 +1032,13 @@ impl StakeDepositInterceptorCliHandler {
     pub async fn hopper_balance(
         &self,
         whitelist_pda: Pubkey,
-        deposit_authority: Pubkey,
+        stake_deposit_authority: Pubkey,
     ) -> anyhow::Result<()> {
         let rpc_client = self.get_rpc_client();
         let hopper_pda = Hopper::find_program_address(
             &self.stake_deposit_interceptor_program_id,
             &whitelist_pda,
-            &deposit_authority,
+            &stake_deposit_authority,
         )
         .0;
         let hopper_acc = rpc_client.get_account(&hopper_pda).await?;

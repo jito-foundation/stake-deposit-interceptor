@@ -191,7 +191,7 @@ pub enum StakeDepositInterceptorActions {
 
         /// Deposit authority address
         #[arg(long)]
-        deposit_authority: Pubkey,
+        stake_deposit_authority: Pubkey,
     },
 
     /// Hopper Balance
@@ -202,6 +202,6 @@ pub enum StakeDepositInterceptorActions {
 
         /// Deposit authority address
         #[arg(long)]
-        deposit_authority: Pubkey,
+        stake_deposit_authority: Pubkey,
     },
 }

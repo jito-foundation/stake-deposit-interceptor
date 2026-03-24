@@ -7,11 +7,11 @@ pub struct Hopper;
 
 impl Hopper {
     /// Returns the seeds for the PDA
-    pub fn seeds(whitelist: &Pubkey, deposit_authority: &Pubkey) -> Vec<Vec<u8>> {
+    pub fn seeds(whitelist: &Pubkey, deposit_stake_authority: &Pubkey) -> Vec<Vec<u8>> {
         vec![
             b"hopper".to_vec(),
             whitelist.to_bytes().to_vec(),
-            deposit_authority.to_bytes().to_vec(),
+            deposit_stake_authority.to_bytes().to_vec(),
         ]
     }
 
@@ -29,9 +29,9 @@ impl Hopper {
     pub fn find_program_address(
         program_id: &Pubkey,
         whitelist: &Pubkey,
-        deposit_authority: &Pubkey,
+        deposit_stake_authority: &Pubkey,
     ) -> (Pubkey, u8, Vec<Vec<u8>>) {
-        let seeds = Self::seeds(whitelist, deposit_authority);
+        let seeds = Self::seeds(whitelist, deposit_stake_authority);
         let (address, bump) = Pubkey::find_program_address(
             &seeds.iter().map(|s| s.as_slice()).collect::<Vec<_>>(),
             program_id,
@@ -45,6 +45,7 @@ impl Hopper {
     /// - `program_id` - The program ID
     /// - `account` - The account to load the configuration from
     /// - `whitelist` - The whitelist PDA
+    /// - `deposit_stake_authority` - The deposit stake authority PDA
     /// - `expect_writable` - Whether the account should be writable
     ///
     /// # Returns
@@ -53,7 +54,7 @@ impl Hopper {
         program_id: &Pubkey,
         account: &AccountInfo,
         whitelist: &Pubkey,
-        deposit_authority: &Pubkey,
+        deposit_stake_authority: &Pubkey,
         expect_writable: bool,
     ) -> Result<(), ProgramError> {
         if account.owner.ne(&solana_system_interface::program::id()) {
@@ -61,7 +62,8 @@ impl Hopper {
             return Err(ProgramError::InvalidAccountOwner);
         }
 
-        let expected_pda = Self::find_program_address(program_id, whitelist, deposit_authority).0;
+        let expected_pda =
+            Self::find_program_address(program_id, whitelist, deposit_stake_authority).0;
 
         if account.key.ne(&expected_pda) {
             msg!("Hopper account is not at the correct PDA");
