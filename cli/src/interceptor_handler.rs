@@ -353,16 +353,16 @@ impl StakeDepositInterceptorCliHandler {
                     StakeDepositInterceptorActions::FundHopper {
                         whitelist,
                         lamports,
-                        stake_pool,
+                        deposit_authority,
                     },
-            } => self.fund_hopper(whitelist, stake_pool, lamports).await,
+            } => self.fund_hopper(whitelist, deposit_authority, lamports).await,
             StakeDepositInterceptorCommands::Interceptor {
                 action:
                     StakeDepositInterceptorActions::HopperBalance {
                         whitelist,
-                        stake_pool,
+                        deposit_authority,
                     },
-            } => self.hopper_balance(whitelist, stake_pool).await,
+            } => self.hopper_balance(whitelist, deposit_authority).await,
         }
     }
 
@@ -971,7 +971,7 @@ impl StakeDepositInterceptorCliHandler {
                 Hopper::find_program_address(
                     &self.stake_deposit_interceptor_program_id,
                     &whitelist,
-                    &stake_deposit_authority.stake_pool,
+                    &stake_deposit_authority_address,
                 )
                 .0,
             )
@@ -1001,13 +1001,13 @@ impl StakeDepositInterceptorCliHandler {
     pub async fn fund_hopper(
         &self,
         whitelist_pda: Pubkey,
-        stake_pool: Pubkey,
+        deposit_authority: Pubkey,
         lamports: u64,
     ) -> anyhow::Result<()> {
         let hopper_pda = Hopper::find_program_address(
             &self.stake_deposit_interceptor_program_id,
             &whitelist_pda,
-            &stake_pool,
+            &deposit_authority,
         )
         .0;
 
@@ -1026,13 +1026,13 @@ impl StakeDepositInterceptorCliHandler {
     pub async fn hopper_balance(
         &self,
         whitelist_pda: Pubkey,
-        stake_pool: Pubkey,
+        deposit_authority: Pubkey,
     ) -> anyhow::Result<()> {
         let rpc_client = self.get_rpc_client();
         let hopper_pda = Hopper::find_program_address(
             &self.stake_deposit_interceptor_program_id,
             &whitelist_pda,
-            &stake_pool,
+            &deposit_authority,
         )
         .0;
         let hopper_acc = rpc_client.get_account(&hopper_pda).await?;

@@ -822,7 +822,7 @@ impl Processor {
                 program_id,
                 fee_rebate_hopper_info,
                 whitelist_info.key,
-                stake_pool_info.key,
+                stake_deposit_authority_info.key,
                 true,
             )?;
 
@@ -837,7 +837,7 @@ impl Processor {
                 let (_, hopper_bump, mut hopper_seeds) = Hopper::find_program_address(
                     program_id,
                     whitelist_info.key,
-                    stake_pool_info.key,
+                    stake_deposit_authority_info.key,
                 );
                 hopper_seeds.push(vec![hopper_bump]);
 
