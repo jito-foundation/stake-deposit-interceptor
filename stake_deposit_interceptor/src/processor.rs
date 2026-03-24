@@ -775,12 +775,12 @@ impl Processor {
             let conversion_rate_bps = (stake_pool.total_lamports as u128)
                 .checked_mul(BASIS_POINTS_MAX as u128)
                 .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
-                .map(|n| n as u64)
+                .and_then(|n| u64::try_from(n).ok())
                 .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
             (pool_tokens_fee as u128)
                 .checked_mul(conversion_rate_bps as u128)
                 .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
-                .map(|n| n as u64)
+                .and_then(|n| u64::try_from(n).ok())
                 .ok_or(StakeDepositInterceptorError::ArithmeticError)?
         };
 
