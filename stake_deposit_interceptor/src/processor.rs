@@ -765,13 +765,21 @@ impl Processor {
         // To prevent a faulty manager fee account from preventing withdrawals
         // if the token program does not own the account, or if the account is not
         // initialized
-        let fee_lamports = if stake_pool.manager_fee_account == *user_pool_token_account_info.key {
+        let fee_lamports_opt = if stake_pool.manager_fee_account
+            == *user_pool_token_account_info.key
+        {
             Some(0)
         } else {
             let pool_tokens_fee = stake_pool
                 .calc_pool_tokens_stake_withdrawal_fee(amount)
                 .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
-            stake_pool.calc_lamports_withdraw_amount(pool_tokens_fee)
+            match stake_pool.calc_lamports_withdraw_amount(pool_tokens_fee) {
+                Some(lamports) => Some(lamports),
+                None => {
+                    msg!("Failed to calculate lamports withdraw amount from pool tokens fee; treating manager fee as 0");
+                    Some(0)
+                }
+            }
         };
 
         invoke(
@@ -807,7 +815,7 @@ impl Processor {
             ],
         )?;
 
-        if let Some(fee_lamports) = fee_lamports {
+        if let Some(fee_lamports) = fee_lamports_opt {
             if fee_lamports > 0 {
                 Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
 
