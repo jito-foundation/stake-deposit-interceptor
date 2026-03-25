@@ -1264,6 +1264,16 @@
       "code": 19,
       "name": "ArithmeticError",
       "msg": "ArithmeticError"
+    },
+    {
+      "code": 20,
+      "name": "InvalidFeeAccount",
+      "msg": "InvalidFeeAccount"
+    },
+    {
+      "code": 21,
+      "name": "UnsupportedFeeAccountExtension",
+      "msg": "UnsupportedFeeAccountExtension"
     }
   ],
   "metadata": {
