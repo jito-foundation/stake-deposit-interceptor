@@ -31,8 +31,8 @@ impl StakeDepositInterceptorProgramClient {
     }
 
     #[allow(dead_code)]
-    pub fn get_hopper_pda(&self, whitelist: &Pubkey) -> Pubkey {
-        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist).0
+    pub fn get_hopper_pda(&self, whitelist: &Pubkey, deposit_authority: &Pubkey) -> Pubkey {
+        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist, deposit_authority).0
     }
 
     #[allow(clippy::too_many_arguments, dead_code)]

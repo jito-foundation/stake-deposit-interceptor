@@ -777,12 +777,12 @@ impl Processor {
             let conversion_rate_bps = (stake_pool.total_lamports as u128)
                 .checked_mul(BASIS_POINTS_MAX as u128)
                 .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
-                .map(|n| n as u64)
+                .and_then(|n| u64::try_from(n).ok())
                 .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
             (pool_tokens_fee as u128)
                 .checked_mul(conversion_rate_bps as u128)
                 .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
-                .map(|n| n as u64)
+                .and_then(|n| u64::try_from(n).ok())
                 .ok_or(StakeDepositInterceptorError::ArithmeticError)?
         };
 
@@ -821,7 +821,13 @@ impl Processor {
         )?;
 
         if fee_lamports > 0 {
-            Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
+            Hopper::load(
+                program_id,
+                fee_rebate_hopper_info,
+                whitelist_info.key,
+                stake_deposit_authority_info.key,
+                true,
+            )?;
 
             let hopper_balance = fee_rebate_hopper_info.lamports();
             let rent = Rent::get()?;
@@ -831,8 +837,11 @@ impl Processor {
 
             // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
             if rebate_lamports > 0 {
-                let (_, hopper_bump, mut hopper_seeds) =
-                    Hopper::find_program_address(program_id, whitelist_info.key);
+                let (_, hopper_bump, mut hopper_seeds) = Hopper::find_program_address(
+                    program_id,
+                    whitelist_info.key,
+                    stake_deposit_authority_info.key,
+                );
                 hopper_seeds.push(vec![hopper_bump]);
 
                 invoke_signed(
