@@ -4,6 +4,8 @@ use jito_bytemuck::{AccountDeserialize, Discriminator};
 use solana_program::pubkey::Pubkey;
 use spl_pod::primitives::{PodU32, PodU64};
 
+use crate::error::StakeDepositInterceptorError;
+
 pub mod hopper;
 
 /// Discriminators for accounts
@@ -54,6 +56,15 @@ impl StakePoolDepositStakeAuthority {
     /// Check whether the StakePoolDepositStakeAuthority account has been initialized
     pub fn is_initialized(&self) -> bool {
         self.authority != Pubkey::default()
+    }
+
+    /// Validate: StakePool must match the `StakePoolDepositStakeAuthority` StakePool
+    pub fn check_stake_pool(&self, stake_pool: Pubkey) -> Result<(), StakeDepositInterceptorError> {
+        if self.stake_pool != stake_pool {
+            return Err(StakeDepositInterceptorError::InvalidStakePool);
+        }
+
+        Ok(())
     }
 }
 

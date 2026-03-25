@@ -177,6 +177,7 @@ cargo r -p stake-deposit-interceptor-cli -- \
     interceptor \
     fund-hopper \
     --whitelist 7Qh3p1FpSAAeZer9kLXMyT8dS5PZatLgF9dxBd1BEoKV \
+    --stake-deposit-authority Ne9DQUbAfSuFSfzwgGms3f1AZvGipcmnpj29YRqJqCN \
     --lamports 1 \
     --rpc-url https://api.devnet.solana.com \
     --signer ~/.config/solana/id.json \
@@ -192,6 +193,7 @@ cargo r -p stake-deposit-interceptor-cli -- \
     interceptor \
     hopper-balance \
     --whitelist 7Qh3p1FpSAAeZer9kLXMyT8dS5PZatLgF9dxBd1BEoKV \
+    --stake-deposit-authority Ne9DQUbAfSuFSfzwgGms3f1AZvGipcmnpj29YRqJqCN \
     --rpc-url https://api.devnet.solana.com \
     --signer ~/.config/solana/id.json \
     --commitment confirmed \

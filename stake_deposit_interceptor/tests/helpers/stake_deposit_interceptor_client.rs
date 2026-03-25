@@ -33,8 +33,8 @@ impl StakeDepositInterceptorProgramClient {
     }
 
     #[allow(dead_code)]
-    pub fn get_hopper_pda(&self, whitelist: &Pubkey) -> Pubkey {
-        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist).0
+    pub fn get_hopper_pda(&self, whitelist: &Pubkey, deposit_authority: &Pubkey) -> Pubkey {
+        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist, deposit_authority).0
     }
 
     #[allow(clippy::too_many_arguments, dead_code)]
@@ -74,10 +74,6 @@ impl StakeDepositInterceptorProgramClient {
             .stake_history(solana_stake_interface::stake_history::StakeHistory::id())
             .stake_program(solana_stake_interface::program::id())
             .spl_stake_pool_program(spl_stake_pool_program)
-            .add_remaining_account(solana_program::instruction::AccountMeta::new_readonly(
-                solana_system_interface::program::id(),
-                false,
-            ))
             .instruction();
         self.process_transaction(&Transaction::new_signed_with_payer(
             &[ix],
