@@ -369,6 +369,9 @@ impl StakeDepositInterceptorCliHandler {
                     },
             } => {
                 self.withdraw_from_hopper(whitelist, stake_deposit_authority, recipient, amount)
+                    .await
+            }
+            StakeDepositInterceptorCommands::Interceptor {
                 action:
                     StakeDepositInterceptorActions::HopperBalance {
                         whitelist,
@@ -1067,6 +1070,7 @@ impl StakeDepositInterceptorCliHandler {
         let hopper_pda = Hopper::find_program_address(
             &self.stake_deposit_interceptor_program_id,
             &whitelist_pda,
+            &stake_deposit_authority_address,
         )
         .0;
 

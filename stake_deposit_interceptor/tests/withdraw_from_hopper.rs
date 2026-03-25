@@ -120,6 +120,13 @@ mod tests {
             deposit_stake_authority,
         ) = setup().await;
 
+        // Derive deposit stake authority PDA
+        let (deposit_stake_authority_pubkey, _) = derive_stake_pool_deposit_stake_authority(
+            &stake_deposit_interceptor_program::id(),
+            &deposit_stake_authority.stake_pool,
+            &deposit_authority_base.pubkey(),
+        );
+
         // Initialize whitelist
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
             ctx.banks_client.clone(),
@@ -138,7 +145,8 @@ mod tests {
                 ctx.banks_client.clone(),
                 ctx.payer.insecure_clone(),
             );
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         let hopper_fund_amount = 5 * LAMPORTS_PER_SOL;
         airdrop_lamports(&mut ctx, &hopper_pda, hopper_fund_amount).await;
 
@@ -154,13 +162,6 @@ mod tests {
             .await
             .unwrap();
         assert!(recipient_before.is_none());
-
-        // Derive deposit stake authority PDA
-        let (deposit_stake_authority_pubkey, _) = derive_stake_pool_deposit_stake_authority(
-            &stake_deposit_interceptor_program::id(),
-            &deposit_stake_authority.stake_pool,
-            &deposit_authority_base.pubkey(),
-        );
 
         // Withdraw from hopper
         let withdraw_amount = 2 * LAMPORTS_PER_SOL;
@@ -198,6 +199,12 @@ mod tests {
             deposit_stake_authority,
         ) = setup().await;
 
+        let (deposit_stake_authority_pubkey, _) = derive_stake_pool_deposit_stake_authority(
+            &stake_deposit_interceptor_program::id(),
+            &deposit_stake_authority.stake_pool,
+            &deposit_authority_base.pubkey(),
+        );
+
         // Initialize whitelist
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
             ctx.banks_client.clone(),
@@ -216,14 +223,9 @@ mod tests {
                 ctx.banks_client.clone(),
                 ctx.payer.insecure_clone(),
             );
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, 5 * LAMPORTS_PER_SOL).await;
-
-        let (deposit_stake_authority_pubkey, _) = derive_stake_pool_deposit_stake_authority(
-            &stake_deposit_interceptor_program::id(),
-            &deposit_stake_authority.stake_pool,
-            &deposit_authority_base.pubkey(),
-        );
 
         // Use a wrong authority
         let wrong_authority = Keypair::new();
@@ -257,6 +259,12 @@ mod tests {
             deposit_stake_authority,
         ) = setup().await;
 
+        let (deposit_stake_authority_pubkey, _) = derive_stake_pool_deposit_stake_authority(
+            &stake_deposit_interceptor_program::id(),
+            &deposit_stake_authority.stake_pool,
+            &deposit_authority_base.pubkey(),
+        );
+
         // Initialize whitelist
         let mut whitelist_management_program_client = WhitelistManagementProgramClient::new(
             ctx.banks_client.clone(),
@@ -275,14 +283,9 @@ mod tests {
                 ctx.banks_client.clone(),
                 ctx.payer.insecure_clone(),
             );
-        let hopper_pda = stake_deposit_interceptor_program_client.get_hopper_pda(&whitelist_pda);
+        let hopper_pda = stake_deposit_interceptor_program_client
+            .get_hopper_pda(&whitelist_pda, &deposit_stake_authority_pubkey);
         airdrop_lamports(&mut ctx, &hopper_pda, LAMPORTS_PER_SOL).await;
-
-        let (deposit_stake_authority_pubkey, _) = derive_stake_pool_deposit_stake_authority(
-            &stake_deposit_interceptor_program::id(),
-            &deposit_stake_authority.stake_pool,
-            &deposit_authority_base.pubkey(),
-        );
 
         let recipient = Keypair::new();
         // Try to withdraw more than the hopper has

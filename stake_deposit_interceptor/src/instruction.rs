@@ -912,7 +912,11 @@ pub fn create_withdraw_from_hopper_instruction(
     recipient: &Pubkey,
     amount: u64,
 ) -> Instruction {
-    let (hopper, _, _) = crate::state::hopper::Hopper::find_program_address(program_id, whitelist);
+    let (hopper, _, _) = crate::state::hopper::Hopper::find_program_address(
+        program_id,
+        whitelist,
+        stake_deposit_authority,
+    );
     let accounts = vec![
         AccountMeta::new_readonly(*authority, true),
         AccountMeta::new_readonly(*stake_deposit_authority, false),
