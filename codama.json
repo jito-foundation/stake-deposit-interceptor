@@ -1,6 +1,6 @@
 {
   "idl": "stake_deposit_interceptor/idl/stake_deposit_interceptor.json",
-  "before": [],
+  "before": ["./codama-pod-primitives-visitor.cjs"],
   "scripts": {
     "rust": {
       "from": "@codama/renderers-rust",
