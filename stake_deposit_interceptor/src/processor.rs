@@ -19,8 +19,11 @@ use solana_program::{
 };
 use solana_system_interface::instruction::transfer;
 use spl_associated_token_account_interface::address::get_associated_token_address;
-use spl_stake_pool::state::StakePool;
-use spl_token_2022_interface::state::Account;
+use spl_stake_pool::state::{is_extension_supported_for_fee_account, StakePool};
+use spl_token_2022_interface::{
+    extension::{BaseStateWithExtensions, StateWithExtensions},
+    state::{Account, AccountState},
+};
 
 use crate::{
     deposit_receipt_signer_seeds, deposit_stake_authority_signer_seeds,
@@ -769,6 +772,7 @@ impl Processor {
         // initialized
         let fee_lamports_opt = if stake_pool.manager_fee_account
             == *user_pool_token_account_info.key
+            || check_manager_fee_info(manager_fee_account_info, &stake_pool).is_err()
         {
             Some(0)
         } else {
@@ -1259,4 +1263,27 @@ pub fn close_account<'a>(
 
     source.assign(&solana_system_interface::program::ID);
     source.resize(0)
+}
+
+fn check_manager_fee_info(
+    manager_fee_account_info: &AccountInfo,
+    stake_pool: &StakePool,
+) -> Result<(), ProgramError> {
+    let account_data = manager_fee_account_info.try_borrow_data()?;
+    let token_account = StateWithExtensions::<Account>::unpack(&account_data)?;
+    if manager_fee_account_info.owner != &stake_pool.token_program_id
+        || token_account.base.state != AccountState::Initialized
+        || token_account.base.mint != stake_pool.pool_mint
+    {
+        msg!("Manager fee account is not owned by token program, is not initialized, or does not match stake pool's mint");
+        return Err(StakeDepositInterceptorError::InvalidFeeAccount.into());
+    }
+    let extensions = token_account.get_extension_types()?;
+    if extensions
+        .iter()
+        .any(|x| !is_extension_supported_for_fee_account(x))
+    {
+        return Err(StakeDepositInterceptorError::UnsupportedFeeAccountExtension.into());
+    }
+    Ok(())
 }
