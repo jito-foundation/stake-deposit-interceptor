@@ -70,6 +70,12 @@ pub enum StakeDepositInterceptorError {
     /// 19 - ArithmeticError
     #[error("ArithmeticError")]
     ArithmeticError = 0x13,
+    /// 20 - InvalidFeeAccount
+    #[error("InvalidFeeAccount")]
+    InvalidFeeAccount = 0x14,
+    /// 21 - UnsupportedFeeAccountExtension
+    #[error("UnsupportedFeeAccountExtension")]
+    UnsupportedFeeAccountExtension = 0x15,
 }
 
 impl From<StakeDepositInterceptorError> for solana_program_error::ProgramError {

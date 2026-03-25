@@ -1176,7 +1176,7 @@ pub fn close_account<'a>(
     source.resize(0)
 }
 
-pub fn check_manager_fee_info(
+fn check_manager_fee_info(
     manager_fee_account_info: &AccountInfo,
     stake_pool: &StakePool,
 ) -> Result<(), ProgramError> {
