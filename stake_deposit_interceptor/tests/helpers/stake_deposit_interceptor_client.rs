@@ -6,7 +6,9 @@ use solana_pubkey::Pubkey;
 use solana_transaction::{InstructionError, Transaction, TransactionError};
 use stake_deposit_interceptor_client::{
     errors::StakeDepositInterceptorError,
-    instructions::{DepositStakeWhitelistedBuilder, WithdrawStakeWhitelistedBuilder},
+    instructions::{
+        DepositStakeWhitelistedBuilder, WithdrawFromHopperBuilder, WithdrawStakeWhitelistedBuilder,
+    },
     programs::STAKE_DEPOSIT_INTERCEPTOR_ID,
 };
 use stake_deposit_interceptor_program::state::hopper::Hopper;
@@ -31,8 +33,8 @@ impl StakeDepositInterceptorProgramClient {
     }
 
     #[allow(dead_code)]
-    pub fn get_hopper_pda(&self, whitelist: &Pubkey) -> Pubkey {
-        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist).0
+    pub fn get_hopper_pda(&self, whitelist: &Pubkey, deposit_authority: &Pubkey) -> Pubkey {
+        Hopper::find_program_address(&STAKE_DEPOSIT_INTERCEPTOR_ID, whitelist, deposit_authority).0
     }
 
     #[allow(clippy::too_many_arguments, dead_code)]
@@ -72,10 +74,6 @@ impl StakeDepositInterceptorProgramClient {
             .stake_history(solana_stake_interface::stake_history::StakeHistory::id())
             .stake_program(solana_stake_interface::program::id())
             .spl_stake_pool_program(spl_stake_pool_program)
-            .add_remaining_account(solana_program::instruction::AccountMeta::new_readonly(
-                solana_system_interface::program::id(),
-                false,
-            ))
             .instruction();
         self.process_transaction(&Transaction::new_signed_with_payer(
             &[ix],
@@ -133,6 +131,34 @@ impl StakeDepositInterceptorProgramClient {
             &[ix],
             Some(&self.payer.pubkey()),
             &[&self.payer, &whitelisted_signer, &user_transfer_authority],
+            blockhash,
+        ))
+        .await
+    }
+
+    #[allow(dead_code)]
+    pub async fn withdraw_from_hopper(
+        &mut self,
+        authority: &Keypair,
+        stake_deposit_authority: Pubkey,
+        whitelist: Pubkey,
+        hopper: Pubkey,
+        recipient: Pubkey,
+        amount: u64,
+    ) -> Result<(), TestError> {
+        let blockhash = self.banks_client.get_latest_blockhash().await.unwrap();
+        let ix = WithdrawFromHopperBuilder::new()
+            .authority(authority.pubkey())
+            .stake_deposit_authority(stake_deposit_authority)
+            .whitelist(whitelist)
+            .hopper(hopper)
+            .recipient(recipient)
+            .amount(amount)
+            .instruction();
+        self.process_transaction(&Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.payer.pubkey()),
+            &[&self.payer, authority],
             blockhash,
         ))
         .await
