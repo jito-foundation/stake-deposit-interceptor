@@ -973,7 +973,7 @@ impl StakeDepositInterceptorCliHandler {
             .clock(solana_clock::Clock::id())
             .stake_program(solana_stake_interface::program::id())
             .spl_stake_pool_program(spl_stake_pool_program_id)
-            .amount(amount);
+            .pool_tokens_in(amount);
         let mut ix = ix_builder.instruction();
         ix.program_id = self.stake_deposit_interceptor_program_id;
 

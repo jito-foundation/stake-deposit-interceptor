@@ -354,6 +354,7 @@ mod tests {
                 fee_rebate_receiver,
                 spl_stake_pool::id(),
                 pool_tokens_to_token.amount,
+                0,
             )
             .await
             .unwrap();
@@ -573,6 +574,7 @@ mod tests {
                 fee_rebate_receiver,
                 spl_stake_pool::id(),
                 pool_tokens_to_token.amount,
+                0,
             )
             .await
             .unwrap();
@@ -764,6 +766,7 @@ mod tests {
                 fee_rebate_receiver,
                 spl_stake_pool::id(),
                 pool_tokens_to_token.amount,
+                0,
             )
             .await;
 
@@ -955,6 +958,7 @@ mod tests {
                 fee_rebate_receiver,
                 spl_stake_pool::id(),
                 pool_tokens_to_token.amount,
+                0,
             )
             .await;
 
@@ -1136,6 +1140,7 @@ mod tests {
                 fee_rebate_receiver,
                 invalid_spl_stake_pool_program_id,
                 pool_tokens_to_token.amount,
+                0,
             )
             .await;
 
