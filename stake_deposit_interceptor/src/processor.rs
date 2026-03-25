@@ -35,7 +35,6 @@ use crate::{
         STAKE_POOL_DEPOSIT_STAKE_AUTHORITY,
     },
     state::{hopper::Hopper, DepositReceipt, StakePoolDepositStakeAuthority},
-    BASIS_POINTS_MAX,
 };
 
 pub struct Processor;
@@ -631,6 +630,7 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+        deposit_stake_authority.check_stake_pool(*stake_pool_info.key)?;
 
         // Validate: StakePoolDepositStakeAuthority PDA is correct
         check_deposit_stake_authority_address(
@@ -721,6 +721,7 @@ impl Processor {
         let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
             &deposit_stake_authority_data,
         )?;
+        deposit_stake_authority.check_stake_pool(*stake_pool_info.key)?;
 
         // Validate: StakePoolDepositStakeAuthority PDA is correct
         check_deposit_stake_authority_address(
@@ -772,21 +773,18 @@ impl Processor {
         let fee_lamports = if stake_pool.manager_fee_account == *user_pool_token_account_info.key
             || check_manager_fee_info(manager_fee_account_info, &stake_pool).is_err()
         {
-            0
+            Some(0)
         } else {
             let pool_tokens_fee = stake_pool
                 .calc_pool_tokens_stake_withdrawal_fee(amount)
                 .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
-            let conversion_rate_bps = (stake_pool.total_lamports as u128)
-                .checked_mul(BASIS_POINTS_MAX as u128)
-                .and_then(|n| n.checked_div(stake_pool.pool_token_supply as u128))
-                .map(|n| n as u64)
-                .ok_or(StakeDepositInterceptorError::ArithmeticError)?;
-            (pool_tokens_fee as u128)
-                .checked_mul(conversion_rate_bps as u128)
-                .and_then(|n| n.checked_div(BASIS_POINTS_MAX as u128))
-                .map(|n| n as u64)
-                .ok_or(StakeDepositInterceptorError::ArithmeticError)?
+            match stake_pool.calc_lamports_withdraw_amount(pool_tokens_fee) {
+                Some(lamports) => Some(lamports),
+                None => {
+                    msg!("Failed to calculate lamports withdraw amount from pool tokens fee; treating manager fee as 0");
+                    Some(0)
+                }
+            }
         };
 
         invoke(
@@ -822,40 +820,126 @@ impl Processor {
             ],
         )?;
 
-        if fee_lamports > 0 {
-            Hopper::load(program_id, fee_rebate_hopper_info, whitelist_info.key, true)?;
-
-            let hopper_balance = fee_rebate_hopper_info.lamports();
-            let rent = Rent::get()?;
-            let min_balance = rent.minimum_balance(fee_rebate_hopper_info.data_len());
-            let available = hopper_balance.saturating_sub(min_balance);
-            let rebate_lamports = fee_lamports.min(available);
-
-            // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
-            if rebate_lamports > 0 {
-                let (_, hopper_bump, mut hopper_seeds) =
-                    Hopper::find_program_address(program_id, whitelist_info.key);
-                hopper_seeds.push(vec![hopper_bump]);
-
-                invoke_signed(
-                    &transfer(
-                        fee_rebate_hopper_info.key,
-                        fee_rebate_recipient_info.key,
-                        rebate_lamports,
-                    ),
-                    &[
-                        fee_rebate_hopper_info.clone(),
-                        fee_rebate_recipient_info.clone(),
-                        system_program_info.clone(),
-                    ],
-                    &[hopper_seeds
-                        .iter()
-                        .map(|seed| seed.as_slice())
-                        .collect::<Vec<&[u8]>>()
-                        .as_slice()],
+        if let Some(fee_lamports) = fee_lamports_opt {
+            if fee_lamports > 0 {
+                Hopper::load(
+                    program_id,
+                    fee_rebate_hopper_info,
+                    whitelist_info.key,
+                    stake_deposit_authority_info.key,
+                    true,
                 )?;
+
+                let hopper_balance = fee_rebate_hopper_info.lamports();
+                let rent = Rent::get()?;
+                let min_balance = rent.minimum_balance(fee_rebate_hopper_info.data_len());
+                let available = hopper_balance.saturating_sub(min_balance);
+                let rebate_lamports = fee_lamports.min(available);
+
+                // If there are no funds in the Hopper, the TX should still succeed and no 0.1% rebate will be sent ( This is an extreme edge case )
+                if rebate_lamports > 0 {
+                    let (_, hopper_bump, mut hopper_seeds) = Hopper::find_program_address(
+                        program_id,
+                        whitelist_info.key,
+                        stake_deposit_authority_info.key,
+                    );
+                    hopper_seeds.push(vec![hopper_bump]);
+
+                    invoke_signed(
+                        &transfer(
+                            fee_rebate_hopper_info.key,
+                            fee_rebate_recipient_info.key,
+                            rebate_lamports,
+                        ),
+                        &[
+                            fee_rebate_hopper_info.clone(),
+                            fee_rebate_recipient_info.clone(),
+                            system_program_info.clone(),
+                        ],
+                        &[hopper_seeds
+                            .iter()
+                            .map(|seed| seed.as_slice())
+                            .collect::<Vec<&[u8]>>()
+                            .as_slice()],
+                    )?;
+                }
             }
         }
+
+        Ok(())
+    }
+
+    pub fn process_withdraw_from_hopper(
+        program_id: &Pubkey,
+        accounts: &[AccountInfo],
+        amount: u64,
+    ) -> ProgramResult {
+        let account_info_iter = &mut accounts.iter();
+        let authority_info = next_account_info(account_info_iter)?;
+        let stake_deposit_authority_info = next_account_info(account_info_iter)?;
+        let whitelist_info = next_account_info(account_info_iter)?;
+        let hopper_info = next_account_info(account_info_iter)?;
+        let recipient_info = next_account_info(account_info_iter)?;
+        let system_program_info = next_account_info(account_info_iter)?;
+
+        // Validate: System program
+        check_system_program(system_program_info.key)?;
+
+        // Validate: Authority signed the TX
+        if !authority_info.is_signer {
+            return Err(StakeDepositInterceptorError::SignatureMissing.into());
+        }
+
+        // Validate: StakePoolDepositStakeAuthority is owned by this program
+        check_account_owner(stake_deposit_authority_info, program_id)?;
+
+        let deposit_stake_authority_data = stake_deposit_authority_info.try_borrow_data()?;
+        let deposit_stake_authority = StakePoolDepositStakeAuthority::try_from_slice_unchecked(
+            &deposit_stake_authority_data,
+        )?;
+
+        // Validate: StakePoolDepositStakeAuthority PDA is correct
+        check_deposit_stake_authority_address(
+            program_id,
+            stake_deposit_authority_info.key,
+            deposit_stake_authority,
+        )?;
+
+        // Validate: Authority matches the deposit stake authority's authority
+        if deposit_stake_authority.authority != *authority_info.key {
+            return Err(StakeDepositInterceptorError::InvalidAuthority.into());
+        }
+
+        // Validate: Hopper PDA
+        Hopper::load(
+            program_id,
+            hopper_info,
+            whitelist_info.key,
+            stake_deposit_authority_info.key,
+            true,
+        )?;
+
+        // Transfer SOL from hopper to recipient
+        let (_, hopper_bump, mut hopper_seeds) = Hopper::find_program_address(
+            program_id,
+            whitelist_info.key,
+            stake_deposit_authority_info.key,
+        );
+        hopper_seeds.push(vec![hopper_bump]);
+
+        invoke_signed(
+            &transfer(hopper_info.key, recipient_info.key, amount),
+            &[
+                hopper_info.clone(),
+                recipient_info.clone(),
+                system_program_info.clone(),
+            ],
+            &[hopper_seeds
+                .iter()
+                .map(|seed| seed.as_slice())
+                .collect::<Vec<&[u8]>>()
+                .as_slice()],
+        )?;
 
         Ok(())
     }
@@ -894,6 +978,10 @@ impl Processor {
             StakeDepositInterceptorInstruction::WithdrawStakeWhitelisted { amount } => {
                 msg!("Instruction: WithdrawStakeWhitelisted");
                 Self::process_withdraw_stake_whitelisted(program_id, accounts, amount)?;
+            }
+            StakeDepositInterceptorInstruction::WithdrawFromHopper { amount } => {
+                msg!("Instruction: WithdrawFromHopper");
+                Self::process_withdraw_from_hopper(program_id, accounts, amount)?;
             }
         }
         Ok(())
