@@ -770,7 +770,8 @@ impl Processor {
         // To prevent a faulty manager fee account from preventing withdrawals
         // if the token program does not own the account, or if the account is not
         // initialized
-        let fee_lamports = if stake_pool.manager_fee_account == *user_pool_token_account_info.key
+        let fee_lamports_opt = if stake_pool.manager_fee_account
+            == *user_pool_token_account_info.key
             || check_manager_fee_info(manager_fee_account_info, &stake_pool).is_err()
         {
             Some(0)
