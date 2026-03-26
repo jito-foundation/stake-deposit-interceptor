@@ -54,13 +54,17 @@ pub struct DepositStakeWhitelisted {
 }
 
 impl DepositStakeWhitelisted {
-    pub fn instruction(&self) -> solana_instruction::Instruction {
-        self.instruction_with_remaining_accounts(&[])
+    pub fn instruction(
+        &self,
+        args: DepositStakeWhitelistedInstructionArgs,
+    ) -> solana_instruction::Instruction {
+        self.instruction_with_remaining_accounts(args, &[])
     }
     #[allow(clippy::arithmetic_side_effects)]
     #[allow(clippy::vec_init_then_push)]
     pub fn instruction_with_remaining_accounts(
         &self,
+        args: DepositStakeWhitelistedInstructionArgs,
         remaining_accounts: &[solana_instruction::AccountMeta],
     ) -> solana_instruction::Instruction {
         let mut accounts = Vec::with_capacity(19 + remaining_accounts.len());
@@ -134,9 +138,11 @@ impl DepositStakeWhitelisted {
             false,
         ));
         accounts.extend_from_slice(remaining_accounts);
-        let data = DepositStakeWhitelistedInstructionData::new()
+        let mut data = DepositStakeWhitelistedInstructionData::new()
             .try_to_vec()
             .unwrap();
+        let mut args = args.try_to_vec().unwrap();
+        data.append(&mut args);
 
         solana_instruction::Instruction {
             program_id: crate::STAKE_DEPOSIT_INTERCEPTOR_ID,
@@ -165,6 +171,18 @@ impl DepositStakeWhitelistedInstructionData {
 impl Default for DepositStakeWhitelistedInstructionData {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DepositStakeWhitelistedInstructionArgs {
+    pub minimum_pool_tokens_out: Option<u64>,
+}
+
+impl DepositStakeWhitelistedInstructionArgs {
+    pub(crate) fn try_to_vec(&self) -> Result<Vec<u8>, std::io::Error> {
+        borsh::to_vec(self)
     }
 }
 
@@ -212,6 +230,7 @@ pub struct DepositStakeWhitelistedBuilder {
     stake_program: Option<solana_pubkey::Pubkey>,
     spl_stake_pool_program: Option<solana_pubkey::Pubkey>,
     system_program: Option<solana_pubkey::Pubkey>,
+    minimum_pool_tokens_out: Option<u64>,
     __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -344,6 +363,12 @@ impl DepositStakeWhitelistedBuilder {
         self.system_program = Some(system_program);
         self
     }
+    /// `[optional argument]`
+    #[inline(always)]
+    pub fn minimum_pool_tokens_out(&mut self, minimum_pool_tokens_out: u64) -> &mut Self {
+        self.minimum_pool_tokens_out = Some(minimum_pool_tokens_out);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(&mut self, account: solana_instruction::AccountMeta) -> &mut Self {
@@ -398,8 +423,11 @@ impl DepositStakeWhitelistedBuilder {
                 .system_program
                 .unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
         };
+        let args = DepositStakeWhitelistedInstructionArgs {
+            minimum_pool_tokens_out: self.minimum_pool_tokens_out.clone(),
+        };
 
-        accounts.instruction_with_remaining_accounts(&self.__remaining_accounts)
+        accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
     }
 }
 
@@ -487,12 +515,15 @@ pub struct DepositStakeWhitelistedCpi<'a, 'b> {
     pub spl_stake_pool_program: &'b solana_account_info::AccountInfo<'a>,
     /// System program
     pub system_program: &'b solana_account_info::AccountInfo<'a>,
+    /// The arguments for the instruction.
+    pub __args: DepositStakeWhitelistedInstructionArgs,
 }
 
 impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
     pub fn new(
         program: &'b solana_account_info::AccountInfo<'a>,
         accounts: DepositStakeWhitelistedCpiAccounts<'a, 'b>,
+        args: DepositStakeWhitelistedInstructionArgs,
     ) -> Self {
         Self {
             __program: program,
@@ -515,6 +546,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
             stake_program: accounts.stake_program,
             spl_stake_pool_program: accounts.spl_stake_pool_program,
             system_program: accounts.system_program,
+            __args: args,
         }
     }
     #[inline(always)]
@@ -624,9 +656,11 @@ impl<'a, 'b> DepositStakeWhitelistedCpi<'a, 'b> {
                 is_writable: remaining_account.2,
             })
         });
-        let data = DepositStakeWhitelistedInstructionData::new()
+        let mut data = DepositStakeWhitelistedInstructionData::new()
             .try_to_vec()
             .unwrap();
+        let mut args = self.__args.try_to_vec().unwrap();
+        data.append(&mut args);
 
         let instruction = solana_instruction::Instruction {
             program_id: crate::STAKE_DEPOSIT_INTERCEPTOR_ID,
@@ -717,6 +751,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
             stake_program: None,
             spl_stake_pool_program: None,
             system_program: None,
+            minimum_pool_tokens_out: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -883,6 +918,12 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
         self.instruction.system_program = Some(system_program);
         self
     }
+    /// `[optional argument]`
+    #[inline(always)]
+    pub fn minimum_pool_tokens_out(&mut self, minimum_pool_tokens_out: u64) -> &mut Self {
+        self.instruction.minimum_pool_tokens_out = Some(minimum_pool_tokens_out);
+        self
+    }
     /// Add an additional account to the instruction.
     #[inline(always)]
     pub fn add_remaining_account(
@@ -917,6 +958,9 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
     #[allow(clippy::clone_on_copy)]
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
+        let args = DepositStakeWhitelistedInstructionArgs {
+            minimum_pool_tokens_out: self.instruction.minimum_pool_tokens_out.clone(),
+        };
         let instruction = DepositStakeWhitelistedCpi {
             __program: self.instruction.__program,
 
@@ -1002,6 +1046,7 @@ impl<'a, 'b> DepositStakeWhitelistedCpiBuilder<'a, 'b> {
                 .instruction
                 .system_program
                 .expect("system_program is not set"),
+            __args: args,
         };
         instruction.invoke_signed_with_remaining_accounts(
             signers_seeds,
@@ -1032,6 +1077,7 @@ struct DepositStakeWhitelistedCpiBuilderInstruction<'a, 'b> {
     stake_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     spl_stake_pool_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
+    minimum_pool_tokens_out: Option<u64>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }

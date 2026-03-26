@@ -772,7 +772,14 @@
           ]
         }
       ],
-      "args": [],
+      "args": [
+        {
+          "name": "minimumPoolTokensOut",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ],
       "discriminant": {
         "type": "u8",
         "value": 6
@@ -944,7 +951,11 @@
       ],
       "args": [
         {
-          "name": "amount",
+          "name": "poolTokensIn",
+          "type": "u64"
+        },
+        {
+          "name": "minimumLamportsOut",
           "type": "u64"
         }
       ],

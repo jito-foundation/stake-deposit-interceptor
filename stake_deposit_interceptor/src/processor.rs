@@ -593,6 +593,7 @@ impl Processor {
     pub fn process_deposit_stake_whitelisted(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
+        minimum_pool_tokens_out: Option<u64>,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let whitelisted_signer_info = next_account_info(account_info_iter)?;
@@ -678,7 +679,7 @@ impl Processor {
             stake_history_info,
             stake_program_info,
             deposit_stake_authority,
-            None,
+            minimum_pool_tokens_out,
         )?;
 
         Ok(())
@@ -687,7 +688,8 @@ impl Processor {
     pub fn process_withdraw_stake_whitelisted(
         program_id: &Pubkey,
         accounts: &[AccountInfo],
-        amount: u64,
+        pool_tokens_in: u64,
+        minimum_lamports_out: u64,
     ) -> ProgramResult {
         let account_info_iter = &mut accounts.iter();
         let whitelisted_signer_info = next_account_info(account_info_iter)?;
@@ -777,7 +779,7 @@ impl Processor {
             Some(0)
         } else {
             let pool_tokens_fee = stake_pool
-                .calc_pool_tokens_stake_withdrawal_fee(amount)
+                .calc_pool_tokens_stake_withdrawal_fee(pool_tokens_in)
                 .ok_or(StakeDepositInterceptorError::CalculationFailure)?;
             match stake_pool.calc_lamports_withdraw_amount(pool_tokens_fee) {
                 Some(lamports) => Some(lamports),
@@ -789,7 +791,7 @@ impl Processor {
         };
 
         invoke(
-            &spl_stake_pool::instruction::withdraw_stake(
+            &spl_stake_pool::instruction::withdraw_stake_with_slippage(
                 spl_stake_pool_program_info.key,
                 stake_pool_info.key,
                 validator_list_info.key,
@@ -802,7 +804,8 @@ impl Processor {
                 manager_fee_account_info.key,
                 pool_mint_info.key,
                 token_program_info.key,
-                amount,
+                pool_tokens_in,
+                minimum_lamports_out,
             ),
             &[
                 stake_pool_info.clone(),
@@ -972,13 +975,27 @@ impl Processor {
             StakeDepositInterceptorInstruction::ClaimPoolTokens => {
                 Self::process_claim_pool_tokens(program_id, accounts)?;
             }
-            StakeDepositInterceptorInstruction::DepositStakeWhitelisted => {
+            StakeDepositInterceptorInstruction::DepositStakeWhitelisted {
+                minimum_pool_tokens_out,
+            } => {
                 msg!("Instruction: DepositStakeWhitelisted");
-                Self::process_deposit_stake_whitelisted(program_id, accounts)?;
+                Self::process_deposit_stake_whitelisted(
+                    program_id,
+                    accounts,
+                    minimum_pool_tokens_out,
+                )?;
             }
-            StakeDepositInterceptorInstruction::WithdrawStakeWhitelisted { amount } => {
+            StakeDepositInterceptorInstruction::WithdrawStakeWhitelisted {
+                pool_tokens_in,
+                minimum_lamports_out,
+            } => {
                 msg!("Instruction: WithdrawStakeWhitelisted");
-                Self::process_withdraw_stake_whitelisted(program_id, accounts, amount)?;
+                Self::process_withdraw_stake_whitelisted(
+                    program_id,
+                    accounts,
+                    pool_tokens_in,
+                    minimum_lamports_out,
+                )?;
             }
             StakeDepositInterceptorInstruction::WithdrawFromHopper { amount } => {
                 msg!("Instruction: WithdrawFromHopper");

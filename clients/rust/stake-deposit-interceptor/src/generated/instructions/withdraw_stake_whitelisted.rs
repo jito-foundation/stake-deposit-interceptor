@@ -183,7 +183,8 @@ impl Default for WithdrawStakeWhitelistedInstructionData {
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WithdrawStakeWhitelistedInstructionArgs {
-    pub amount: u64,
+    pub pool_tokens_in: u64,
+    pub minimum_lamports_out: u64,
 }
 
 impl WithdrawStakeWhitelistedInstructionArgs {
@@ -238,7 +239,8 @@ pub struct WithdrawStakeWhitelistedBuilder {
     stake_program: Option<solana_pubkey::Pubkey>,
     spl_stake_pool_program: Option<solana_pubkey::Pubkey>,
     system_program: Option<solana_pubkey::Pubkey>,
-    amount: Option<u64>,
+    pool_tokens_in: Option<u64>,
+    minimum_lamports_out: Option<u64>,
     __remaining_accounts: Vec<solana_instruction::AccountMeta>,
 }
 
@@ -387,8 +389,13 @@ impl WithdrawStakeWhitelistedBuilder {
         self
     }
     #[inline(always)]
-    pub fn amount(&mut self, amount: u64) -> &mut Self {
-        self.amount = Some(amount);
+    pub fn pool_tokens_in(&mut self, pool_tokens_in: u64) -> &mut Self {
+        self.pool_tokens_in = Some(pool_tokens_in);
+        self
+    }
+    #[inline(always)]
+    pub fn minimum_lamports_out(&mut self, minimum_lamports_out: u64) -> &mut Self {
+        self.minimum_lamports_out = Some(minimum_lamports_out);
         self
     }
     /// Add an additional account to the instruction.
@@ -455,7 +462,14 @@ impl WithdrawStakeWhitelistedBuilder {
                 .unwrap_or(solana_pubkey::pubkey!("11111111111111111111111111111111")),
         };
         let args = WithdrawStakeWhitelistedInstructionArgs {
-            amount: self.amount.clone().expect("amount is not set"),
+            pool_tokens_in: self
+                .pool_tokens_in
+                .clone()
+                .expect("pool_tokens_in is not set"),
+            minimum_lamports_out: self
+                .minimum_lamports_out
+                .clone()
+                .expect("minimum_lamports_out is not set"),
         };
 
         accounts.instruction_with_remaining_accounts(args, &self.__remaining_accounts)
@@ -794,7 +808,8 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
             stake_program: None,
             spl_stake_pool_program: None,
             system_program: None,
-            amount: None,
+            pool_tokens_in: None,
+            minimum_lamports_out: None,
             __remaining_accounts: Vec::new(),
         });
         Self { instruction }
@@ -971,8 +986,13 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
         self
     }
     #[inline(always)]
-    pub fn amount(&mut self, amount: u64) -> &mut Self {
-        self.instruction.amount = Some(amount);
+    pub fn pool_tokens_in(&mut self, pool_tokens_in: u64) -> &mut Self {
+        self.instruction.pool_tokens_in = Some(pool_tokens_in);
+        self
+    }
+    #[inline(always)]
+    pub fn minimum_lamports_out(&mut self, minimum_lamports_out: u64) -> &mut Self {
+        self.instruction.minimum_lamports_out = Some(minimum_lamports_out);
         self
     }
     /// Add an additional account to the instruction.
@@ -1010,7 +1030,16 @@ impl<'a, 'b> WithdrawStakeWhitelistedCpiBuilder<'a, 'b> {
     #[allow(clippy::vec_init_then_push)]
     pub fn invoke_signed(&self, signers_seeds: &[&[&[u8]]]) -> solana_program_error::ProgramResult {
         let args = WithdrawStakeWhitelistedInstructionArgs {
-            amount: self.instruction.amount.clone().expect("amount is not set"),
+            pool_tokens_in: self
+                .instruction
+                .pool_tokens_in
+                .clone()
+                .expect("pool_tokens_in is not set"),
+            minimum_lamports_out: self
+                .instruction
+                .minimum_lamports_out
+                .clone()
+                .expect("minimum_lamports_out is not set"),
         };
         let instruction = WithdrawStakeWhitelistedCpi {
             __program: self.instruction.__program,
@@ -1134,7 +1163,8 @@ struct WithdrawStakeWhitelistedCpiBuilderInstruction<'a, 'b> {
     stake_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     spl_stake_pool_program: Option<&'b solana_account_info::AccountInfo<'a>>,
     system_program: Option<&'b solana_account_info::AccountInfo<'a>>,
-    amount: Option<u64>,
+    pool_tokens_in: Option<u64>,
+    minimum_lamports_out: Option<u64>,
     /// Additional instruction accounts `(AccountInfo, is_writable, is_signer)`.
     __remaining_accounts: Vec<(&'b solana_account_info::AccountInfo<'a>, bool, bool)>,
 }
