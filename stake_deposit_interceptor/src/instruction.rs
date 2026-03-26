@@ -503,7 +503,10 @@ pub enum StakeDepositInterceptorInstruction {
     #[account(17, name = "stake_program", desc = "Stake program id")]
     #[account(18, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
     #[account(19, name = "system_program", desc = "System program")]
-    WithdrawStakeWhitelisted { amount: u64, minimum_lamports_out: u64 },
+    WithdrawStakeWhitelisted {
+        pool_tokens_in: u64,
+        minimum_lamports_out: u64,
+    },
 
     /// Withdraw SOL from a hopper account. Requires the deposit stake authority's authority.
     ///
@@ -542,7 +545,7 @@ pub enum StakeDepositInterceptorInstruction {
         desc = "Recipient of the withdrawn SOL"
     )]
     #[account(5, name = "system_program", desc = "System program")]
-    WithdrawFromHopper { amount: u64 },6
+    WithdrawFromHopper { amount: u64 },
 }
 
 pub const STAKE_POOL_DEPOSIT_STAKE_AUTHORITY: &[u8] = b"deposit_stake_authority";
