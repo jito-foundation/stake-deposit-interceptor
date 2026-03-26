@@ -412,7 +412,9 @@ pub enum StakeDepositInterceptorInstruction {
     #[account(16, name = "stake_program", desc = "Stake program id")]
     #[account(17, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
     #[account(18, name = "system_program", desc = "System program")]
-    DepositStakeWhitelisted,
+    DepositStakeWhitelisted {
+        minimum_pool_tokens_out: Option<u64>,
+    },
 
     /// Wraps spl-stake-pool WithdrawStake with whitelist verification.
     ///
@@ -501,7 +503,10 @@ pub enum StakeDepositInterceptorInstruction {
     #[account(17, name = "stake_program", desc = "Stake program id")]
     #[account(18, name = "spl_stake_pool_program", desc = "SPL Stake Pool Program")]
     #[account(19, name = "system_program", desc = "System program")]
-    WithdrawStakeWhitelisted { amount: u64 },
+    WithdrawStakeWhitelisted {
+        pool_tokens_in: u64,
+        minimum_lamports_out: u64,
+    },
 }
 
 pub const STAKE_POOL_DEPOSIT_STAKE_AUTHORITY: &[u8] = b"deposit_stake_authority";

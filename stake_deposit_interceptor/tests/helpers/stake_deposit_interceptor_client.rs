@@ -101,7 +101,8 @@ impl StakeDepositInterceptorProgramClient {
         fee_rebate_hopper: Pubkey,
         fee_rebate_receiver: Pubkey,
         spl_stake_pool_program_id: Pubkey,
-        amount: u64,
+        pool_tokens_in: u64,
+        minimum_lamports_out: u64,
     ) -> Result<(), TestError> {
         let blockhash = self.banks_client.get_latest_blockhash().await.unwrap();
         let ix = WithdrawStakeWhitelistedBuilder::new()
@@ -123,7 +124,8 @@ impl StakeDepositInterceptorProgramClient {
             .clock(solana_clock::Clock::id())
             .spl_stake_pool_program(spl_stake_pool_program_id)
             .stake_program(solana_stake_interface::program::id())
-            .amount(amount)
+            .pool_tokens_in(pool_tokens_in)
+            .minimum_lamports_out(minimum_lamports_out)
             .instruction();
         self.process_transaction(&Transaction::new_signed_with_payer(
             &[ix],

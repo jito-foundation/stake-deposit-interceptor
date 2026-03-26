@@ -333,7 +333,8 @@ impl StakeDepositInterceptorCliHandler {
                         user_stake_authority,
                         fee_rebate_recipient,
                         spl_stake_pool_program_id,
-                        amount,
+                        pool_tokens_in,
+                        minimum_lamports_out,
                     },
             } => {
                 self.withdraw_stake_whitelisted(
@@ -344,7 +345,8 @@ impl StakeDepositInterceptorCliHandler {
                     user_stake_authority,
                     fee_rebate_recipient,
                     spl_stake_pool_program_id,
-                    amount,
+                    pool_tokens_in,
+                    minimum_lamports_out,
                 )
                 .await
             }
@@ -926,7 +928,8 @@ impl StakeDepositInterceptorCliHandler {
         user_stake_authority: Pubkey,
         fee_rebate_recipient: Pubkey,
         spl_stake_pool_program_id: Pubkey,
-        amount: u64,
+        pool_tokens_in: u64,
+        minimum_lamports_out: Option<u64>,
     ) -> anyhow::Result<()> {
         let rpc_client = self.get_rpc_client();
 
@@ -985,7 +988,12 @@ impl StakeDepositInterceptorCliHandler {
             .clock(solana_clock::Clock::id())
             .stake_program(solana_stake_interface::program::id())
             .spl_stake_pool_program(spl_stake_pool_program_id)
-            .amount(amount);
+            .pool_tokens_in(pool_tokens_in);
+
+        if let Some(lamports_out) = minimum_lamports_out {
+            ix_builder.minimum_lamports_out(lamports_out);
+        }
+
         let mut ix = ix_builder.instruction();
         ix.program_id = self.stake_deposit_interceptor_program_id;
 

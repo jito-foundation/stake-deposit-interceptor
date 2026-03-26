@@ -176,7 +176,11 @@ pub enum StakeDepositInterceptorActions {
 
         /// Amount of pool tokens to withdraw
         #[arg(long)]
-        amount: u64,
+        pool_tokens_in: u64,
+
+        /// Minimum amount of lamports to receive
+        #[arg(long)]
+        minimum_lamports_out: Option<u64>,
     },
 
     /// Fund hopper
