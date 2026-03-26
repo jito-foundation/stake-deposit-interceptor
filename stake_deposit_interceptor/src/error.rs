@@ -63,9 +63,17 @@ pub enum StakeDepositInterceptorError {
     #[error("CalculationFailure")]
     CalculationFailure,
 
-    /// 18 : ArithmeticError
+    /// 19 : ArithmeticError
     #[error("ArithmeticError")]
     ArithmeticError,
+
+    /// 20 : Invalid manager fee account.
+    #[error("InvalidFeeAccount")]
+    InvalidFeeAccount,
+
+    /// 21 : The fee account has an unsupported extension
+    #[error("UnsupportedFeeAccountExtension")]
+    UnsupportedFeeAccountExtension,
 }
 
 impl From<StakeDepositInterceptorError> for ProgramError {
