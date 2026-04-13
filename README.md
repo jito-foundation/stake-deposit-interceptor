@@ -5,9 +5,12 @@ A Solana program intended to become the `stake_deposit_authority` of a StakePool
 More information in the Jito governance forum [here](https://forum.jito.network/t/jip-9-adopt-interceptor-liquidity-defense/444).
 
 ## Audit Reports
-[Certora Security Report](./Certora_interceptor_security_report.pdf)
 
-[OffsideLabs Security Report](./OffsideLabs_interceptor_report.pdf)
+| Group        | Date       | Commit                                                                        |
+|--------------|------------|-------------------------------------------------------------------------------|
+| Offside Labs | 2024-11-01 | [c68f476](./security-audits/offsideLabs_interceptor_report_v0.1.pdf)          |
+| Certora      | 2024-12-01 | [62ca755](./security-audits/certora_interceptor_security_report_v0.1.pdf)     |
+| Certora      | 2026-03-20 | [9ca381a](./security-audits/certora_jito_coinbase_integration_audit_v0.3.pdf) |
 
 ## Program State
 
