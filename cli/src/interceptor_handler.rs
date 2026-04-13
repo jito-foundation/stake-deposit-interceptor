@@ -1042,7 +1042,7 @@ impl StakeDepositInterceptorCliHandler {
         self.process_transaction(
             &[ix],
             &self.cli_config.signer.pubkey(),
-            &[self.cli_config.signer.clone()],
+            std::slice::from_ref(&self.cli_config.signer),
         )
         .await?;
 
@@ -1098,7 +1098,7 @@ impl StakeDepositInterceptorCliHandler {
         self.process_transaction(
             &[ix],
             &self.cli_config.signer.pubkey(),
-            &[self.cli_config.signer.clone()],
+            std::slice::from_ref(&self.cli_config.signer),
         )
         .await?;
 
