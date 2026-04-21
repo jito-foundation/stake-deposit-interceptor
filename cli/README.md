@@ -67,7 +67,7 @@ cargo r -p stake-deposit-interceptor-cli -- \
     --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
 ```
 
-##### Update WhiteList Program ID
+##### Update Whitelist Program ID
 
 ```bash
 cargo r -p stake-deposit-interceptor-cli -- \
