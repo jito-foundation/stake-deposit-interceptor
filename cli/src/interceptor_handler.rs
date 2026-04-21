@@ -471,22 +471,33 @@ impl StakeDepositInterceptorCliHandler {
         stake_deposit_authority_address: &Pubkey,
         jito_whitelist_management_program_id: &Pubkey,
     ) -> anyhow::Result<()> {
+        let rpc_client = self.get_rpc_client();
+        let stake_deposit_authority_acc = rpc_client
+            .get_account(stake_deposit_authority_address)
+            .await?;
+        let stake_deposit_authority = stake_deposit_interceptor_program::state::StakePoolDepositStakeAuthority::try_from_slice_unchecked(stake_deposit_authority_acc.data.as_slice())?;
+
         let mut ix_builder = UpdateStakePoolDepositStakeAuthorityBuilder::new();
         ix_builder
             .deposit_stake_authority(*stake_deposit_authority_address)
-            .authority(self.cli_config.signer.pubkey())
+            .authority(stake_deposit_authority.authority)
+            .new_authority(Some(stake_deposit_authority.authority))
             .jito_whitelist_management_program_id(*jito_whitelist_management_program_id);
         let mut ix = ix_builder.instruction();
         ix.program_id = self.stake_deposit_interceptor_program_id;
 
         log::info!("Updating Stake Deposit Authority parameters: {ix_builder:?}",);
 
-        self.process_transaction(
-            &[ix],
-            &self.cli_config.signer.pubkey(),
-            std::slice::from_ref(&self.cli_config.signer),
-        )
-        .await?;
+        if self.print_tx {
+            self.print_base58_tx(&[ix]);
+        } else {
+            self.process_transaction(
+                &[ix],
+                &self.cli_config.signer.pubkey(),
+                std::slice::from_ref(&self.cli_config.signer),
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -903,7 +914,7 @@ impl StakeDepositInterceptorCliHandler {
             .stake_pool(stake_deposit_authority.stake_pool)
             .validator_list(stake_pool.validator_list)
             .stake_deposit_authority(stake_deposit_authority_address)
-            .withdraw_authority(pubkey!("8HPpFV5PFqGmDumjRTFw9BhsjrZYjJBDuHX2p6H5nBmd"))
+            .withdraw_authority(pubkey!("6iQKfEyhr3bZMotVkW6beNZz5CPAkiwvgV2CTje9pVSS"))
             .deposit_stake(deposit_stake)
             .validator_stake(validator_stake)
             .reserve_stake(stake_pool.reserve_stake)
@@ -980,7 +991,7 @@ impl StakeDepositInterceptorCliHandler {
             .whitelist(whitelist)
             .stake_pool(stake_deposit_authority.stake_pool)
             .validator_list(stake_pool.validator_list)
-            .withdraw_authority(pubkey!("8HPpFV5PFqGmDumjRTFw9BhsjrZYjJBDuHX2p6H5nBmd"))
+            .withdraw_authority(pubkey!("6iQKfEyhr3bZMotVkW6beNZz5CPAkiwvgV2CTje9pVSS"))
             .stake_split_from(stake_split_from)
             .stake_split_to(stake_split_to_keypair.pubkey())
             .user_stake_authority(user_stake_authority)
@@ -1063,7 +1074,7 @@ impl StakeDepositInterceptorCliHandler {
         .0;
         let hopper_acc = rpc_client.get_account(&hopper_pda).await?;
 
-        println!("Hopper Balance: {}", hopper_acc.lamports);
+        println!("Hopper {hopper_pda} Balance: {}", hopper_acc.lamports);
 
         Ok(())
     }
@@ -1152,25 +1163,24 @@ impl StakeDepositInterceptorCliHandler {
         Ok(())
     }
 
-    // #[allow(dead_code)]
-    // fn print_base58_tx(&self, ixs: &[Instruction]) {
-    //     ixs.iter().for_each(|ix| {
-    //         log::info!("\n------ IX ------\n");
+    fn print_base58_tx(&self, ixs: &[Instruction]) {
+        ixs.iter().for_each(|ix| {
+            log::info!("\n------ IX ------\n");
 
-    //         println!("{}\n", ix.program_id);
+            println!("{}\n", ix.program_id);
 
-    //         ix.accounts.iter().for_each(|account| {
-    //             let pubkey = format!("{}", account.pubkey);
-    //             let writable = if account.is_writable { "W" } else { "" };
-    //             let signer = if account.is_signer { "S" } else { "" };
+            ix.accounts.iter().for_each(|account| {
+                let pubkey = format!("{}", account.pubkey);
+                let writable = if account.is_writable { "W" } else { "" };
+                let signer = if account.is_signer { "S" } else { "" };
 
-    //             println!("{:<44} {:>2} {:>1}", pubkey, writable, signer);
-    //         });
+                println!("{:<44} {:>2} {:>1}", pubkey, writable, signer);
+            });
 
-    //         println!("\n");
+            println!("\n");
 
-    //         let base58_string = bs58::encode(&ix.data).into_string();
-    //         println!("{}\n", base58_string);
-    //     });
-    // }
+            let base58_string = bs58::encode(&ix.data).into_string();
+            println!("{}\n", base58_string);
+        });
+    }
 }

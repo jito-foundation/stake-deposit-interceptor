@@ -9622,6 +9622,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "borsh 1.6.0",
+ "bs58",
  "clap",
  "env_logger",
  "futures",

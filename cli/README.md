@@ -67,6 +67,21 @@ cargo r -p stake-deposit-interceptor-cli -- \
     --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
 ```
 
+##### Update WhiteList Program ID
+
+```bash
+cargo r -p stake-deposit-interceptor-cli -- \
+    stake-deposit-interceptor \
+    interceptor \
+    update-stake-deposit-authority \
+    --stake-deposit-authority 6hg6RMfjn3QSW6MdjH2Dg3dhF9XsVEE8CQXhjYwkRCiK \
+    --jito-whitelist-management-program-id Wh1tea995dSzf9q4bmUCPM8s6URjT1HWMrp771bLW7G \
+    --print-tx \
+    --signer ~/.config/solana/id.json \
+    --commitment confirmed \
+    --stake-deposit-interceptor-program-id 5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV
+```
+
 #### Get Stake Deposit Authority
 
 ```bash
@@ -137,15 +152,15 @@ cargo r -p stake-deposit-interceptor-cli -- \
     stake-deposit-interceptor \
     interceptor \
     deposit-stake-whitelisted \
-    --whitelist 7Qh3p1FpSAAeZer9kLXMyT8dS5PZatLgF9dxBd1BEoKV \
-    --stake-deposit-authority Ne9DQUbAfSuFSfzwgGms3f1AZvGipcmnpj29YRqJqCN \
-    --deposit-stake 8JWkyisNoErjT28uYahdo9o1GfPxunMSW9Vyj99rtz7F \
-    --validator-stake 6jDDM4Agc9sKq5JT1phcBSFCxCJPyjbusk6RmG5WEphT \
-    --spl-stake-pool-program-id DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib \
-    --rpc-url https://api.devnet.solana.com \
+    --whitelist 9KsQ7Wj99tz3ZayVXEEGSGCC2ZYb7CAyJn1GF94CyymS \
+    --stake-deposit-authority 6hg6RMfjn3QSW6MdjH2Dg3dhF9XsVEE8CQXhjYwkRCiK \
+    --deposit-stake ATtxAZafDD8ZcdfVi6hkbzFH1mEdDnhn4A8imdjDmfDJ \
+    --validator-stake uLzZmaSUcdcURgGLQWXJdtsUoJPdVA8uwFUdFCpSGfm \
+    --spl-stake-pool-program-id SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy \
+    --rpc-url https://api.mainnet-beta.solana.com \
     --signer ~/.config/solana/id.json \
     --commitment confirmed \
-    --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
+    --stake-deposit-interceptor-program-id 5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV
 ```
 
 #### Withdraw Stake Whitelisted
@@ -155,18 +170,19 @@ cargo r -p stake-deposit-interceptor-cli -- \
     stake-deposit-interceptor \
     interceptor \
     withdraw-stake-whitelisted \
-    --whitelist 7Qh3p1FpSAAeZer9kLXMyT8dS5PZatLgF9dxBd1BEoKV \
-    --stake-deposit-authority Ne9DQUbAfSuFSfzwgGms3f1AZvGipcmnpj29YRqJqCN \
-    --stake-split-from 6jDDM4Agc9sKq5JT1phcBSFCxCJPyjbusk6RmG5WEphT \
-    --stake-split-to ./target/deploy/stake_e.json \
+    --whitelist 9KsQ7Wj99tz3ZayVXEEGSGCC2ZYb7CAyJn1GF94CyymS \
+    --stake-deposit-authority 6hg6RMfjn3QSW6MdjH2Dg3dhF9XsVEE8CQXhjYwkRCiK \
+    --stake-split-from D77n9KwoNAjL3Yw7d27qTXQNkLd5GTYhdT1LQEAR1hCs \
+    --stake-split-to ./target/deploy/stake_b.json \
     --user-stake-authority BBBATax9kikSHQp8UTcyQL3tfU3BmQD9yid5qhC7QEAA \
     --fee-rebate-recipient BBBATax9kikSHQp8UTcyQL3tfU3BmQD9yid5qhC7QEAA \
-    --spl-stake-pool-program-id DPoo15wWDqpPJJtS2MUZ49aRxqz5ZaaJCJP4z8bLuib \
-    --amount 1 \
-    --rpc-url https://api.devnet.solana.com \
+    --spl-stake-pool-program-id SPoo1Ku8WFXoNDMHPsrGSTSG1Y47rzgn41SLUNakuHy \
+    --pool-tokens-in 10 \
+    --minimum-lamports-out 0 \
+    --rpc-url https://api.mainnet-beta.solana.com \
     --signer ~/.config/solana/id.json \
     --commitment confirmed \
-    --stake-deposit-interceptor-program-id 2KVTQfCi5YfmgmTKyHTZVz8s1G3YHAxuhpW1J65sdwwu
+    --stake-deposit-interceptor-program-id 5TAiuAh3YGDbwjEruC1ZpXTJWdNDS7Ur7VeqNNiHMmGV
 ```
 
 #### Fund Hopper
