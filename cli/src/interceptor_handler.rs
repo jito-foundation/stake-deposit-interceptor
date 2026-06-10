@@ -519,6 +519,22 @@ impl StakeDepositInterceptorCliHandler {
             )),
         }?;
 
+        // Authorize the deposit stake account's staker and withdrawer to the stake deposit authority
+        let authorize_staker_ix = solana_stake_interface::instruction::authorize(
+            &stake,
+            &self.cli_config.signer.pubkey(),
+            &stake_deposit_authority_address,
+            solana_stake_interface::state::StakeAuthorize::Staker,
+            None,
+        );
+        let authorize_withdrawer_ix = solana_stake_interface::instruction::authorize(
+            &stake,
+            &self.cli_config.signer.pubkey(),
+            &stake_deposit_authority_address,
+            solana_stake_interface::state::StakeAuthorize::Withdrawer,
+            None,
+        );
+
         // Check if this vote account has staking account in the pool
         let validator_list = get_validator_list(&rpc_client, &stake_pool.validator_list).await?;
 
@@ -594,7 +610,7 @@ impl StakeDepositInterceptorCliHandler {
         log::info!("Depositing Stake parameters: {ix_builder:?}",);
 
         self.process_transaction(
-            &[ix],
+            &[authorize_staker_ix, authorize_withdrawer_ix, ix],
             &self.cli_config.signer.pubkey(),
             &[
                 self.cli_config.signer.clone(),
