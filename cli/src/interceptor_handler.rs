@@ -510,30 +510,46 @@ impl StakeDepositInterceptorCliHandler {
         let stake_pool = get_stake_pool(&rpc_client, &stake_deposit_authority.stake_pool).await?;
         let stake_state = get_stake_state(&rpc_client, stake).await?;
 
-        let vote_account = match stake_state {
-            solana_stake_interface::state::StakeStateV2::Stake(_, stake, _) => {
-                Ok(stake.delegation.voter_pubkey)
+        let (vote_account, authorized) = match stake_state {
+            solana_stake_interface::state::StakeStateV2::Stake(meta, stake, _) => {
+                Ok((stake.delegation.voter_pubkey, meta.authorized))
             }
             _ => Err(anyhow!(
                 "Wrong stake account state, must be delegated to validator"
             )),
         }?;
 
-        // Authorize the deposit stake account's staker and withdrawer to the stake deposit authority
-        let authorize_staker_ix = solana_stake_interface::instruction::authorize(
-            &stake,
-            &self.cli_config.signer.pubkey(),
-            &stake_deposit_authority_address,
-            solana_stake_interface::state::StakeAuthorize::Staker,
-            None,
-        );
-        let authorize_withdrawer_ix = solana_stake_interface::instruction::authorize(
-            &stake,
-            &self.cli_config.signer.pubkey(),
-            &stake_deposit_authority_address,
-            solana_stake_interface::state::StakeAuthorize::Withdrawer,
-            None,
-        );
+        let signer = self.cli_config.signer.pubkey();
+        let mut authorize_ixs = Vec::with_capacity(2);
+        for (authorize_type, current_authority) in [
+            (
+                solana_stake_interface::state::StakeAuthorize::Staker,
+                authorized.staker,
+            ),
+            (
+                solana_stake_interface::state::StakeAuthorize::Withdrawer,
+                authorized.withdrawer,
+            ),
+        ] {
+            if current_authority == *stake_deposit_authority_address {
+                // Already authorized to the deposit authority; nothing to do.
+                continue;
+            }
+            if current_authority != signer {
+                return Err(anyhow!(
+                    "Stake account {stake} {authorize_type:?} authority is {current_authority}, \
+                     expected the CLI signer {signer} or the deposit authority \
+                     {stake_deposit_authority_address}"
+                ));
+            }
+            authorize_ixs.push(solana_stake_interface::instruction::authorize(
+                stake,
+                &signer,
+                stake_deposit_authority_address,
+                authorize_type,
+                None,
+            ));
+        }
 
         // Check if this vote account has staking account in the pool
         let validator_list = get_validator_list(&rpc_client, &stake_pool.validator_list).await?;
@@ -609,8 +625,11 @@ impl StakeDepositInterceptorCliHandler {
 
         log::info!("Depositing Stake parameters: {ix_builder:?}",);
 
+        let mut instructions = authorize_ixs;
+        instructions.push(ix);
+
         self.process_transaction(
-            &[authorize_staker_ix, authorize_withdrawer_ix, ix],
+            &instructions,
             &self.cli_config.signer.pubkey(),
             &[
                 self.cli_config.signer.clone(),
