@@ -1,3 +1,6 @@
+use std::{process::Command, sync::Arc, time::Duration};
+
+use clap::Parser;
 use ::{
     dotenv::dotenv,
     solana_commitment_config::CommitmentConfig,
@@ -7,62 +10,66 @@ use ::{
         signature::{read_keypair_file, Signer}, // Added Signer trait
     },
     stake_deposit_interceptor_cranker::{CrankerConfig, InterceptorCranker},
-    std::{process::Command, str::FromStr, sync::Arc, time::Duration},
     tracing::{info, Level},
 };
 
-fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
-    // Load .env file
-    dotenv().ok();
-    // Load each environment variable with better error messages
-    let rpc_url = std::env::var("RPC_URL").map_err(|_| "RPC_URL not found in environment")?;
+#[derive(Parser)]
+#[command(author, version, about = "Cranker for the stake deposit interceptor", long_about = None)]
+pub struct Cli {
+    /// RPC URL to use
+    #[arg(long, env)]
+    pub rpc_url: String,
 
-    let keypair_path =
-        std::env::var("KEYPAIR_PATH").map_err(|_| "KEYPAIR_PATH not found in environment")?;
+    /// Filepath to the payer keypair
+    #[arg(long, env)]
+    pub keypair_path: String,
 
-    let payer = Arc::new(
-        read_keypair_file(&keypair_path)
-            .map_err(|_| format!("Failed to read keypair from {keypair_path}"))?,
-    );
+    /// Interceptor program ID
+    #[arg(long, env)]
+    pub program_id: Pubkey,
 
-    let program_id = Pubkey::from_str(
-        &std::env::var("PROGRAM_ID").map_err(|_| "PROGRAM_ID not found in environment")?,
-    )
-    .map_err(|_| "Invalid PROGRAM_ID format")?;
+    /// Interval between cranker iterations in seconds
+    #[arg(long, env, default_value = "3600")]
+    pub interval_seconds: u64,
 
-    let interval = Duration::from_secs(
-        std::env::var("INTERVAL_SECONDS")
-            .map_err(|_| "INTERVAL_SECONDS not found in environment")?
-            .parse()
-            .map_err(|_| "INTERVAL_SECONDS must be a valid number")?,
-    );
+    /// Cluster name for metrics (e.g., "mainnet", "testnet")
+    #[arg(long, env)]
+    pub cluster: String,
 
-    let cluster = std::env::var("CLUSTER").map_err(|_| "CLUSTER not found in environment")?;
+    /// Region name for metrics
+    #[arg(long, env)]
+    pub region: String,
 
-    let region = std::env::var("REGION").map_err(|_| "REGION not found in environment")?;
+    /// Stake pool deposit stake authority pubkey
+    #[arg(long, env)]
+    pub stake_pool_deposit_stake_authority: Pubkey,
 
-    let stake_pool_deposit_stake_authority = Pubkey::from_str(
-        &std::env::var("STAKE_POOL_DEPOSIT_STAKE_AUTHORITY")
-            .map_err(|_| "STAKE_POOL_DEPOSIT_STAKE_AUTHORITY not found in environment")?,
-    )
-    .map_err(|_| "Invalid STAKE_POOL_DEPOSIT_STAKE_AUTHORITY format")?;
+    /// Whitelist pubkey
+    #[arg(long, env)]
+    pub whitelist: Pubkey,
+}
 
-    let whitelist = Pubkey::from_str(
-        &std::env::var("WHITELIST").map_err(|_| "WHITELIST not found in environment")?,
-    )
-    .map_err(|_| "Invalid WHITELIST format")?;
+impl TryFrom<Cli> for CrankerConfig {
+    type Error = Box<dyn std::error::Error>;
 
-    Ok(CrankerConfig {
-        rpc_url,
-        program_id,
-        payer,
-        interval,
-        commitment: CommitmentConfig::confirmed(),
-        cluster,
-        region,
-        stake_pool_deposit_stake_authority,
-        whitelist,
-    })
+    fn try_from(cli: Cli) -> Result<Self, Self::Error> {
+        let payer = Arc::new(
+            read_keypair_file(&cli.keypair_path)
+                .map_err(|_| format!("Failed to read keypair from {}", cli.keypair_path))?,
+        );
+
+        Ok(CrankerConfig {
+            rpc_url: cli.rpc_url,
+            program_id: cli.program_id,
+            payer,
+            interval: Duration::from_secs(cli.interval_seconds),
+            commitment: CommitmentConfig::confirmed(),
+            cluster: cli.cluster,
+            region: cli.region,
+            stake_pool_deposit_stake_authority: cli.stake_pool_deposit_stake_authority,
+            whitelist: cli.whitelist,
+        })
+    }
 }
 
 #[tokio::main]
@@ -78,12 +85,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Logger initialized");
 
-    // Load .env file
+    // Load .env file before parsing so clap can read from it
     dotenv().ok();
     info!("Environment loaded");
 
-    // Load configuration
-    let config = load_config()?;
+    // Parse configuration from CLI args / environment
+    let config = CrankerConfig::try_from(Cli::parse())?;
 
     info!("Configuration loaded successfully:");
     info!("RPC URL: {}", config.rpc_url);
