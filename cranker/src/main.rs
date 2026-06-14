@@ -41,6 +41,17 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
 
     let region = std::env::var("REGION").map_err(|_| "REGION not found in environment")?;
 
+    let stake_pool_deposit_stake_authority = Pubkey::from_str(
+        &std::env::var("STAKE_POOL_DEPOSIT_STAKE_AUTHORITY")
+            .map_err(|_| "STAKE_POOL_DEPOSIT_STAKE_AUTHORITY not found in environment")?,
+    )
+    .map_err(|_| "Invalid STAKE_POOL_DEPOSIT_STAKE_AUTHORITY format")?;
+
+    let whitelist = Pubkey::from_str(
+        &std::env::var("WHITELIST").map_err(|_| "WHITELIST not found in environment")?,
+    )
+    .map_err(|_| "Invalid WHITELIST format")?;
+
     Ok(CrankerConfig {
         rpc_url,
         program_id,
@@ -49,6 +60,8 @@ fn load_config() -> Result<CrankerConfig, Box<dyn std::error::Error>> {
         commitment: CommitmentConfig::confirmed(),
         cluster,
         region,
+        stake_pool_deposit_stake_authority,
+        whitelist,
     })
 }
 
@@ -79,6 +92,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Interval: {}s", config.interval.as_secs());
     info!("Cluster: {}", config.cluster);
     info!("Region: {}", config.region);
+    info!(
+        "Stake Pool Deposit Stake Authority: {}",
+        config.stake_pool_deposit_stake_authority
+    );
+    info!("Whitelist: {}", config.whitelist);
 
     // Set host ID
     let hostname_cmd = Command::new("hostname")

@@ -22,7 +22,7 @@ use ::{
 };
 
 pub mod metrics;
-use metrics::{emit_crank, emit_deposit_receipt, emit_error, emit_heartbeat};
+use metrics::{emit_crank, emit_deposit_receipt, emit_error, emit_heartbeat, emit_hopper_balance};
 use solana_client::rpc_config::UiAccountEncoding;
 use solana_commitment_config::CommitmentConfig;
 use spl_associated_token_account_interface::address::get_associated_token_address;
@@ -36,6 +36,12 @@ pub struct CrankerConfig {
     pub commitment: CommitmentConfig,
     pub cluster: String,
     pub region: String,
+
+    /// Stake pool deposit authority
+    pub stake_pool_deposit_stake_authority: Pubkey,
+
+    /// Whitelist pubkey
+    pub whitelist: Pubkey,
 }
 
 pub struct InterceptorCranker {
@@ -45,6 +51,12 @@ pub struct InterceptorCranker {
     metrics: Arc<std::sync::Mutex<Metrics>>,
     interval: Duration,
     cluster_name: String,
+
+    /// Stake pool deposit stake authority pubkey
+    stake_pool_deposit_stake_authority: Pubkey,
+
+    /// Whitelist pubkey
+    whitelist: Pubkey,
 }
 
 impl InterceptorCranker {
@@ -61,6 +73,8 @@ impl InterceptorCranker {
             metrics: Arc::new(std::sync::Mutex::new(Metrics::default())),
             interval: config.interval, // Store the interval
             cluster_name: config.cluster.clone(),
+            stake_pool_deposit_stake_authority: config.stake_pool_deposit_stake_authority,
+            whitelist: config.whitelist,
         }
     }
 
@@ -76,6 +90,21 @@ impl InterceptorCranker {
             match emit_heartbeat(self.rpc_client.clone(), tick, &self.cluster_name).await {
                 Ok(_) => tick += 1,
                 Err(e) => emit_error(format!("Failed to emit heartbeat: {e}"), &self.cluster_name),
+            }
+
+            if let Err(e) = emit_hopper_balance(
+                &self.rpc_client,
+                &self.program_id,
+                &self.whitelist,
+                &self.stake_pool_deposit_stake_authority,
+                &self.cluster_name,
+            )
+            .await
+            {
+                emit_error(
+                    format!("Failed to emit hopper balance: {e}"),
+                    &self.cluster_name,
+                );
             }
 
             match self.process_expired_receipts().await {
@@ -102,6 +131,7 @@ impl InterceptorCranker {
         let mut future_deposits: u64 = 0;
         let mut not_yet_expired_receipts: u64 = 0;
         let mut claimed_receipts: u64 = 0;
+
         for receipt in receipts {
             // Get raw bytes using bytemuck and interpret as little-endian
             let deposit_time = u64::from(receipt.deposit_time);

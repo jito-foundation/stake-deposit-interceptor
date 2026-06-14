@@ -1,7 +1,7 @@
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::datapoint_info;
-use solana_sdk::clock::DEFAULT_SLOTS_PER_EPOCH;
-use stake_deposit_interceptor_program::state::DepositReceipt;
+use solana_sdk::{clock::DEFAULT_SLOTS_PER_EPOCH, pubkey::Pubkey};
+use stake_deposit_interceptor_program::state::{hopper::Hopper, DepositReceipt};
 use std::sync::Arc;
 use tracing::error;
 
@@ -81,4 +81,39 @@ pub fn emit_deposit_receipt(deposit_receipt: &DepositReceipt, cluster_name: &str
         ("account-string", account_string, String),
         "cluster" => cluster_name,
     );
+}
+
+/// Derives the hopper PDA for the given `whitelist`/`deposit_stake_authority`
+/// pair and emits its SOL balance (in lamports). The hopper is an
+/// uninitialized, system-owned account, so a non-existent account simply
+/// reports a balance of `0`.
+pub async fn emit_hopper_balance(
+    rpc_client: &RpcClient,
+    program_id: &Pubkey,
+    whitelist: &Pubkey,
+    deposit_stake_authority: &Pubkey,
+    cluster_name: &str,
+) -> Result<(), CrankerError> {
+    let (hopper, _bump, _seeds) =
+        Hopper::find_program_address(program_id, whitelist, deposit_stake_authority);
+
+    let lamports = rpc_client
+        .get_balance(&hopper)
+        .await
+        .map_err(CrankerError::RpcError)?;
+
+    datapoint_info!(
+        "sdi-hopper-balance",
+        ("hopper", hopper.to_string(), String),
+        ("whitelist", whitelist.to_string(), String),
+        (
+            "stake-pool-deposit-stake-authority",
+            deposit_stake_authority.to_string(),
+            String
+        ),
+        ("lamports", lamports, i64),
+        "cluster" => cluster_name,
+    );
+
+    Ok(())
 }
