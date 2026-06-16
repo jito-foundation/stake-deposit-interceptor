@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 bytemuck = { version = "1.13", features = ["derive"] }  # Add this line
-clap = { version = "4.4", features = ["derive"] }
+clap.workspace = true
 config = "0.13"
 dotenv = "0.15"
 jito-bytemuck.workspace = true
