@@ -164,7 +164,10 @@ impl InterceptorCranker {
                             }
                             Err(e) => {
                                 emit_error(
-                                    format!("Failed to claim pool tokens base={}: {}", receipt.base, e),
+                                    format!(
+                                        "Failed to claim pool tokens base={}: {}",
+                                        receipt.base, e
+                                    ),
                                     &self.cluster_name,
                                 );
                                 let mut metrics = self.metrics.lock().unwrap();
@@ -361,7 +364,10 @@ impl InterceptorCranker {
             .await
         {
             Ok(sig) => {
-                info!("Claimed pool tokens base={} signature={}", receipt.base, sig);
+                info!(
+                    "Claimed pool tokens base={} signature={}",
+                    receipt.base, sig
+                );
                 Ok(())
             }
             Err(e) => {

@@ -25,4 +25,4 @@ stake-deposit-interceptor = { path = "../stake_deposit_interceptor" }
 thiserror = "1.0.65"
 tokio = { version = "1.41.0", features = ["full"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }  # Add env-filter feature
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
