@@ -7,7 +7,7 @@ use ::{
     solana_metrics::set_host_id,
     solana_sdk::{
         pubkey::Pubkey,
-        signature::{read_keypair_file, Signer}, // Added Signer trait
+        signature::{read_keypair_file, Signer},
     },
     stake_deposit_interceptor_cranker::{CrankerConfig, InterceptorCranker},
     tracing::{info, Level},
@@ -72,40 +72,52 @@ impl TryFrom<Cli> for CrankerConfig {
     }
 }
 
+/// Strips path, query, and userinfo from an RPC URL so embedded API keys
+/// never reach the logs.
+fn redact_url(url: &str) -> String {
+    match url.split_once("://") {
+        Some((scheme, rest)) => {
+            let host = rest
+                .split(['/', '?', '#'])
+                .next()
+                .unwrap_or("")
+                .rsplit('@')
+                .next()
+                .unwrap_or("");
+            format!("{scheme}://{host}/<redacted>")
+        }
+        None => "<redacted>".to_string(),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging with a simpler configuration
-    tracing_subscriber::fmt() // Use fully qualified path
+    dotenv().ok();
+
+    tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
         .with_file(true)
         .with_line_number(true)
         .with_thread_ids(true)
-        .pretty()
+        .json()
         .init();
 
-    info!("Logger initialized");
+    info!("Starting interceptor cranker service");
 
-    // Load .env file before parsing so clap can read from it
-    dotenv().ok();
-    info!("Environment loaded");
-
-    // Parse configuration from CLI args / environment
     let config = CrankerConfig::try_from(Cli::parse())?;
 
-    info!("Configuration loaded successfully:");
-    info!("RPC URL: {}", config.rpc_url);
-    info!("Program ID: {}", config.program_id);
-    info!("Payer: {}", config.payer.as_ref().pubkey()); // Signer trait now in scope
-    info!("Interval: {}s", config.interval.as_secs());
-    info!("Cluster: {}", config.cluster);
-    info!("Region: {}", config.region);
+    info!("rpc_url={}", redact_url(&config.rpc_url));
+    info!("program_id={}", config.program_id);
+    info!("payer={}", config.payer.as_ref().pubkey());
+    info!("interval_seconds={}", config.interval.as_secs());
+    info!("cluster={}", config.cluster);
+    info!("region={}", config.region);
     info!(
-        "Stake Pool Deposit Stake Authority: {}",
+        "stake_pool_deposit_stake_authority={}",
         config.stake_pool_deposit_stake_authority
     );
-    info!("Whitelist: {}", config.whitelist);
+    info!("whitelist={}", config.whitelist);
 
-    // Set host ID
     let hostname_cmd = Command::new("hostname")
         .output()
         .expect("Failed to execute hostname command");
@@ -119,13 +131,51 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.region, config.cluster, hostname
     ));
 
-    // Initialize cranker
     let cranker = InterceptorCranker::new(config);
-    info!("Cranker initialized");
-
-    // Start processing
-    info!("Starting cranker service...");
+    info!("Starting cranker service");
     cranker.start().await;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redact_url;
+
+    #[test]
+    fn test_redact_url_strips_path_and_query() {
+        assert_eq!(
+            redact_url("https://mainnet.helius-rpc.com/?api-key=SECRET"),
+            "https://mainnet.helius-rpc.com/<redacted>"
+        );
+        assert_eq!(
+            redact_url("https://example.com/rpc/SECRET"),
+            "https://example.com/<redacted>"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_strips_userinfo() {
+        assert_eq!(
+            redact_url("https://SECRET@example.com/rpc"),
+            "https://example.com/<redacted>"
+        );
+        assert_eq!(
+            redact_url("https://user:pass@example.com:8899"),
+            "https://example.com:8899/<redacted>"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_keeps_host_and_port() {
+        assert_eq!(
+            redact_url("http://127.0.0.1:8899"),
+            "http://127.0.0.1:8899/<redacted>"
+        );
+    }
+
+    #[test]
+    fn test_redact_url_without_scheme() {
+        assert_eq!(redact_url("not a url"), "<redacted>");
+    }
 }
