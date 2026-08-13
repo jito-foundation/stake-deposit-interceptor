@@ -1,6 +1,6 @@
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_metrics::datapoint_info;
-use solana_sdk::{clock::DEFAULT_SLOTS_PER_EPOCH, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 use stake_deposit_interceptor_program::state::{hopper::Hopper, DepositReceipt};
 use std::sync::Arc;
 use tracing::error;
@@ -17,16 +17,14 @@ pub async fn emit_heartbeat(
     tick: u64,
     cluster_name: &str,
 ) -> Result<(), CrankerError> {
-    let current_slot = rpc_client.get_slot().await?;
-    let current_epoch = rpc_client.get_epoch_info().await?.epoch;
-    let epoch_percentage =
-        (current_slot as f64 % DEFAULT_SLOTS_PER_EPOCH as f64) / DEFAULT_SLOTS_PER_EPOCH as f64;
+    let epoch_info = rpc_client.get_epoch_info().await?;
+    let epoch_percentage = epoch_info.slot_index as f64 / epoch_info.slots_in_epoch as f64;
 
     datapoint_info!(
         "sdi-tick",
         ("tick", tick, i64),
-        ("current-epoch", current_epoch, i64),
-        ("current-slot", current_slot, i64),
+        ("current-epoch", epoch_info.epoch, i64),
+        ("current-slot", epoch_info.absolute_slot, i64),
         ("epoch-percentage", epoch_percentage, f64),
         "cluster" => cluster_name,
     );
