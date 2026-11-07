@@ -695,7 +695,7 @@ impl StakeDepositInterceptorCliHandler {
         }
 
         // Sort by deposit time (newest first)
-        receipt_infos.sort_by(|a, b| b.deposit_time.cmp(&a.deposit_time));
+        receipt_infos.sort_by_key(|r| std::cmp::Reverse(r.deposit_time));
 
         let receipt_count = receipt_infos.len();
 
