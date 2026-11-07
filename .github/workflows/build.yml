@@ -43,13 +43,13 @@ jobs:
           sudo apt-get install -y protobuf-compiler libudev-dev libclang-dev
 
       - name: Install solana-verify from git
-        run: cargo install solana-verify --git https://github.com/Ellipsis-Labs/solana-verifiable-build.git
+        run: cargo install solana-verify --git https://github.com/solana-foundation/solana-verifiable-build.git --tag v0.5.2 --locked
 
       - name: add to path
         run: echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Run verified build
-        run: solana-verify build --library-name stake_deposit_interceptor_program
+        run: solana-verify build --library-name stake_deposit_interceptor_program --arch v3
         env:
           SVB_DOCKER_MEMORY_LIMIT: 6g
           SVB_DOCKER_CPU_LIMIT: 2

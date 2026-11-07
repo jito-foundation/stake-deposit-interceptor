@@ -3,7 +3,6 @@ use solana_derivation_path::DerivationPath;
 use solana_keypair::{read_keypair_file, Keypair, Signature, Signer};
 use solana_pubkey::Pubkey;
 use solana_remote_wallet::{
-    ledger::get_ledger_from_info,
     remote_keypair::RemoteKeypair,
     remote_wallet::{initialize_wallet_manager, RemoteWalletType},
 };
@@ -59,8 +58,9 @@ impl CliSigner {
 
         let devices = wallet_manager.list_devices();
         let device = devices.first().expect("No devices found");
-        let ledger = get_ledger_from_info(device.clone(), "Signer", &wallet_manager)
-            .expect("This CLI only supports Ledger devices");
+        let RemoteWalletType::Ledger(ledger) = device.wallet_type.clone() else {
+            panic!("This CLI only supports Ledger devices");
+        };
 
         // Hardcode to first account
         let ledger_uri = "usb://ledger?key=0";
