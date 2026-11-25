@@ -18,7 +18,7 @@ use ::{
         time::{Duration, SystemTime, UNIX_EPOCH},
     },
     tokio::time,
-    tracing::{error, info},
+    tracing::info,
 };
 
 pub mod metrics;

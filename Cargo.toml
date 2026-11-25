@@ -36,11 +36,11 @@ serde-big-array = "0.5.1"
 serde_json = "1.0.149"
 serde_with = "3.16.1"
 shank = "0.3.0"
-solana-account = "3.0.0"
-solana-account-decoder = "3.0.0"
+solana-account = "4.0.0"
+solana-account-decoder = "4.3.0"
 solana-account-info = "3.0.0"
-solana-clap-utils = { version = "3.0.0", features = ["agave-unstable-api"] }
-solana-client = "3.0.0"
+solana-clap-utils = { version = "4.3.0", features = ["agave-unstable-api"] }
+solana-client = "4.3.0"
 solana-clock = { version = "3.0.0", features = ["sysvar"] }
 solana-commitment-config = "3.0.0"
 solana-compute-budget-interface = "3.0.0"
@@ -53,17 +53,17 @@ solana-native-token = "3.0.0"
 solana-program = "3.0.0"
 solana-program-error = "3.0.0"
 solana-program-log = "1.1.0"
-solana-program-test = { version = "3.0.0", features = ["agave-unstable-api"] }
-solana-pubkey = "3.0.0"
-solana-remote-wallet = { version = "3.0.0", features = ["agave-unstable-api"] }
-solana-rpc-client = "3.0.0"
-solana-rpc-client-api = "3.0.0"
-solana-sdk = "3.0.0"
+solana-program-test = { version = "4.3.0", features = ["agave-unstable-api"] }
+solana-pubkey = "4.3.0"
+solana-remote-wallet = { version = "4.3.0", features = ["agave-unstable-api"] }
+solana-rpc-client = "4.3.0"
+solana-rpc-client-api = "4.3.0"
+solana-sdk = "4.1.0"
 solana-signature = "3.0"
 solana-signer = "3.0"
 solana-stake-interface = { version = "3.0.0", features = ["bincode", "sysvar"] }
 solana-system-interface = "3.0.0"
-solana-transaction = "3.0.0"
+solana-transaction = "4.2.0"
 solana-vote-interface = { version = "3.0.0", features = ["bincode"] }
 spl-associated-token-account-interface = "2.0.0"
 spl-stake-pool = { git = "https://github.com/solana-program/stake-pool.git", version = "2.0.3", features = ["no-entrypoint"] }
@@ -75,3 +75,6 @@ stake-deposit-interceptor-client = { path = "clients/rust/stake-deposit-intercep
 thiserror = "1.0.65"
 tokio = { version = "1.49.0", features = ["macros"] }
 uriparse = "0.6.4"
+
+[workspace.metadata.cli]
+solana = "4.3.0"
